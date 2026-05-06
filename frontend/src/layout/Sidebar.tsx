@@ -9,9 +9,15 @@ export default function Sidebar() {
 
     <aside className="app-sidebar">
 
-      <h2 className="app-sidebar-title">
-        Hospital
-      </h2>
+      <div className="app-sidebar-brand">
+        <img
+          src="/hospital-logo.jpg"
+          alt="Hospital Municipal de Punta Lara"
+        />
+        <h2 className="app-sidebar-title">
+          Hospital
+        </h2>
+      </div>
 
       <p className="app-sidebar-user">
         {user?.username || user?.email}

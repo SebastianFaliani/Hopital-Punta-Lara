@@ -21,6 +21,21 @@
   margin: 0;
 }
 
+.app-sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.app-sidebar-brand img {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: white;
+  flex: 0 0 auto;
+}
+
 .app-sidebar-user {
   font-size: 12px;
   opacity: 0.7;
