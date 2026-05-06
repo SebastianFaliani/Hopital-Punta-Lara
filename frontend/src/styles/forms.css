@@ -47,6 +47,22 @@
   margin-bottom: 0;
 }
 
+.form-field {
+
+  display: grid;
+
+  gap: 6px;
+}
+
+.form-field span {
+
+  color: var(--color-text-light);
+
+  font-size: 12px;
+
+  font-weight: 700;
+}
+
 .management-actions {
 
   display: flex;

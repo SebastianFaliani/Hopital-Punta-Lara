@@ -2106,21 +2106,27 @@ export default function PersonnelPage() {
                 onChange={handleEmployeeChange}
               />
 
-              <input
-                className="form-input"
-                type="date"
-                name="birth_date"
-                value={employeeForm.birth_date}
-                onChange={handleEmployeeChange}
-              />
+              <label className="form-field">
+                <span>Fecha de nacimiento</span>
+                <input
+                  className="form-input"
+                  type="date"
+                  name="birth_date"
+                  value={employeeForm.birth_date}
+                  onChange={handleEmployeeChange}
+                />
+              </label>
 
-              <input
-                className="form-input"
-                type="date"
-                name="hire_date"
-                value={employeeForm.hire_date}
-                onChange={handleEmployeeChange}
-              />
+              <label className="form-field">
+                <span>Fecha de ingreso</span>
+                <input
+                  className="form-input"
+                  type="date"
+                  name="hire_date"
+                  value={employeeForm.hire_date}
+                  onChange={handleEmployeeChange}
+                />
+              </label>
 
               <input
                 className="form-input"
