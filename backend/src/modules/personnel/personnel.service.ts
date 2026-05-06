@@ -966,6 +966,32 @@ async function getVacationUsage(
   };
 }
 
+async function getVacationRequestCount(
+  employeeId: number,
+  year: number
+) {
+
+  const [rows]: any =
+    await pool.query(
+      `
+        SELECT COUNT(*) AS total
+        FROM leave_requests lr
+        INNER JOIN attendance_codes ac
+          ON ac.id = lr.attendance_code_id
+        WHERE lr.employee_id = ?
+          AND ac.code = '8'
+          AND lr.status IN ('pendiente', 'aprobado')
+          AND YEAR(lr.start_date) = ?
+      `,
+      [
+        employeeId,
+        year
+      ]
+    );
+
+  return Number(rows[0]?.total || 0);
+}
+
 async function ensureVacationBalance(
   employeeId: number,
   year: number
@@ -2142,9 +2168,38 @@ async function validateLeaveRequest(
         startYear
       );
 
-    if (totalDays > Number(balance.available_days) && !isException) {
+    const availableDays =
+      Number(balance.available_days);
+
+    const alreadyRequestedParts =
+      await getVacationRequestCount(
+        employee.id,
+        startYear
+      );
+
+    if (alreadyRequestedParts >= 2 && !isException) {
       throw new Error(
-        `La clave 8 supera el saldo disponible. Disponible: ${Number(balance.available_days)} dias`
+        'La licencia anual clave 8 solo puede fraccionarse hasta 2 veces por año'
+      );
+    }
+
+    if (totalDays > availableDays && !isException) {
+      throw new Error(
+        `La clave 8 supera el saldo disponible. Disponible: ${availableDays} dias`
+      );
+    }
+
+    const alreadyUsedVacation =
+      Number(balance.used_days || 0) > 0 ||
+      Number(balance.pending_days || 0) > 0;
+
+    if (
+      alreadyUsedVacation &&
+      totalDays !== availableDays &&
+      !isException
+    ) {
+      throw new Error(
+        `La segunda parte de la licencia anual debe tomarse completa. Dias disponibles: ${availableDays}`
       );
     }
   }
@@ -2169,9 +2224,21 @@ async function validateLeaveRequest(
         startYear
       );
 
+    const availableDays =
+      Math.max(
+        0,
+        allowance - usage.days
+      );
+
     if (usage.days + totalDays > allowance && !isException) {
       throw new Error(
-        `La clave 29 supera el saldo disponible. Disponible: ${Math.max(0, allowance - usage.days)} dias`
+        `La clave 29 supera el saldo disponible. Disponible: ${availableDays} dias`
+      );
+    }
+
+    if (totalDays !== availableDays && !isException) {
+      throw new Error(
+        `La clave 29 debe tomarse completa de una sola vez. Dias disponibles: ${availableDays}`
       );
     }
   }
@@ -2687,19 +2754,104 @@ export async function getLeaveRequests() {
           lr.id,
           lr.employee_id,
           e.full_name,
+          e.dni,
           e.file_number,
+          e.hire_date,
+          e.employment_type,
           d.name AS department_name,
+          (
+            SELECT MAX(lr8.start_date)
+            FROM leave_requests lr8
+            INNER JOIN attendance_codes ac8
+              ON ac8.id = lr8.attendance_code_id
+            WHERE lr8.employee_id = lr.employee_id
+              AND ac8.code = '8'
+              AND lr8.status IN ('pendiente', 'aprobado')
+              AND lr8.start_date < lr.start_date
+          ) AS last_annual_leave_date,
           ac.code,
           ac.description,
           lr.start_date,
           lr.end_date,
           lr.total_days,
           lr.total_hours,
+          COALESCE(elb.allowed_days, 0) AS balance_allowed_days,
+          CASE
+            WHEN lr.status = 'aprobado' THEN
+              GREATEST(
+                0,
+                COALESCE(elb.remaining_days, 0) +
+                lr.total_days -
+                COALESCE((
+                  SELECT SUM(lr2.total_days)
+                  FROM leave_requests lr2
+                  WHERE lr2.employee_id = lr.employee_id
+                    AND lr2.attendance_code_id = lr.attendance_code_id
+                    AND lr2.status = 'pendiente'
+                    AND YEAR(lr2.start_date) = YEAR(lr.start_date)
+                    AND lr2.id <> lr.id
+                ), 0)
+              )
+            ELSE
+              GREATEST(
+                0,
+                COALESCE(elb.allowed_days, 0) -
+                COALESCE(elb.used_days, 0) -
+                COALESCE((
+                  SELECT SUM(lr2.total_days)
+                  FROM leave_requests lr2
+                  WHERE lr2.employee_id = lr.employee_id
+                    AND lr2.attendance_code_id = lr.attendance_code_id
+                    AND lr2.status = 'pendiente'
+                    AND YEAR(lr2.start_date) = YEAR(lr.start_date)
+                    AND lr2.id <> lr.id
+                ), 0)
+              )
+          END AS balance_available_before_request,
+          CASE
+            WHEN lr.status = 'aprobado' THEN
+              GREATEST(
+                0,
+                COALESCE(elb.remaining_days, 0) -
+                COALESCE((
+                  SELECT SUM(lr2.total_days)
+                  FROM leave_requests lr2
+                  WHERE lr2.employee_id = lr.employee_id
+                    AND lr2.attendance_code_id = lr.attendance_code_id
+                    AND lr2.status = 'pendiente'
+                    AND YEAR(lr2.start_date) = YEAR(lr.start_date)
+                    AND lr2.id <> lr.id
+                ), 0)
+              )
+            WHEN lr.status = 'pendiente' THEN
+              GREATEST(
+                0,
+                COALESCE(elb.allowed_days, 0) -
+                COALESCE(elb.used_days, 0) -
+                COALESCE((
+                  SELECT SUM(lr2.total_days)
+                  FROM leave_requests lr2
+                  WHERE lr2.employee_id = lr.employee_id
+                    AND lr2.attendance_code_id = lr.attendance_code_id
+                    AND lr2.status = 'pendiente'
+                    AND YEAR(lr2.start_date) = YEAR(lr.start_date)
+                    AND lr2.id <> lr.id
+                ), 0) -
+                lr.total_days
+              )
+            ELSE
+              GREATEST(
+                0,
+                COALESCE(elb.allowed_days, 0) -
+                COALESCE(elb.used_days, 0)
+              )
+          END AS balance_pending_after_request,
           lr.permission_kind,
           lr.exit_reason,
           lr.exit_time,
           lr.return_time,
           lr.shift_label,
+          lr.exam_type,
           lr.is_exception,
           lr.exception_reason,
           lr.status,
@@ -2712,6 +2864,10 @@ export async function getLeaveRequests() {
           ON d.id = e.department_id
         INNER JOIN attendance_codes ac
           ON ac.id = lr.attendance_code_id
+        LEFT JOIN employee_leave_balances elb
+          ON elb.employee_id = lr.employee_id
+          AND elb.attendance_code_id = lr.attendance_code_id
+          AND elb.year = YEAR(lr.start_date)
         ORDER BY
           lr.requested_at DESC,
           lr.id DESC
@@ -2744,12 +2900,13 @@ export async function createLeaveRequest(
           exit_time,
           return_time,
           shift_label,
+          exam_type,
           is_exception,
           exception_reason,
           requested_by,
           notes
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
       [
         validated.employee.id,
@@ -2772,6 +2929,9 @@ export async function createLeaveRequest(
           : null,
         validated.code.code === '26'
           ? data.shift_label || null
+          : null,
+        ['17', '18'].includes(validated.code.code)
+          ? data.exam_type || null
           : null,
         Boolean(data.is_exception),
         data.exception_reason || null,

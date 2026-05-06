@@ -434,6 +434,340 @@
   font-size: 12px;
 }
 
+.ministry-license-print {
+
+  width: 760px;
+
+  max-width: 100%;
+
+  margin: 0 auto;
+
+  padding: 22px 26px;
+
+  border: 1px solid #111827;
+
+  color: #111827;
+
+  font-family: Arial, sans-serif;
+
+  background: #ffffff;
+}
+
+.ministry-license-header {
+
+  display: flex;
+
+  align-items: flex-start;
+  justify-content: space-between;
+
+  gap: 20px;
+
+  padding-bottom: 12px;
+
+  border-bottom: 2px solid #111827;
+}
+
+.ministry-license-header h2 {
+
+  margin: 0;
+
+  text-transform: uppercase;
+
+  font-size: 20px;
+
+  letter-spacing: 0;
+}
+
+.ministry-license-header p {
+
+  margin: 4px 0 0;
+
+  font-size: 13px;
+}
+
+.ministry-license-header div:last-child {
+
+  min-width: 130px;
+
+  text-align: center;
+}
+
+.ministry-license-header span {
+
+  display: block;
+
+  margin-bottom: 4px;
+
+  font-size: 11px;
+
+  text-transform: uppercase;
+}
+
+.ministry-license-header strong {
+
+  display: block;
+
+  padding: 8px;
+
+  border: 1px solid #111827;
+
+  font-size: 18px;
+}
+
+.ministry-box {
+
+  margin-top: 12px;
+
+  border: 1px solid #111827;
+}
+
+.ministry-box h3 {
+
+  margin: 0;
+
+  padding: 6px 10px;
+
+  border-bottom: 1px solid #111827;
+
+  background: #f3f4f6;
+
+  font-size: 13px;
+
+  text-transform: uppercase;
+}
+
+.ministry-grid {
+
+  display: grid;
+
+  gap: 0;
+}
+
+.ministry-grid-2 {
+
+  grid-template-columns: 1fr 1fr;
+}
+
+.ministry-grid-3 {
+
+  grid-template-columns: 1fr 1fr 90px;
+}
+
+.print-field {
+
+  display: grid;
+
+  grid-template-columns: 130px 1fr;
+
+  min-height: 32px;
+
+  border-right: 1px solid #111827;
+  border-bottom: 1px solid #111827;
+}
+
+.print-field span {
+
+  padding: 7px 8px;
+
+  border-right: 1px solid #111827;
+
+  font-size: 11px;
+
+  font-weight: 700;
+
+  text-transform: uppercase;
+}
+
+.print-field strong {
+
+  padding: 7px 8px;
+
+  font-size: 13px;
+
+  font-weight: 600;
+}
+
+.ministry-grid-3 .print-field {
+
+  grid-template-columns: 58px 1fr;
+}
+
+.ministry-license-options {
+
+  display: grid;
+}
+
+.ministry-license-block {
+
+  padding: 8px 10px 10px;
+
+  border-bottom: 1px solid #111827;
+}
+
+.ministry-license-block:last-child {
+
+  border-bottom: 0;
+}
+
+.ministry-license-block.active {
+
+  background: #f9fafb;
+}
+
+.ministry-license-block-title {
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 8px;
+
+  margin-bottom: 7px;
+}
+
+.ministry-annual-line {
+
+  display: grid;
+
+  grid-template-columns: 1fr 1fr 1fr;
+
+  gap: 0;
+}
+
+.ministry-annual-line .print-field {
+
+  grid-template-columns: 120px 1fr;
+}
+
+.ministry-complementary-line {
+
+  display: grid;
+
+  grid-template-columns: 1fr 1fr;
+
+  gap: 0;
+}
+
+.ministry-complementary-line .print-field {
+
+  grid-template-columns: 140px 1fr;
+}
+
+.ministry-date-range {
+
+  border-top: 0;
+}
+
+.ministry-check {
+
+  display: inline-flex;
+
+  align-items: center;
+  justify-content: center;
+
+  width: 18px;
+  height: 18px;
+
+  border: 1px solid #111827;
+
+  font-size: 12px;
+
+  font-weight: 700;
+}
+
+.ministry-exam-options {
+
+  display: grid;
+
+  gap: 0;
+}
+
+.ministry-exam-option {
+
+  display: grid;
+
+  grid-template-columns: 22px 1fr 50px 36px;
+
+  align-items: center;
+
+  gap: 8px;
+
+  min-height: 30px;
+
+  padding: 5px 0;
+
+  border-bottom: 1px solid #111827;
+}
+
+.ministry-exam-option.active {
+
+  background: #f9fafb;
+}
+
+.ministry-exam-option strong {
+
+  font-size: 12px;
+
+  font-weight: 600;
+}
+
+.ministry-exam-option em {
+
+  min-height: 22px;
+
+  padding: 4px 6px;
+
+  border-bottom: 1px solid #111827;
+
+  font-style: normal;
+
+  text-align: center;
+}
+
+.ministry-exam-option small {
+
+  font-size: 11px;
+}
+
+.ministry-selected-detail .print-field {
+
+  border-left: 0;
+}
+
+.ministry-signatures {
+
+  display: grid;
+
+  grid-template-columns: repeat(4, 1fr);
+
+  gap: 16px;
+
+  margin-top: 34px;
+}
+
+.ministry-signature-box {
+
+  text-align: center;
+}
+
+.ministry-signature-box span {
+
+  display: block;
+
+  height: 28px;
+
+  border-bottom: 1px dotted #111827;
+}
+
+.ministry-signature-box p {
+
+  margin: 7px 0 0;
+
+  font-size: 11px;
+
+  text-transform: uppercase;
+}
+
 @media print {
 
   body * {
@@ -490,5 +824,14 @@
   .code26-print-copy + .code26-print-copy {
 
     margin-top: 5mm;
+  }
+
+  .ministry-license-print {
+
+    width: auto;
+
+    border: 0;
+
+    padding: 8mm 7mm;
   }
 }

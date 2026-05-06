@@ -83,19 +83,27 @@ type LeaveRequest = {
   id: number;
   employee_id: number;
   full_name: string;
+  dni: string | null;
   file_number: string | null;
+  hire_date: string | null;
+  employment_type: string | null;
   department_name: string | null;
+  last_annual_leave_date: string | null;
   code: string;
   description: string;
   start_date: string;
   end_date: string;
   total_days: number;
   total_hours: number;
+  balance_allowed_days: number;
+  balance_available_before_request: number;
+  balance_pending_after_request: number;
   permission_kind: string | null;
   exit_reason: string | null;
   exit_time: string | null;
   return_time: string | null;
   shift_label: string | null;
+  exam_type: string | null;
   is_exception: boolean;
   exception_reason: string | null;
   status: string;
@@ -222,6 +230,7 @@ const emptyLeaveForm = {
   exit_time: '',
   return_time: '',
   shift_label: '',
+  exam_type: '',
   is_exception: false,
   exception_reason: '',
   notes: ''
@@ -403,6 +412,35 @@ function addBusinessDays(
   }
 
   return formatLocalDate(date);
+}
+
+const printableLeaveCodes =
+  ['24', '43', '26', '8', '29', '14', '15', '16', '17', '18'];
+
+const ministryLeaveCodes =
+  ['8', '29', '14', '15', '16', '17', '18'];
+
+const examLicenseOptions = [
+  'Universitario, post grado o terciario',
+  'Curso preparatorio',
+  'Secundario',
+  'Primario',
+  'Practicas obligatorias',
+  'Ultima materia de nivel universitario, terciario o tesis profesional'
+];
+
+function isPrintableLeaveCode(
+  code: string
+) {
+
+  return printableLeaveCodes.includes(code);
+}
+
+function isMinistryLeaveCode(
+  code: string
+) {
+
+  return ministryLeaveCodes.includes(code);
 }
 
 function getAutomaticEndDate(
@@ -1046,6 +1084,45 @@ export default function PersonnelPage() {
         automaticEndDate;
     }
 
+    const hasVacationPart =
+      Number(leaveSummary?.vacation.used_days || 0) > 0 ||
+      Number(leaveSummary?.vacation.pending_days || 0) > 0;
+
+    const availableVacationDays =
+      Math.trunc(
+        Number(leaveSummary?.vacation.available_days || 0)
+      );
+
+    if (
+      nextCode === '8' &&
+      nextStartDate &&
+      hasVacationPart &&
+      availableVacationDays > 0
+    ) {
+      nextForm.end_date =
+        addCalendarDays(
+          nextStartDate,
+          availableVacationDays - 1
+        );
+    }
+
+    const availableCode29Days =
+      Math.trunc(
+        Number(leaveSummary?.code29.remaining_days || 0)
+      );
+
+    if (
+      nextCode === '29' &&
+      nextStartDate &&
+      availableCode29Days > 0
+    ) {
+      nextForm.end_date =
+        addCalendarDays(
+          nextStartDate,
+          availableCode29Days - 1
+        );
+    }
+
     setLeaveForm({
       ...nextForm
     });
@@ -1104,7 +1181,7 @@ export default function PersonnelPage() {
 
       if (
         createdRequest &&
-        ['24', '43', '26'].includes(createdRequest.code)
+        isPrintableLeaveCode(createdRequest.code)
       ) {
         setPrintLeaveRequest(createdRequest);
       }
@@ -3350,6 +3427,27 @@ export default function PersonnelPage() {
                 />
               )}
 
+              {['17', '18'].includes(leaveForm.code) && (
+                <select
+                  className="form-input"
+                  name="exam_type"
+                  value={leaveForm.exam_type}
+                  onChange={handleLeaveChange}
+                >
+                  <option value="">
+                    Seleccione tipo de examen
+                  </option>
+                  {examLicenseOptions.map((option) => (
+                    <option
+                      key={option}
+                      value={option}
+                    >
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              )}
+
               <label className="checkbox-row">
                 <input
                   type="checkbox"
@@ -3434,7 +3532,7 @@ export default function PersonnelPage() {
                       {!readOnly && (
                         <td>
                         <div className="table-actions">
-                          {['24', '43', '26'].includes(request.code) && (
+                          {isPrintableLeaveCode(request.code) && (
                             <button
                               className="btn-secondary"
                               type="button"
@@ -3802,7 +3900,7 @@ export default function PersonnelPage() {
                       {!readOnly && (
                         <td>
                         <div className="table-actions">
-                          {['24', '43', '26'].includes(request.code) && (
+                          {isPrintableLeaveCode(request.code) && (
                             <button
                               className="btn-secondary"
                               type="button"
@@ -4132,6 +4230,12 @@ function PermissionPrintModal({
                 request={request}
               />
             )
+            : isMinistryLeaveCode(request.code)
+              ? (
+                <MinistryLicensePrint
+                  request={request}
+                />
+              )
             : (
               <PermissionPrintCopy
                 request={request}
@@ -4144,6 +4248,367 @@ function PermissionPrintModal({
 
     </div>
   );
+}
+
+function MinistryLicensePrint({
+  request
+}: {
+  request: LeaveRequest;
+}) {
+
+  const details =
+    getMinistryLicenseDetails(request);
+
+  return (
+    <section className="ministry-license-print">
+      <div className="ministry-license-header">
+        <div>
+          <h2>Solicitud de licencia</h2>
+          <p>Hospital Municipal de Punta Lara</p>
+        </div>
+        <div>
+          <span>Region sanitaria</span>
+          <strong>11</strong>
+        </div>
+      </div>
+
+      <div className="ministry-box">
+        <h3>Datos del agente</h3>
+        <div className="ministry-grid ministry-grid-2">
+          <PrintField
+            label="Apellido y nombre"
+            value={request.full_name}
+          />
+          <PrintField
+            label="DNI"
+            value={request.dni}
+          />
+          <PrintField
+            label="Legajo"
+            value={request.file_number}
+          />
+          <PrintField
+            label="Servicio / sector"
+            value={request.department_name}
+          />
+          <PrintField
+            label="Fecha de ingreso"
+            value={toDateInput(request.hire_date)}
+          />
+          <PrintField
+            label="Cargo / regimen"
+            value={request.employment_type}
+          />
+        </div>
+      </div>
+
+      <div className="ministry-box">
+        <h3>Licencia solicitada</h3>
+        <div className="ministry-license-options">
+          <MinistryLicenseBlock
+            title="Anual"
+            checked={request.code === '8'}
+            request={request}
+            showBalance={request.code === '8'}
+          />
+          <MinistryLicenseBlock
+            title="Anual complementaria"
+            checked={request.code === '29'}
+            request={request}
+            showLastAnnualLeave={request.code === '29'}
+          />
+          <MinistryLicenseBlock
+            title="Duelo"
+            checked={['14', '15'].includes(request.code)}
+            request={request}
+            extraLabel="Vinculo"
+          />
+          <MinistryLicenseBlock
+            title="Matrimonio"
+            checked={request.code === '16'}
+            request={request}
+          />
+          <MinistryLicenseBlock
+            title="Pre examen / examen"
+            checked={['17', '18'].includes(request.code)}
+            request={request}
+            showExamOptions={['17', '18'].includes(request.code)}
+          />
+        </div>
+      </div>
+
+      <div className="ministry-box ministry-selected-detail">
+        <h3>Detalle</h3>
+        <div className="ministry-grid ministry-grid-3">
+          <PrintField
+            label="Clave"
+            value={`${request.code} - ${request.description}`}
+          />
+          <PrintField
+            label="Tipo"
+            value={details}
+          />
+          <PrintField
+            label="Dias"
+            value={formatPrintNumber(request.total_days)}
+          />
+        </div>
+        <PrintField
+          label="Observaciones"
+          value={request.notes}
+        />
+      </div>
+
+      <div className="ministry-signatures">
+        <SignatureBox title="Agente" />
+        <SignatureBox title="Jefe inmediato" />
+        <SignatureBox title="Jefe de personal" />
+        <SignatureBox title="Direccion" />
+      </div>
+    </section>
+  );
+}
+
+function MinistryLicenseBlock({
+  title,
+  checked,
+  request,
+  extraLabel,
+  showBalance = false,
+  showLastAnnualLeave = false,
+  showExamOptions = false
+}: {
+  title: string;
+  checked: boolean;
+  request: LeaveRequest;
+  extraLabel?: string;
+  showBalance?: boolean;
+  showLastAnnualLeave?: boolean;
+  showExamOptions?: boolean;
+}) {
+
+  return (
+    <div className={checked ? 'ministry-license-block active' : 'ministry-license-block'}>
+      <div className="ministry-license-block-title">
+        <span className="ministry-check">
+          {checked ? 'X' : ''}
+        </span>
+        <strong>{title}</strong>
+      </div>
+      {showBalance
+        ? (
+          <>
+            <div className="ministry-annual-line">
+              <PrintField
+                label="Cantidad de dias"
+                value={checked ? formatPrintNumber(request.total_days) : ''}
+              />
+              <PrintField
+                label="Del total de"
+                value={
+                  checked
+                    ? formatPrintNumber(request.balance_available_before_request)
+                    : ''
+                }
+              />
+              <PrintField
+                label="Dias pendientes"
+                value={
+                  checked
+                    ? formatPrintNumber(request.balance_pending_after_request)
+                    : ''
+                }
+              />
+            </div>
+            <div className="ministry-grid ministry-grid-2 ministry-date-range">
+              <PrintField
+                label="Desde"
+                value={checked ? toDateInput(request.start_date) : ''}
+              />
+              <PrintField
+                label="Hasta"
+                value={checked ? toDateInput(request.end_date) : ''}
+              />
+            </div>
+          </>
+        )
+        : showExamOptions
+          ? (
+            <ExamLicenseBlock
+              request={request}
+              checked={checked}
+            />
+          )
+        : (
+          <>
+            {showLastAnnualLeave && (
+              <div className="ministry-complementary-line">
+                <PrintField
+                  label="Cantidad de dias"
+                  value={checked ? formatPrintNumber(request.total_days) : ''}
+                />
+                <PrintField
+                  label="Ultima licencia anual"
+                  value={
+                    checked
+                      ? toDateInput(request.last_annual_leave_date)
+                      : ''
+                  }
+                />
+              </div>
+            )}
+            <div className="ministry-grid ministry-grid-3">
+              <PrintField
+                label="Desde"
+                value={checked ? toDateInput(request.start_date) : ''}
+              />
+              <PrintField
+                label="Hasta"
+                value={checked ? toDateInput(request.end_date) : ''}
+              />
+              {!showLastAnnualLeave && (
+                <PrintField
+                  label="Dias"
+                  value={checked ? formatPrintNumber(request.total_days) : ''}
+                />
+              )}
+            </div>
+          </>
+        )}
+      {extraLabel && (
+        <PrintField
+          label={extraLabel}
+          value=""
+        />
+      )}
+    </div>
+  );
+}
+
+function PrintField({
+  label,
+  value
+}: {
+  label: string;
+  value?: string | number | null;
+}) {
+
+  return (
+    <div className="print-field">
+      <span>{label}</span>
+      <strong>{value || ''}</strong>
+    </div>
+  );
+}
+
+function ExamLicenseBlock({
+  request,
+  checked
+}: {
+  request: LeaveRequest;
+  checked: boolean;
+}) {
+
+  return (
+    <>
+      <div className="ministry-exam-options">
+        {examLicenseOptions.map((option) => {
+
+          const isSelected =
+            checked &&
+            request.exam_type === option;
+
+          return (
+            <div
+              className={isSelected ? 'ministry-exam-option active' : 'ministry-exam-option'}
+              key={option}
+            >
+              <span className="ministry-check">
+                {isSelected ? 'X' : ''}
+              </span>
+              <strong>{option}</strong>
+              <em>
+                {isSelected
+                  ? formatPrintNumber(request.total_days)
+                  : ''}
+              </em>
+              <small>dias</small>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="ministry-grid ministry-grid-2 ministry-date-range">
+        <PrintField
+          label="Desde"
+          value={checked ? toDateInput(request.start_date) : ''}
+        />
+        <PrintField
+          label="Hasta"
+          value={checked ? toDateInput(request.end_date) : ''}
+        />
+      </div>
+    </>
+  );
+}
+
+function formatPrintNumber(
+  value?: string | number | null
+) {
+
+  if (value === null || value === undefined || value === '') {
+    return '';
+  }
+
+  const numeric =
+    Number(value);
+
+  if (!Number.isNaN(numeric)) {
+    return String(Math.trunc(numeric));
+  }
+
+  return String(value);
+}
+
+function SignatureBox({
+  title
+}: {
+  title: string;
+}) {
+
+  return (
+    <div className="ministry-signature-box">
+      <span />
+      <p>{title}</p>
+    </div>
+  );
+}
+
+function getMinistryLicenseDetails(
+  request: LeaveRequest
+) {
+
+  if (request.code === '8') {
+    return 'Licencia anual';
+  }
+
+  if (request.code === '29') {
+    return 'Licencia anual complementaria';
+  }
+
+  if (['14', '15'].includes(request.code)) {
+    return 'Duelo';
+  }
+
+  if (request.code === '16') {
+    return 'Matrimonio';
+  }
+
+  if (['17', '18'].includes(request.code)) {
+    return 'Pre examen / examen';
+  }
+
+  return request.description;
 }
 
 function Code26PrintArea({
