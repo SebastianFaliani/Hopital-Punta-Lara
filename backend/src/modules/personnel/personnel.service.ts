@@ -910,9 +910,19 @@ async function calculateVacationAllowance(
       ]
     );
 
-  return Number(
+  const allowedDays =
+    Number(
     rows[0]?.allowed_days || 14
   );
+
+  if (employee.is_professional) {
+    return Math.max(
+      allowedDays,
+      30
+    );
+  }
+
+  return allowedDays;
 }
 
 async function getVacationUsage(
