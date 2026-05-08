@@ -263,7 +263,9 @@
   .table-container,
   .attendance-grid-wrap {
     width: 100%;
+    max-height: none;
     overflow-x: auto;
+    overflow-y: auto;
     border-radius: 10px;
     -webkit-overflow-scrolling: touch;
   }
