@@ -121,6 +121,37 @@
   border-radius: 8px;
 }
 
+.attendance-summary-wrap {
+
+  height: 275px;
+
+  max-height: 275px;
+}
+
+.attendance-summary-table {
+
+  box-shadow: none;
+
+  border-radius: 0;
+}
+
+.attendance-summary-table th,
+.attendance-summary-table td {
+
+  height: 42px;
+
+  padding: 0 10px;
+
+  vertical-align: middle;
+
+  font-size: 12px;
+}
+
+.attendance-summary-table thead th {
+
+  height: 34px;
+}
+
 .pagination-bar {
 
   display: flex;
@@ -495,6 +526,18 @@
     1px solid #e5e7eb;
 }
 
+.attendance-grid tbody tr,
+.attendance-summary-table tbody tr {
+
+  height: 42px;
+}
+
+.attendance-grid tbody td,
+.attendance-summary-table tbody td {
+
+  height: 42px;
+}
+
 .attendance-grid thead th {
 
   position: sticky;
@@ -503,7 +546,7 @@
 
   z-index: 2;
 
-  height: 34px;
+  height: 42px;
 
   padding: 0;
 
@@ -591,7 +634,7 @@
 
   font-weight: 700;
 
-  line-height: 34px;
+  line-height: 42px;
 
   text-transform: uppercase;
 

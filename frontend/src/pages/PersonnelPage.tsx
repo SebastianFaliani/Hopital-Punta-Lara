@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useRef,
   useState
 } from 'react';
 
@@ -536,6 +537,15 @@ export default function PersonnelPage() {
 
   const [attendanceSummary, setAttendanceSummary] =
     useState<AttendanceSummary[]>([]);
+
+  const attendanceGridRef =
+    useRef<HTMLDivElement | null>(null);
+
+  const attendanceSummaryRef =
+    useRef<HTMLDivElement | null>(null);
+
+  const syncingAttendanceScroll =
+    useRef(false);
 
   const [attendanceFilters, setAttendanceFilters] =
     useState(() => {
@@ -1524,6 +1534,43 @@ export default function PersonnelPage() {
     setAttendanceFilters({
       ...attendanceFilters,
       ...data
+    });
+  }
+
+  function syncAttendanceScroll(
+    source: 'grid' | 'summary'
+  ) {
+
+    if (syncingAttendanceScroll.current) {
+      return;
+    }
+
+    const grid =
+      attendanceGridRef.current;
+
+    const summary =
+      attendanceSummaryRef.current;
+
+    if (!grid || !summary) {
+      return;
+    }
+
+    const sourceElement =
+      source === 'grid'
+        ? grid
+        : summary;
+
+    const targetElement =
+      source === 'grid'
+        ? summary
+        : grid;
+
+    syncingAttendanceScroll.current = true;
+    targetElement.scrollTop =
+      sourceElement.scrollTop;
+
+    window.requestAnimationFrame(() => {
+      syncingAttendanceScroll.current = false;
     });
   }
 
@@ -3121,7 +3168,13 @@ export default function PersonnelPage() {
             </p>
 
             <div className="attendance-layout">
-              <div className="attendance-grid-wrap">
+              <div
+                className="attendance-grid-wrap"
+                ref={attendanceGridRef}
+                onScroll={() =>
+                  syncAttendanceScroll('grid')
+                }
+              >
                 <table className="data-table attendance-grid">
                   <colgroup>
                     <col className="attendance-employee-col" />
@@ -3221,8 +3274,14 @@ export default function PersonnelPage() {
                 </table>
               </div>
 
-              <div className="table-container leave-employee-picker">
-                <table className="data-table">
+              <div
+                className="table-container leave-employee-picker attendance-summary-wrap"
+                ref={attendanceSummaryRef}
+                onScroll={() =>
+                  syncAttendanceScroll('summary')
+                }
+              >
+                <table className="data-table attendance-summary-table">
                   <thead>
                     <tr>
                       <th>Empleado</th>
