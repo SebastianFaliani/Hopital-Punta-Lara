@@ -36,7 +36,7 @@ export async function logAudit(
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `,
     [
-      input.user?.id || null,
+      input.user?.userId || input.user?.id || null,
       input.user?.username || input.user?.email || null,
       input.user?.role || null,
       input.module,

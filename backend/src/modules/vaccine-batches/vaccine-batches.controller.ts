@@ -5,6 +5,7 @@ import {
 
 import { AuthRequest } from '../auth/auth.middleware';
 import { getVaccineById } from '../vaccines/vaccines.service';
+import { logAudit } from '../audit/audit.service';
 
 import {
   createVaccineBatch,
@@ -119,7 +120,7 @@ export async function handleGetBatchesByVaccine(
 }
 
 export async function handleCreateVaccineBatch(
-  req: Request,
+  req: AuthRequest,
   res: Response
 ) {
   try {
@@ -161,6 +162,18 @@ export async function handleCreateVaccineBatch(
         }
       );
 
+    await logAudit({
+      user: req.user,
+      module: 'vacunas',
+      action: 'crear_lote_vacuna',
+      entityType: 'vaccine_batch',
+      entityId: id,
+      description: `Creo lote ${req.body.batch_number} para vacuna ${vaccineId}`,
+      newData: req.body,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'] || null
+    });
+
     return res.status(201).json({
       success: true,
       message: 'Lote creado',
@@ -177,7 +190,7 @@ export async function handleCreateVaccineBatch(
 }
 
 export async function handleUpdateVaccineBatch(
-  req: Request,
+  req: AuthRequest,
   res: Response
 ) {
   try {
@@ -205,6 +218,18 @@ export async function handleUpdateVaccineBatch(
       }
     );
 
+    await logAudit({
+      user: req.user,
+      module: 'vacunas',
+      action: 'editar_lote_vacuna',
+      entityType: 'vaccine_batch',
+      entityId: Number(req.params.id),
+      description: `Edito lote de vacuna ${req.params.id}`,
+      newData: req.body,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'] || null
+    });
+
     return res.json({
       success: true,
       message: 'Lote actualizado'
@@ -220,13 +245,24 @@ export async function handleUpdateVaccineBatch(
 }
 
 export async function handleToggleVaccineBatch(
-  req: Request,
+  req: AuthRequest,
   res: Response
 ) {
   try {
     await toggleVaccineBatch(
       Number(req.params.id)
     );
+
+    await logAudit({
+      user: req.user,
+      module: 'vacunas',
+      action: 'activar_desactivar_lote_vacuna',
+      entityType: 'vaccine_batch',
+      entityId: Number(req.params.id),
+      description: `Cambio estado de lote de vacuna ${req.params.id}`,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'] || null
+    });
 
     return res.json({
       success: true,
@@ -292,6 +328,19 @@ export async function handleCreateVaccineMovement(
           created_by: req.user?.userId ?? null
         }
       );
+
+    await logAudit({
+      user: req.user,
+      module: 'vacunas',
+      action: 'movimiento_stock_vacuna',
+      entityType: 'vaccine_batch',
+      entityId: Number(req.params.id),
+      description:
+        `Registro movimiento ${req.body.movement_type} de ${Number(req.body.quantity)} unidades en lote de vacuna ${req.params.id}`,
+      newData: req.body,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'] || null
+    });
 
     return res.status(201).json({
       success: true,

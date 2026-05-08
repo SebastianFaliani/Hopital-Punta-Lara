@@ -2,6 +2,8 @@ import {
   Request,
   Response
 } from 'express';
+import { AuthRequest } from '../auth/auth.middleware';
+import { logAudit } from '../audit/audit.service';
 
 import {
   createBatch,
@@ -94,7 +96,7 @@ export async function handleGetBatchesByMedication(
 }
 
 export async function handleCreateBatch(
-  req: Request,
+  req: AuthRequest,
   res: Response
 ) {
 
@@ -148,6 +150,18 @@ export async function handleCreateBatch(
         }
       );
 
+    await logAudit({
+      user: req.user,
+      module: 'farmacia',
+      action: 'crear_lote_medicamento',
+      entityType: 'medication_batch',
+      entityId: batchId,
+      description: `Creo lote ${req.body.batch_number} para medicamento ${medicationId}`,
+      newData: req.body,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'] || null
+    });
+
     return res.status(201).json({
       success: true,
       message:
@@ -170,7 +184,7 @@ export async function handleCreateBatch(
 }
 
 export async function handleUpdateBatch(
-  req: Request,
+  req: AuthRequest,
   res: Response
 ) {
 
@@ -206,6 +220,18 @@ export async function handleUpdateBatch(
       }
     );
 
+    await logAudit({
+      user: req.user,
+      module: 'farmacia',
+      action: 'editar_lote_medicamento',
+      entityType: 'medication_batch',
+      entityId: Number(req.params.id),
+      description: `Edito lote de medicamento ${req.params.id}`,
+      newData: req.body,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'] || null
+    });
+
     return res.json({
       success: true,
       message:
@@ -225,7 +251,7 @@ export async function handleUpdateBatch(
 }
 
 export async function handleToggleBatch(
-  req: Request,
+  req: AuthRequest,
   res: Response
 ) {
 
@@ -234,6 +260,17 @@ export async function handleToggleBatch(
     await toggleBatch(
       Number(req.params.id)
     );
+
+    await logAudit({
+      user: req.user,
+      module: 'farmacia',
+      action: 'activar_desactivar_lote_medicamento',
+      entityType: 'medication_batch',
+      entityId: Number(req.params.id),
+      description: `Cambio estado de lote de medicamento ${req.params.id}`,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'] || null
+    });
 
     return res.json({
       success: true,

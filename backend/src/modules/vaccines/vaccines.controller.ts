@@ -2,6 +2,8 @@ import {
   Request,
   Response
 } from 'express';
+import { AuthRequest } from '../auth/auth.middleware';
+import { logAudit } from '../audit/audit.service';
 
 import {
   createVaccine,
@@ -82,7 +84,7 @@ export async function handleGetVaccineById(
 }
 
 export async function handleCreateVaccine(
-  req: Request,
+  req: AuthRequest,
   res: Response
 ) {
   try {
@@ -98,6 +100,18 @@ export async function handleCreateVaccine(
 
     const id =
       await createVaccine(req.body);
+
+    await logAudit({
+      user: req.user,
+      module: 'vacunas',
+      action: 'crear_vacuna',
+      entityType: 'vaccine',
+      entityId: id,
+      description: `Creo vacuna ${req.body.name}`,
+      newData: req.body,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'] || null
+    });
 
     return res.status(201).json({
       success: true,
@@ -115,7 +129,7 @@ export async function handleCreateVaccine(
 }
 
 export async function handleUpdateVaccine(
-  req: Request,
+  req: AuthRequest,
   res: Response
 ) {
   try {
@@ -134,6 +148,18 @@ export async function handleUpdateVaccine(
       req.body
     );
 
+    await logAudit({
+      user: req.user,
+      module: 'vacunas',
+      action: 'editar_vacuna',
+      entityType: 'vaccine',
+      entityId: Number(req.params.id),
+      description: `Edito vacuna ${req.params.id}`,
+      newData: req.body,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'] || null
+    });
+
     return res.json({
       success: true,
       message: 'Vacuna actualizada'
@@ -149,13 +175,24 @@ export async function handleUpdateVaccine(
 }
 
 export async function handleToggleVaccine(
-  req: Request,
+  req: AuthRequest,
   res: Response
 ) {
   try {
     await toggleVaccine(
       Number(req.params.id)
     );
+
+    await logAudit({
+      user: req.user,
+      module: 'vacunas',
+      action: 'activar_desactivar_vacuna',
+      entityType: 'vaccine',
+      entityId: Number(req.params.id),
+      description: `Cambio estado de vacuna ${req.params.id}`,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'] || null
+    });
 
     return res.json({
       success: true,

@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { logAudit } from '../audit/audit.service';
 import { 
   getAllUsers, 
   createUser, 
@@ -30,11 +31,27 @@ export async function getUsers(req: Request, res: Response) {
   }
 }
 
-export async function create(req: Request, res: Response) {
+export async function create(req: AuthRequest, res: Response) {
 
   try {
 
     const user = await createUser(req.body);
+
+    await logAudit({
+      user: req.user,
+      module: 'usuarios',
+      action: 'crear_usuario',
+      entityType: 'user',
+      entityId: user.id,
+      description: `Creo usuario ${req.body.username || req.body.email}`,
+      newData: {
+        username: req.body.username,
+        email: req.body.email,
+        role_id: req.body.role_id
+      },
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'] || null
+    });
 
     return res.status(201).json({
       success: true,
@@ -50,13 +67,29 @@ export async function create(req: Request, res: Response) {
   }
 }
 
-export async function update(req: Request, res: Response) {
+export async function update(req: AuthRequest, res: Response) {
 
   try {
 
     const { id } = req.params;
 
     await updateUser(Number(id), req.body);
+
+    await logAudit({
+      user: req.user,
+      module: 'usuarios',
+      action: 'editar_usuario',
+      entityType: 'user',
+      entityId: Number(id),
+      description: `Edito usuario ${id}`,
+      newData: {
+        username: req.body.username,
+        email: req.body.email,
+        role_id: req.body.role_id
+      },
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'] || null
+    });
 
     return res.json({
       success: true,
@@ -84,6 +117,17 @@ export async function changePassword(
       req.body
     );
 
+    await logAudit({
+      user: req.user,
+      module: 'usuarios',
+      action: 'cambiar_contrasena_propia',
+      entityType: 'user',
+      entityId: Number(req.user?.userId),
+      description: 'Cambio su propia contrasena',
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'] || null
+    });
+
     return res.json({
       success: true,
       message: 'Contrasena actualizada'
@@ -99,7 +143,7 @@ export async function changePassword(
 }
 
 export async function resetPasswordByAdmin(
-  req: Request,
+  req: AuthRequest,
   res: Response
 ) {
 
@@ -111,6 +155,17 @@ export async function resetPasswordByAdmin(
       Number(id),
       req.body
     );
+
+    await logAudit({
+      user: req.user,
+      module: 'usuarios',
+      action: 'resetear_contrasena',
+      entityType: 'user',
+      entityId: Number(id),
+      description: `Reseteo contrasena del usuario ${id}`,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'] || null
+    });
 
     return res.json({
       success: true,
@@ -127,7 +182,7 @@ export async function resetPasswordByAdmin(
 }
 
 export async function toggleUserStatus(
-  req: Request,
+  req: AuthRequest,
   res: Response
 ) {
 
@@ -140,6 +195,18 @@ export async function toggleUserStatus(
       await toggleUserStatusService(
         userId
       );
+
+    await logAudit({
+      user: req.user,
+      module: 'usuarios',
+      action: 'activar_desactivar_usuario',
+      entityType: 'user',
+      entityId: userId,
+      description: `Cambio estado del usuario ${userId}`,
+      newData: result,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'] || null
+    });
 
     return res.status(200).json({
       success: true,
@@ -155,13 +222,24 @@ export async function toggleUserStatus(
   }
 }
 
-export async function remove(req: Request, res: Response) {
+export async function remove(req: AuthRequest, res: Response) {
 
   try {
 
     const { id } = req.params;
 
     await deleteUser(Number(id));
+
+    await logAudit({
+      user: req.user,
+      module: 'usuarios',
+      action: 'desactivar_usuario',
+      entityType: 'user',
+      entityId: Number(id),
+      description: `Desactivo usuario ${id}`,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'] || null
+    });
 
     return res.json({
       success: true,

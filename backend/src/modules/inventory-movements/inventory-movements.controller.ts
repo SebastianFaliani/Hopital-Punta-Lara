@@ -6,6 +6,7 @@ import {
 import {
   AuthRequest
 } from '../auth/auth.middleware';
+import { logAudit } from '../audit/audit.service';
 
 import {
   createStockMovement,
@@ -113,6 +114,19 @@ export async function handleCreateStockMovement(
             req.user?.userId ?? null
         }
       );
+
+    await logAudit({
+      user: req.user,
+      module: 'farmacia',
+      action: 'movimiento_stock_medicamento',
+      entityType: 'medication_batch',
+      entityId: Number(req.params.id),
+      description:
+        `Registro movimiento ${req.body.movement_type} de ${Number(req.body.quantity)} unidades en lote ${req.params.id}`,
+      newData: req.body,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'] || null
+    });
 
     return res.status(201).json({
       success: true,

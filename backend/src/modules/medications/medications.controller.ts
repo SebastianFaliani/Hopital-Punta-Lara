@@ -1,5 +1,7 @@
 import { Request, Response }
   from 'express';
+import { AuthRequest } from '../auth/auth.middleware';
+import { logAudit } from '../audit/audit.service';
 
 import {
   getAllMedications,
@@ -94,7 +96,7 @@ export async function handleGetMedicationById(
 // ======================================
 
 export async function handleCreateMedication(
-  req: Request,
+  req: AuthRequest,
   res: Response
 ) {
   try {
@@ -130,6 +132,18 @@ export async function handleCreateMedication(
         is_active: true
       });
 
+    await logAudit({
+      user: req.user,
+      module: 'farmacia',
+      action: 'crear_medicamento',
+      entityType: 'medication',
+      entityId: medicationId,
+      description: `Creo medicamento ${name}`,
+      newData: req.body,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'] || null
+    });
+
     return res.status(201).json({
       success: true,
       message:
@@ -158,7 +172,7 @@ export async function handleCreateMedication(
 // ======================================
 
 export async function handleUpdateMedication(
-  req: Request,
+  req: AuthRequest,
   res: Response
 ) {
 
@@ -168,6 +182,18 @@ export async function handleUpdateMedication(
       Number(req.params.id),
       req.body
     );
+
+    await logAudit({
+      user: req.user,
+      module: 'farmacia',
+      action: 'editar_medicamento',
+      entityType: 'medication',
+      entityId: Number(req.params.id),
+      description: `Edito medicamento ${req.params.id}`,
+      newData: req.body,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'] || null
+    });
 
     return res.json({
       success: true,
@@ -194,7 +220,7 @@ export async function handleUpdateMedication(
 // ======================================
 
 export async function handleToggleMedication(
-  req: Request,
+  req: AuthRequest,
   res: Response
 ) {
 
@@ -203,6 +229,17 @@ export async function handleToggleMedication(
     await toggleMedication(
       Number(req.params.id)
     );
+
+    await logAudit({
+      user: req.user,
+      module: 'farmacia',
+      action: 'activar_desactivar_medicamento',
+      entityType: 'medication',
+      entityId: Number(req.params.id),
+      description: `Cambio estado de medicamento ${req.params.id}`,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'] || null
+    });
 
     return res.json({
       success: true,

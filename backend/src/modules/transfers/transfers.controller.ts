@@ -6,6 +6,7 @@ import {
 import {
   AuthRequest
 } from '../auth/auth.middleware';
+import { logAudit } from '../audit/audit.service';
 
 import {
   createTransfer,
@@ -88,6 +89,18 @@ export async function create(
         req.user?.userId ?? null
       );
 
+    await logAudit({
+      user: req.user,
+      module: 'traslados',
+      action: 'crear_traslado',
+      entityType: 'transfer_request',
+      entityId: id,
+      description: `Creo traslado de ${req.body.patient_name}`,
+      newData: req.body,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'] || null
+    });
+
     return res.status(201).json({
       success: true,
       data: { id }
@@ -103,7 +116,7 @@ export async function create(
 }
 
 export async function updateStatus(
-  req: Request,
+  req: AuthRequest,
   res: Response
 ) {
 
@@ -113,6 +126,18 @@ export async function updateStatus(
       Number(req.params.id),
       req.body.status
     );
+
+    await logAudit({
+      user: req.user,
+      module: 'traslados',
+      action: 'cambiar_estado_traslado',
+      entityType: 'transfer_request',
+      entityId: Number(req.params.id),
+      description: `Cambio estado de traslado a ${req.body.status}`,
+      newData: req.body,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'] || null
+    });
 
     return res.json({
       success: true
@@ -128,7 +153,7 @@ export async function updateStatus(
 }
 
 export async function updateTrip(
-  req: Request,
+  req: AuthRequest,
   res: Response
 ) {
 
@@ -138,6 +163,18 @@ export async function updateTrip(
       Number(req.params.id),
       req.body
     );
+
+    await logAudit({
+      user: req.user,
+      module: 'traslados',
+      action: 'editar_viaje_traslado',
+      entityType: 'transfer_trip',
+      entityId: Number(req.params.id),
+      description: `Edito viaje de traslado ${req.params.id}`,
+      newData: req.body,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'] || null
+    });
 
     return res.json({
       success: true,
