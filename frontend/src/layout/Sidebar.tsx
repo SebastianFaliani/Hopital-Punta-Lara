@@ -66,6 +66,12 @@ export default function Sidebar() {
         </NavLink>
       )}
 
+      {(user?.role === 'admin' || user?.role === 'dir') && (
+        <NavLink to="/audit" className="app-nav-link">
+          Auditoria
+        </NavLink>
+      )}
+
       <Link to="/" className="app-nav-link app-nav-danger">
         Salir
       </Link>

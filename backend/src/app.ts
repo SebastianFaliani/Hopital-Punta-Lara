@@ -16,6 +16,7 @@ import whatsappRoutes from './modules/whatsapp/whatsapp.routes';
 import personnelRoutes from './modules/personnel/personnel.routes';
 import vaccinesRoutes from './modules/vaccines/vaccines.routes';
 import vaccineBatchesRoutes from './modules/vaccine-batches/vaccine-batches.routes';
+import auditRoutes from './modules/audit/audit.routes';
 
 dotenv.config();
 
@@ -76,5 +77,6 @@ app.use('/whatsapp', whatsappRoutes);
 app.use('/personnel', personnelRoutes);
 app.use('/vaccines', vaccinesRoutes);
 app.use('/vaccine-batches', vaccineBatchesRoutes);
+app.use('/audit', auditRoutes);
 
 export default app;

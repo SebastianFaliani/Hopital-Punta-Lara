@@ -8,6 +8,10 @@ import {
 } from '../auth/auth.middleware';
 
 import {
+  logAudit
+} from '../audit/audit.service';
+
+import {
   createAttendanceCode,
   createDepartment,
   createEmployee,
@@ -421,6 +425,19 @@ export async function handleCreateLeaveRequest(
         req.user?.id
       );
 
+    await logAudit({
+      user: req.user,
+      module: 'personal',
+      action: 'crear_licencia',
+      entityType: 'leave_request',
+      entityId: id,
+      description:
+        `Creo licencia clave ${req.body.code} para empleado ${req.body.employee_id}`,
+      newData: req.body,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'] || null
+    });
+
     return res.status(201).json({
       success: true,
       data: { id }
@@ -448,6 +465,19 @@ export async function handleUpdateLeaveRequestStatus(
       req.body.rejected_reason
     );
 
+    await logAudit({
+      user: req.user,
+      module: 'personal',
+      action: `licencia_${req.body.status}`,
+      entityType: 'leave_request',
+      entityId: Number(req.params.id),
+      description:
+        `Cambio estado de licencia a ${req.body.status}`,
+      newData: req.body,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'] || null
+    });
+
     return res.json({
       success: true
     });
@@ -471,6 +501,19 @@ export async function handleCompleteLeaveReturn(
       Number(req.params.id),
       req.body
     );
+
+    await logAudit({
+      user: req.user,
+      module: 'personal',
+      action: 'completar_regreso_43',
+      entityType: 'leave_request',
+      entityId: Number(req.params.id),
+      description:
+        'Completo regreso de permiso de salida clave 43',
+      newData: req.body,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'] || null
+    });
 
     return res.json({
       success: true

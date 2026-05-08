@@ -20,6 +20,7 @@ import WhatsappPage from '../pages/WhatsappPage';
 import PersonnelPage from '../pages/PersonnelPage';
 import VaccinesPage from '../pages/VaccinesPage';
 import VaccineBatchesPage from '../pages/VaccineBatchesPage';
+import AuditPage from '../pages/AuditPage';
 
 import ProtectedRoute from '../auth/ProtectedRoute';
 import Layout from '../layout/Layout';
@@ -125,6 +126,11 @@ export default function AppRouter() {
             <Route
               path="/vaccines/:id/batches"
               element={<VaccineBatchesPage />}
+            />
+
+            <Route
+              path="/audit"
+              element={<AuditPage />}
             />
 
           </Route>

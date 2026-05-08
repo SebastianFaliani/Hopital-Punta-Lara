@@ -1,0 +1,21 @@
+CREATE TABLE IF NOT EXISTS audit_logs (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  user_id BIGINT NULL,
+  username VARCHAR(150) NULL,
+  user_role VARCHAR(50) NULL,
+  module VARCHAR(80) NOT NULL,
+  action VARCHAR(80) NOT NULL,
+  entity_type VARCHAR(100) NOT NULL,
+  entity_id BIGINT NULL,
+  description TEXT NOT NULL,
+  old_data JSON NULL,
+  new_data JSON NULL,
+  ip_address VARCHAR(80) NULL,
+  user_agent TEXT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_audit_logs_created_at (created_at),
+  INDEX idx_audit_logs_user (user_id),
+  INDEX idx_audit_logs_module (module),
+  INDEX idx_audit_logs_action (action),
+  INDEX idx_audit_logs_entity (entity_type, entity_id)
+);
