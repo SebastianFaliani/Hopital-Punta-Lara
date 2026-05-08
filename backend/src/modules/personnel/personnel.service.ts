@@ -2415,7 +2415,12 @@ async function validateLeaveRequest(
   }
 
   if (['24', '43'].includes(code.code)) {
-    if (totalHours <= 0) {
+    const isOpenReturn43 =
+      code.code === '43' &&
+      !Boolean(data.no_return) &&
+      totalHours <= 0;
+
+    if (totalHours <= 0 && !isOpenReturn43) {
       throw new Error(
         'Las claves 24 y 43 requieren cargar horas'
       );
@@ -2425,6 +2430,17 @@ async function validateLeaveRequest(
       throw new Error(
         'Las claves 24 y 43 permiten hasta 2 horas por dia'
       );
+    }
+
+    if (isOpenReturn43) {
+      return {
+        employee,
+        code,
+        startDate,
+        endDate,
+        totalDays,
+        totalHours
+      };
     }
 
     const yearly24 =
@@ -2861,6 +2877,7 @@ export async function getLeaveRequests() {
           lr.exit_reason,
           lr.exit_time,
           lr.return_time,
+          lr.no_return,
           lr.shift_label,
           lr.exam_type,
           lr.is_exception,
@@ -2910,6 +2927,7 @@ export async function createLeaveRequest(
           exit_reason,
           exit_time,
           return_time,
+          no_return,
           shift_label,
           exam_type,
           is_exception,
@@ -2917,7 +2935,7 @@ export async function createLeaveRequest(
           requested_by,
           notes
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
       [
         validated.employee.id,
@@ -2938,6 +2956,9 @@ export async function createLeaveRequest(
         ['24', '43'].includes(validated.code.code)
           ? data.return_time || null
           : null,
+        validated.code.code === '43'
+          ? Boolean(data.no_return)
+          : false,
         validated.code.code === '26'
           ? data.shift_label || null
           : null,
@@ -3069,6 +3090,144 @@ export async function updateLeaveRequestStatus(
   }
 
   return true;
+}
+
+export async function completeLeaveReturn(
+  id: number,
+  data: any
+) {
+
+  const totalHours =
+    Number(data.total_hours || 0);
+
+  if (!data.return_time) {
+    throw new Error(
+      'Debe cargar la hora de regreso'
+    );
+  }
+
+  if (totalHours <= 0) {
+    throw new Error(
+      'Debe cargar las horas a descontar'
+    );
+  }
+
+  if (totalHours > 2) {
+    throw new Error(
+      'La clave 43 permite hasta 2 horas por dia'
+    );
+  }
+
+  const [rows]: any =
+    await pool.query(
+      `
+        SELECT
+          lr.id,
+          lr.employee_id,
+          lr.start_date,
+          ac.code
+        FROM leave_requests lr
+        INNER JOIN attendance_codes ac
+          ON ac.id = lr.attendance_code_id
+        WHERE lr.id = ?
+        LIMIT 1
+      `,
+      [id]
+    );
+
+  if (!rows.length) {
+    throw new Error(
+      'Licencia no encontrada'
+    );
+  }
+
+  const request =
+    rows[0];
+
+  if (request.code !== '43') {
+    throw new Error(
+      'Solo se puede completar regreso para clave 43'
+    );
+  }
+
+  const start =
+    new Date(request.start_date);
+
+  const year =
+    start.getFullYear();
+
+  const month =
+    start.getMonth() + 1;
+
+  const [yearRows]: any =
+    await pool.query(
+      `
+        SELECT COALESCE(SUM(lr.total_hours), 0) AS hours
+        FROM leave_requests lr
+        INNER JOIN attendance_codes ac
+          ON ac.id = lr.attendance_code_id
+        WHERE lr.employee_id = ?
+          AND ac.code IN ('24', '43')
+          AND lr.status IN ('pendiente', 'aprobado')
+          AND YEAR(lr.start_date) = ?
+          AND lr.id <> ?
+      `,
+      [
+        request.employee_id,
+        year,
+        id
+      ]
+    );
+
+  if (Number(yearRows[0].hours || 0) + totalHours > 30) {
+    throw new Error(
+      'Las claves 24 y 43 tienen un maximo acumulado de 30 horas anuales'
+    );
+  }
+
+  const [monthRows]: any =
+    await pool.query(
+      `
+        SELECT COALESCE(SUM(lr.total_hours), 0) AS hours
+        FROM leave_requests lr
+        INNER JOIN attendance_codes ac
+          ON ac.id = lr.attendance_code_id
+        WHERE lr.employee_id = ?
+          AND ac.code IN ('24', '43')
+          AND lr.status IN ('pendiente', 'aprobado')
+          AND YEAR(lr.start_date) = ?
+          AND MONTH(lr.start_date) = ?
+          AND lr.id <> ?
+      `,
+      [
+        request.employee_id,
+        year,
+        month,
+        id
+      ]
+    );
+
+  if (Number(monthRows[0].hours || 0) + totalHours > 5) {
+    throw new Error(
+      'Las claves 24 y 43 no pueden superar 5 horas por mes'
+    );
+  }
+
+  await pool.query(
+    `
+      UPDATE leave_requests
+      SET
+        return_time = ?,
+        total_hours = ?,
+        no_return = FALSE
+      WHERE id = ?
+    `,
+    [
+      data.return_time,
+      totalHours,
+      id
+    ]
+  );
 }
 
 export async function getEmployees() {

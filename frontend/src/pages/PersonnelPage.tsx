@@ -102,6 +102,7 @@ type LeaveRequest = {
   exit_reason: string | null;
   exit_time: string | null;
   return_time: string | null;
+  no_return: boolean;
   shift_label: string | null;
   exam_type: string | null;
   is_exception: boolean;
@@ -229,6 +230,7 @@ const emptyLeaveForm = {
   exit_reason: 'particular',
   exit_time: '',
   return_time: '',
+  no_return: false,
   shift_label: '',
   exam_type: '',
   is_exception: false,
@@ -561,6 +563,15 @@ export default function PersonnelPage() {
 
   const [printLeaveRequest, setPrintLeaveRequest] =
     useState<LeaveRequest | null>(null);
+
+  const [returnLeaveRequest, setReturnLeaveRequest] =
+    useState<LeaveRequest | null>(null);
+
+  const [returnForm, setReturnForm] =
+    useState({
+      return_time: '',
+      total_hours: ''
+    });
 
   const [leaveForm, setLeaveForm] =
     useState(emptyLeaveForm);
@@ -1374,6 +1385,52 @@ export default function PersonnelPage() {
 
       if (status === 'aprobado') {
         loadAttendance();
+      }
+
+    } catch (error: any) {
+
+      setError(error.message);
+    }
+  }
+
+  async function completeReturnTime(
+    e: React.FormEvent
+  ) {
+
+    e.preventDefault();
+
+    if (!returnLeaveRequest) {
+      return;
+    }
+
+    setError('');
+
+    try {
+
+      await apiFetch(
+        `/personnel/leave-requests/${returnLeaveRequest.id}/return`,
+        {
+          method: 'PATCH',
+          body:
+            JSON.stringify({
+              return_time: returnForm.return_time,
+              total_hours:
+                returnForm.total_hours
+                  ? Number(returnForm.total_hours)
+                  : 0
+            })
+        }
+      );
+
+      setReturnLeaveRequest(null);
+      setReturnForm({
+        return_time: '',
+        total_hours: ''
+      });
+
+      loadLeaveRequests();
+      if (selectedLeaveEmployee) {
+        loadLeaveSummary(selectedLeaveEmployee.id);
       }
 
     } catch (error: any) {
@@ -2568,6 +2625,65 @@ export default function PersonnelPage() {
       }
 
       {
+        returnLeaveRequest && (
+          <div className="modal-overlay">
+            <div className="modal-content">
+              <h2 className="modal-title">
+                Completar regreso
+              </h2>
+              <p className="modal-subtitle">
+                {returnLeaveRequest.full_name}
+              </p>
+              <form onSubmit={completeReturnTime}>
+                <input
+                  className="form-input"
+                  type="time"
+                  value={returnForm.return_time}
+                  onChange={(e) =>
+                    setReturnForm({
+                      ...returnForm,
+                      return_time: e.target.value
+                    })
+                  }
+                />
+                <input
+                  className="form-input"
+                  type="number"
+                  min="0"
+                  step="0.5"
+                  placeholder="Horas a descontar"
+                  value={returnForm.total_hours}
+                  onChange={(e) =>
+                    setReturnForm({
+                      ...returnForm,
+                      total_hours: e.target.value
+                    })
+                  }
+                />
+                <div className="modal-actions">
+                  <button
+                    className="btn-secondary"
+                    type="button"
+                    onClick={() =>
+                      setReturnLeaveRequest(null)
+                    }
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    className="btn-primary"
+                    type="submit"
+                  >
+                    Guardar regreso
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )
+      }
+
+      {
         activeTab === 'departments' && (
           <>
             <form
@@ -3157,17 +3273,13 @@ export default function PersonnelPage() {
       {
         activeTab === 'leaves' && (
           <>
-            <div className="dashboard-panel">
-              <div className="page-header">
-                <div>
-                  <h2>Seleccionar empleado</h2>
-                  <p className="page-subtitle">
-                    Buscá por nombre, DNI, legajo o sector.
-                  </p>
-                </div>
+            
+
+
+              <div className="filter-bar">
                 <input
-                  className="form-input attendance-filter-search"
-                  placeholder="Buscar empleado"
+                  className="form-input"
+                  placeholder="Buscar por empleado, DNI, legajo o sector"
                   value={leaveEmployeeSearch}
                   onChange={(e) => {
                     setLeaveEmployeePage(0);
@@ -3175,6 +3287,10 @@ export default function PersonnelPage() {
                   }}
                 />
               </div>
+
+              <p className="results-summary">
+                Mostrando {paginatedLeaveEmployees.length} de {filteredLeaveEmployees.length} empleados
+              </p>
 
               <div className="table-container">
                 <table className="data-table">
@@ -3231,9 +3347,7 @@ export default function PersonnelPage() {
               </div>
 
               <div className="pagination-bar">
-                <span>
-                  Mostrando {paginatedLeaveEmployees.length} de {filteredLeaveEmployees.length}
-                </span>
+                <span />
                 <div className="table-actions">
                   <button
                     className="btn-secondary"
@@ -3273,7 +3387,7 @@ export default function PersonnelPage() {
                   </button>
                 </div>
               </div>
-            </div>
+            
 
             {
               selectedLeaveEmployee && leaveSummary && (
@@ -3368,16 +3482,24 @@ export default function PersonnelPage() {
                 onChange={handleLeaveChange}
               />
 
-              <input
-                className="form-input"
-                type="number"
-                min="0"
-                step="0.5"
-                name="total_hours"
-                placeholder="Horas (24/43/35/46)"
-                value={leaveForm.total_hours}
-                onChange={handleLeaveChange}
-              />
+              {(
+                ['24', '35', '46'].includes(leaveForm.code) ||
+                (
+                  leaveForm.code === '43' &&
+                  leaveForm.no_return
+                )
+              ) && (
+                <input
+                  className="form-input"
+                  type="number"
+                  min="0"
+                  step="0.5"
+                  name="total_hours"
+                  placeholder="Horas a descontar"
+                  value={leaveForm.total_hours}
+                  onChange={handleLeaveChange}
+                />
+              )}
 
               {['24', '43'].includes(leaveForm.code) && (
                 <>
@@ -3408,18 +3530,28 @@ export default function PersonnelPage() {
                     onChange={handleLeaveChange}
                   />
 
-                  <input
-                    className="form-input"
-                    type="time"
-                    name="return_time"
-                    aria-label={
-                      leaveForm.code === '24'
-                        ? 'Hora salida'
-                        : 'Hora regreso'
-                    }
-                    value={leaveForm.return_time}
-                    onChange={handleLeaveChange}
-                  />
+                  {leaveForm.code === '43' && (
+                    <label className="checkbox-row">
+                      <input
+                        type="checkbox"
+                        name="no_return"
+                        checked={leaveForm.no_return}
+                        onChange={handleLeaveChange}
+                      />
+                      Sin retorno
+                    </label>
+                  )}
+
+                  {(leaveForm.code === '24') && (
+                    <input
+                      className="form-input"
+                      type="time"
+                      name="return_time"
+                      aria-label="Hora salida"
+                      value={leaveForm.return_time}
+                      onChange={handleLeaveChange}
+                    />
+                  )}
                 </>
               )}
 
@@ -3549,6 +3681,26 @@ export default function PersonnelPage() {
                               Comprobante
                             </button>
                           )}
+
+                          {request.code === '43' &&
+                            !request.no_return &&
+                            (!request.return_time || !Number(request.total_hours || 0)) && (
+                              <button
+                                className="btn-primary"
+                                type="button"
+                                onClick={() => {
+                                  setReturnLeaveRequest(request);
+                                  setReturnForm({
+                                    return_time: request.return_time || '',
+                                    total_hours: request.total_hours
+                                      ? String(request.total_hours)
+                                      : ''
+                                  });
+                                }}
+                              >
+                                Completar regreso
+                              </button>
+                            )}
 
                           {
                             request.status === 'pendiente' && (
@@ -3917,6 +4069,26 @@ export default function PersonnelPage() {
                               Comprobante
                             </button>
                           )}
+
+                          {request.code === '43' &&
+                            !request.no_return &&
+                            (!request.return_time || !Number(request.total_hours || 0)) && (
+                              <button
+                                className="btn-primary"
+                                type="button"
+                                onClick={() => {
+                                  setReturnLeaveRequest(request);
+                                  setReturnForm({
+                                    return_time: request.return_time || '',
+                                    total_hours: request.total_hours
+                                      ? String(request.total_hours)
+                                      : ''
+                                  });
+                                }}
+                              >
+                                Completar regreso
+                              </button>
+                            )}
 
                           {
                             request.status === 'pendiente' && (
@@ -4702,7 +4874,9 @@ function PermissionPrintCopy({
   const secondTimeLabel =
     isEntry
       ? 'Hora salida:'
-      : 'Hora regreso:';
+      : request.no_return
+        ? 'Sin retorno:'
+        : 'Hora regreso:';
 
   return (
 
@@ -4748,7 +4922,11 @@ function PermissionPrintCopy({
         </div>
         <div>
           <span>{secondTimeLabel}</span>
-          <strong>{formatPrintTime(request.return_time)}</strong>
+          <strong>
+            {request.no_return
+              ? 'SI'
+              : formatPrintTime(request.return_time)}
+          </strong>
         </div>
       </div>
 

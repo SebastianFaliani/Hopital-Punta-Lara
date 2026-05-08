@@ -28,6 +28,7 @@ import {
   handleSaveAttendanceMonth,
   handleToggleEmployee,
   handleUpdateAttendanceCode,
+  handleCompleteLeaveReturn,
   handleUpdateEmployee,
   handleUpdateLeaveRequestStatus,
   handleUpdateVacationBalance,
@@ -104,6 +105,11 @@ router.post(
 router.patch(
   '/leave-requests/:id/status',
   handleUpdateLeaveRequestStatus
+);
+
+router.patch(
+  '/leave-requests/:id/return',
+  handleCompleteLeaveReturn
 );
 
 router.get(

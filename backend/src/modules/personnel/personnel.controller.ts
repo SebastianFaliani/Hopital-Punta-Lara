@@ -29,6 +29,7 @@ import {
   saveAttendanceMonth,
   toggleEmployee,
   updateAttendanceCode,
+  completeLeaveReturn,
   updateEmployee,
   updateLeaveRequestStatus,
   updateVacationBalance,
@@ -445,6 +446,30 @@ export async function handleUpdateLeaveRequestStatus(
       req.body.status,
       req.user?.id,
       req.body.rejected_reason
+    );
+
+    return res.json({
+      success: true
+    });
+
+  } catch (error: any) {
+    return res.status(400).json({
+      success: false,
+      message: error.message
+    });
+  }
+}
+
+export async function handleCompleteLeaveReturn(
+  req: AuthRequest,
+  res: Response
+) {
+
+  try {
+
+    await completeLeaveReturn(
+      Number(req.params.id),
+      req.body
     );
 
     return res.json({
