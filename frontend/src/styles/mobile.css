@@ -337,8 +337,8 @@
   }
 
   .attendance-code-input {
-    min-width: 40px;
+    min-width: 0;
     height: 34px;
-    font-size: 12px;
+    font-size: 11px;
   }
 }

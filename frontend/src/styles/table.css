@@ -445,17 +445,24 @@
   border-radius: 8px;
 
   background: white;
+
+  box-shadow:
+    0 8px 22px rgba(15, 23, 42, 0.08);
 }
 
 .attendance-grid {
 
-  min-width: 2040px;
+  min-width: 1540px;
 
   table-layout: fixed;
 
   box-shadow: none;
 
   border-radius: 0;
+
+  border-collapse: separate;
+
+  border-spacing: 0;
 }
 
 .attendance-employee-col {
@@ -465,19 +472,25 @@
 
 .attendance-day-col {
 
-  width: 54px;
+  width: 40px;
 }
 
 .attendance-grid th,
 .attendance-grid td {
 
-  width: 54px;
+  width: 40px;
 
-  min-width: 54px;
+  min-width: 40px;
 
-  padding: 6px 5px;
+  padding: 0;
 
   text-align: center;
+
+  border-right:
+    1px solid #e5e7eb;
+
+  border-bottom:
+    1px solid #e5e7eb;
 }
 
 .attendance-grid thead th {
@@ -487,6 +500,18 @@
   top: 0;
 
   z-index: 2;
+
+  height: 34px;
+
+  padding: 0;
+
+  color: #334155;
+
+  background: #f8fafc;
+
+  font-size: 12px;
+
+  font-weight: 800;
 }
 
 .attendance-employee-cell {
@@ -508,7 +533,7 @@
   background: white;
 
   box-shadow:
-    1px 0 0 var(--color-border);
+    2px 0 0 #cbd5e1;
 }
 
 .attendance-grid thead .attendance-employee-cell {
@@ -525,6 +550,8 @@
 .attendance-employee-cell strong {
 
   line-height: 1.25;
+
+  font-size: 13px;
 }
 
 .attendance-employee-cell span {
@@ -542,16 +569,15 @@
 
   width: 100%;
 
-  min-width: 44px;
+  min-width: 0;
 
-  height: 30px;
+  height: 34px;
 
-  padding: 0 4px;
+  padding: 0;
 
-  border:
-    1px solid var(--color-border);
+  border: 0;
 
-  border-radius: 6px;
+  border-radius: 0;
 
   text-align: center;
 
@@ -563,13 +589,23 @@
 
   font-weight: 700;
 
-  line-height: 30px;
+  line-height: 34px;
 
   text-transform: uppercase;
 
   box-sizing: border-box;
 
   caret-color: var(--color-primary);
+}
+
+.attendance-grid tbody tr:hover td {
+
+  background: #f8fafc;
+}
+
+.attendance-grid tbody tr:hover .attendance-employee-cell {
+
+  background: #f8fafc;
 }
 
 .attendance-sunday {
@@ -596,10 +632,14 @@
 .attendance-code-input:focus {
 
   outline:
-    2px solid rgba(37, 99, 235, 0.2);
+    2px solid rgba(37, 99, 235, 0.35);
 
   border-color:
     var(--color-primary);
+
+  position: relative;
+
+  z-index: 1;
 }
 
 @media (max-width: 760px) {
