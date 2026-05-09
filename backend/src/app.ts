@@ -28,6 +28,13 @@ app.get('/', (req, res) => {
 
 
 
+app.get('/health', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Backend disponible'
+  });
+});
+
 app.use('/auth', authRoutes);
 app.use('/users', usersRoutes);
 app.use('/roles', rolesRoutes);

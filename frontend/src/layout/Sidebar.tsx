@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, NavLink } from 'react-router-dom';
 import { useAuth } from '../auth/useAuth';
 
 export default function Sidebar() {
@@ -7,67 +7,57 @@ export default function Sidebar() {
 
   return (
 
-    <div
-      style={{
-        width: 250,
-        background: '#1f2937',
-        color: 'white',
-        padding: 20,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 12
-      }}
-    >
+    <aside className="app-sidebar">
 
-      <h2 style={{ color: '#3c9ec2' }}>
+      <h2 className="app-sidebar-title">
         Hospital
       </h2>
 
-      <p style={{ fontSize: 12, opacity: 0.7 }}>
+      <p className="app-sidebar-user">
         {user?.username || user?.email}
       </p>
 
-      <hr style={{ opacity: 0.2 }} />
+      <hr className="app-sidebar-divider" />
 
-      <Link to="/dashboard" style={{ color: 'white' }}>
+      <NavLink to="/dashboard" className="app-nav-link">
         Dashboard
-      </Link>
+      </NavLink>
 
       {user?.role === 'admin' && (
-        <Link to="/users" style={{ color: 'white' }}>
+        <NavLink to="/users" className="app-nav-link">
           Usuarios
-        </Link>
+        </NavLink>
       )}
 
       {(user?.role === 'admin' || user?.role === 'user') && (
-        <Link to="/personnel" style={{ color: 'white' }}>
+        <NavLink to="/personnel" className="app-nav-link">
           Personal
-        </Link>
+        </NavLink>
       )}
       
       {(user?.role === 'admin' || user?.role === 'farmacia') && (
-      <Link to="/medications" style={{ color: 'white' }}>
+      <NavLink to="/medications" className="app-nav-link">
         Medicamentos
-      </Link>
+      </NavLink>
 
         )}
 
       {(user?.role === 'admin' || user?.role === 'user') && (
-        <Link to="/transfers" style={{ color: 'white' }}>
+        <NavLink to="/transfers" className="app-nav-link">
           Traslados
-        </Link>
+        </NavLink>
       )}
 
       {(user?.role === 'admin' || user?.role === 'user') && (
-        <Link to="/whatsapp" style={{ color: 'white' }}>
+        <NavLink to="/whatsapp" className="app-nav-link">
           WhatsApp
-        </Link>
+        </NavLink>
       )}
 
-      <Link to="/" style={{ color: '#8a1616' }}>
-        Cerrar Session
+      <Link to="/" className="app-nav-link app-nav-danger">
+        Salir
       </Link>
 
-    </div>
+    </aside>
   );
 }

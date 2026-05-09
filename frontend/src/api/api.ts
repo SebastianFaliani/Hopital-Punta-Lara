@@ -2,6 +2,10 @@ const API_URL =
   import.meta.env.VITE_API_URL ||
   `${window.location.protocol}//${window.location.hostname}:4000`;
 
+export function getApiUrl() {
+  return API_URL;
+}
+
 async function refreshAccessToken() {
 
   const refreshToken =
@@ -80,13 +84,21 @@ export async function apiFetch(
     );
   }
 
-  let response = await fetch(
-    `${API_URL}${endpoint}`,
-    {
-      ...options,
-      headers
-    }
-  );
+  let response: Response;
+
+  try {
+    response = await fetch(
+      `${API_URL}${endpoint}`,
+      {
+        ...options,
+        headers
+      }
+    );
+  } catch (error) {
+    throw new Error(
+      `No se pudo conectar con el servidor (${API_URL})`
+    );
+  }
 
   // token expirado
   if (response.status === 401) {
@@ -102,13 +114,19 @@ export async function apiFetch(
       );
 
       // retry request
-      response = await fetch(
-        `${API_URL}${endpoint}`,
-        {
-          ...options,
-          headers
-        }
-      );
+      try {
+        response = await fetch(
+          `${API_URL}${endpoint}`,
+          {
+            ...options,
+            headers
+          }
+        );
+      } catch (error) {
+        throw new Error(
+          `No se pudo conectar con el servidor (${API_URL})`
+        );
+      }
 
     } catch (error) {
 

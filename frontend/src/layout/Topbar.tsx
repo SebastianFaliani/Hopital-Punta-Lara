@@ -6,25 +6,15 @@ export default function Topbar() {
 
   return (
 
-    <div
-      style={{
-        height: 60,
-        background: 'white',
-        borderBottom: '1px solid #dbe3ea',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        padding: '0 20px'
-      }}
-    >
+    <header className="app-topbar">
 
-      <span>
+      <span className="app-topbar-title">
         Panel Hospital
       </span>
 
-      <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+      <div className="app-topbar-actions">
 
-        <span style={{ fontSize: 14 }}>
+        <span className="app-topbar-user">
           {user?.first_name} ({user?.role})
         </span>
 
@@ -37,6 +27,6 @@ export default function Topbar() {
 
       </div>
 
-    </div>
+    </header>
   );
 }

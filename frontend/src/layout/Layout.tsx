@@ -7,36 +7,15 @@ export default function Layout() {
 
   return (
 
-    <div
-      style={{
-        display: 'flex',
-        height: '100vh'
-      }}
-    >
+    <div className="app-shell">
 
       <Sidebar />
 
-      <div
-        style={{
-          flex: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          minWidth: 0
-        }}
-      >
+      <div className="app-content">
 
         <Topbar />
 
-        <main
-          style={{
-            flex: 1,
-            padding: 24,
-            background:
-              'var(--color-background)',
-            overflowY: 'auto',
-            overflowX: 'auto'
-          }}
-        >
+        <main className="app-main">
           <Outlet />
         </main>
 

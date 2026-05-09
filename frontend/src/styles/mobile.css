@@ -1,0 +1,329 @@
+.app-shell {
+  display: flex;
+  height: 100vh;
+  min-height: 100vh;
+  background: var(--color-background);
+}
+
+.app-sidebar {
+  width: 250px;
+  flex: 0 0 250px;
+  background: #1f2937;
+  color: white;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.app-sidebar-title {
+  color: #3c9ec2;
+  margin: 0;
+}
+
+.app-sidebar-user {
+  font-size: 12px;
+  opacity: 0.7;
+  overflow-wrap: anywhere;
+}
+
+.app-sidebar-divider {
+  width: 100%;
+  opacity: 0.2;
+}
+
+.app-nav-link {
+  color: white;
+  text-decoration: none;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.app-nav-link.active,
+.app-nav-link:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.app-nav-danger {
+  color: #fecaca;
+  margin-top: auto;
+}
+
+.app-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.app-topbar {
+  min-height: 60px;
+  background: white;
+  border-bottom: 1px solid #dbe3ea;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 0 20px;
+}
+
+.app-topbar-title {
+  font-weight: 700;
+}
+
+.app-topbar-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.app-topbar-user {
+  font-size: 14px;
+}
+
+.app-main {
+  flex: 1;
+  padding: 24px;
+  background: var(--color-background);
+  overflow-y: auto;
+  overflow-x: auto;
+}
+
+@media (max-width: 760px) {
+  html,
+  body,
+  #root {
+    min-width: 0;
+    width: 100%;
+    overflow-x: hidden;
+  }
+
+  .app-shell {
+    display: block;
+    height: auto;
+    min-height: 100vh;
+    padding-bottom: calc(72px + env(safe-area-inset-bottom));
+  }
+
+  .app-content {
+    min-height: 100vh;
+  }
+
+  .app-sidebar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 50;
+    width: auto;
+    height: 72px;
+    padding: 8px 8px calc(8px + env(safe-area-inset-bottom));
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+    overflow-x: auto;
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
+  }
+
+  .app-sidebar-title,
+  .app-sidebar-user,
+  .app-sidebar-divider {
+    display: none;
+  }
+
+  .app-nav-link {
+    flex: 0 0 auto;
+    min-width: 76px;
+    padding: 9px 8px;
+    text-align: center;
+    font-size: 12px;
+    border-radius: 10px;
+    white-space: nowrap;
+  }
+
+  .app-nav-danger {
+    margin-top: 0;
+  }
+
+  .app-topbar {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    min-height: 54px;
+    padding: 8px 12px;
+  }
+
+  .app-topbar-title {
+    font-size: 15px;
+  }
+
+  .app-topbar-actions {
+    gap: 8px;
+  }
+
+  .app-topbar-user {
+    display: none;
+  }
+
+  .app-main {
+    padding: 14px 10px 20px;
+    overflow-x: hidden;
+  }
+
+  .page-header {
+    display: block;
+    margin-bottom: 14px;
+  }
+
+  .page-title {
+    font-size: 22px;
+    line-height: 1.2;
+  }
+
+  .page-subtitle {
+    font-size: 13px;
+  }
+
+  .dashboard-grid,
+  .dashboard-sections {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .dashboard-card,
+  .dashboard-panel {
+    border-radius: 10px;
+    padding: 14px;
+  }
+
+  .dashboard-card h3,
+  .dashboard-panel h2 {
+    font-size: 14px;
+  }
+
+  .dashboard-card p {
+    font-size: 24px;
+  }
+
+  .module-tabs {
+    display: flex;
+    overflow-x: auto;
+    gap: 8px;
+    padding-bottom: 8px;
+    margin-bottom: 14px;
+  }
+
+  .module-tab {
+    flex: 0 0 auto;
+    min-height: 40px;
+    padding: 9px 12px;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+
+  .management-form,
+  .transfer-form,
+  .personnel-form,
+  .filter-bar {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .form-input,
+  .auth-input {
+    min-height: 42px;
+    margin-bottom: 0;
+    font-size: 16px;
+  }
+
+  .checkbox-row {
+    min-height: 42px;
+    align-items: center;
+  }
+
+  .table-container,
+  .attendance-grid-wrap {
+    width: 100%;
+    overflow-x: auto;
+    border-radius: 10px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .data-table {
+    min-width: 720px;
+    border-radius: 10px;
+  }
+
+  .data-table th,
+  .data-table td {
+    padding: 10px 9px;
+    font-size: 12px;
+    vertical-align: top;
+  }
+
+  .table-actions,
+  .management-actions,
+  .modal-actions,
+  .pagination-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .btn-primary,
+  .btn-secondary,
+  .btn-success,
+  .btn-danger {
+    min-height: 40px;
+    padding: 10px 12px;
+    font-size: 13px;
+  }
+
+  .auth-container {
+    align-items: stretch;
+    padding: 16px;
+  }
+
+  .auth-card {
+    max-width: none;
+    margin: auto 0;
+    padding: 24px 18px;
+    border-radius: 12px;
+  }
+
+  .auth-card h1 {
+    font-size: 24px;
+  }
+
+  .attendance-layout {
+    display: block;
+  }
+
+  .attendance-toolbar {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .attendance-grid {
+    min-width: max-content;
+  }
+
+  .attendance-employee-col {
+    width: 230px;
+  }
+
+  .attendance-employee-cell {
+    min-width: 230px;
+    max-width: 230px;
+  }
+
+  .attendance-code-input {
+    min-width: 40px;
+    height: 34px;
+    font-size: 12px;
+  }
+}
