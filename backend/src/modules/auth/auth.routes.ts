@@ -1,15 +1,21 @@
 import { Router } from 'express';
-import { register } from './auth.controller';
-import { login } from './auth.controller';
-import { authenticateToken } from './auth.middleware';
-import { me } from './auth.controller';
-
+import {
+  register,
+  login,
+  me,
+  adminPanel
+} from './auth.controller';
+import { 
+    authenticateToken,
+    authorizeRoles
+} from './auth.middleware';
 
 
 const router = Router();
 
 router.post('/register', register);
 router.post('/login', login);
-router.get('/me', authenticateToken, me);
+router.get('/me', authenticateToken, authorizeRoles('doctor'),me);
+router.get('/admin', authenticateToken, authorizeRoles('admin'), adminPanel);
 
 export default router;

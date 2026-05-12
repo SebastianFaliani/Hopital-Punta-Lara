@@ -60,3 +60,14 @@ export async function me(
         user: req.user
     });
 }
+
+export async function adminPanel(
+  req: AuthRequest,
+  res: Response
+) {
+
+  return res.status(200).json({
+    success: true,
+    message: 'Bienvenido administrador'
+  });
+}
