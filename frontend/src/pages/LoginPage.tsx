@@ -3,6 +3,9 @@ import {
 } from 'react';
 
 import { useNavigate } from 'react-router-dom';
+import {
+  Link
+} from 'react-router-dom';
 
 import { apiFetch } from '../api/api';
 
@@ -45,8 +48,18 @@ export default function LoginPage() {
         }
       );
 
+      localStorage.setItem(
+        'accessToken',
+        response.data.accessToken
+      );
+
+      localStorage.setItem(
+        'refreshToken',
+        response.data.refreshToken
+      );
+
       await login(
-        response.data.token
+        response.data.accessToken
       );
 
       navigate('/dashboard');
@@ -96,6 +109,12 @@ export default function LoginPage() {
         <button type="submit">
           Ingresar
         </button>
+        <br />
+<br />
+
+<Link to="/forgot-password">
+  ¿Olvidaste tu contraseña?
+</Link>
 
       </form>
 

@@ -8,7 +8,14 @@ import LoginPage from '../pages/LoginPage';
 
 import DashboardPage from '../pages/DashboardPage';
 
-import ProtectedRoute from '../auth/ProtectedRoute';
+import ResetPasswordPage
+  from '../pages/ResetPasswordPage';
+
+import ProtectedRoute
+  from '../auth/ProtectedRoute';
+
+import ForgotPasswordPage
+  from '../pages/ForgotPasswordPage';
 
 export default function AppRouter() {
 
@@ -21,6 +28,25 @@ export default function AppRouter() {
         <Route
           path="/"
           element={<LoginPage />}
+        />
+
+        <Route
+          path="/login"
+          element={<LoginPage />}
+        />
+
+        <Route
+          path="/reset-password"
+          element={
+            <ResetPasswordPage />
+          }
+        />
+
+        <Route
+          path="/forgot-password"
+          element={
+            <ForgotPasswordPage />
+          }
         />
 
         <Route

@@ -18,6 +18,9 @@ export function AuthProvider({
   const [user, setUser] =
     useState<User | null>(null);
 
+  const [loading, setLoading] =
+    useState(true);
+
   async function loadUser() {
 
     try {
@@ -29,37 +32,97 @@ export function AuthProvider({
 
     } catch (error) {
 
-      localStorage.removeItem('token');
+      localStorage.removeItem(
+        'accessToken'
+      );
+
+      localStorage.removeItem(
+        'refreshToken'
+      );
 
       setUser(null);
+
+    } finally {
+
+      setLoading(false);
     }
   }
 
-  async function login(token: string) {
+  async function login(
+    accessToken: string
+  ) {
 
-    localStorage.setItem('token', token);
+    localStorage.setItem(
+      'accessToken',
+      accessToken
+    );
 
     await loadUser();
   }
 
-  function logout() {
+  async function logout() {
 
-    localStorage.removeItem('token');
+  try {
+
+    const refreshToken =
+      localStorage.getItem(
+        'refreshToken'
+      );
+
+    if (refreshToken) {
+
+      await apiFetch(
+        '/auth/logout',
+        {
+          method: 'POST',
+
+          body: JSON.stringify({
+            refreshToken
+          })
+        }
+      );
+    }
+
+  } catch (error) {
+
+    console.error(error);
+
+  } finally {
+
+    localStorage.removeItem(
+      'accessToken'
+    );
+
+    localStorage.removeItem(
+      'refreshToken'
+    );
 
     setUser(null);
   }
+}
 
   useEffect(() => {
 
-    const token =
-      localStorage.getItem('token');
+    const accessToken =
+      localStorage.getItem(
+        'accessToken'
+      );
 
-    if (token) {
+    if (accessToken) {
 
       loadUser();
+
+    } else {
+
+      setLoading(false);
     }
 
   }, []);
+
+  if (loading) {
+
+    return <div>Cargando...</div>;
+  }
 
   return (
     <AuthContext.Provider

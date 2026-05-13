@@ -1,0 +1,48 @@
+.auth-container {
+
+  min-height: 100vh;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  padding: 24px;
+}
+
+.auth-card {
+
+  width: 100%;
+
+  max-width: 420px;
+
+  background:
+    var(--color-surface);
+
+  padding: 40px;
+
+  border-radius:
+    var(--radius-lg);
+
+  box-shadow:
+    var(--shadow-md);
+}
+
+.auth-card h1 {
+
+  font-size: 28px;
+
+  margin-bottom: 10px;
+
+  color:
+    var(--color-primary);
+}
+
+.auth-card p {
+
+  color:
+    var(--color-text-light);
+
+  margin-bottom: 24px;
+}
