@@ -15,7 +15,7 @@ const router = Router();
 
 router.post('/register', register);
 router.post('/login', login);
-router.get('/me', authenticateToken, authorizeRoles('doctor'),me);
+router.get('/me', authenticateToken, me);
 router.get('/admin', authenticateToken, authorizeRoles('admin'), adminPanel);
 
 export default router;
