@@ -2,8 +2,8 @@ import {
   useState
 } from 'react';
 
-import { useNavigate } from 'react-router-dom';
 import {
+  useNavigate,
   Link
 } from 'react-router-dom';
 
@@ -36,17 +36,18 @@ export default function LoginPage() {
 
     try {
 
-      const response = await apiFetch(
-        '/auth/login',
-        {
-          method: 'POST',
+      const response =
+        await apiFetch(
+          '/auth/login',
+          {
+            method: 'POST',
 
-          body: JSON.stringify({
-            email,
-            password
-          })
-        }
-      );
+            body: JSON.stringify({
+              email,
+              password
+            })
+          }
+        );
 
       localStorage.setItem(
         'accessToken',
@@ -71,60 +72,100 @@ export default function LoginPage() {
   }
 
   return (
-    <div
-      style={{
-        padding: 40
-      }}
-    >
-      <h1>Login</h1>
 
-      <form onSubmit={handleSubmit}>
+    <div className="auth-container">
 
-        <div>
-          <input
-            type="email"
-            placeholder="Email"
-            value={email}
-            onChange={(e) =>
-              setEmail(e.target.value)
-            }
-          />
+      <div className="auth-card">
+
+        <h1>
+          Hospital Punta Lara
+        </h1>
+
+        <p>
+          Iniciar sesión
+        </p>
+
+        <form onSubmit={handleSubmit}>
+
+          <div
+            style={{
+              marginBottom: 16
+            }}
+          >
+
+            <input
+              type="email"
+              placeholder="Correo electrónico"
+              value={email}
+              onChange={(e) =>
+                setEmail(
+                  e.target.value
+                )
+              }
+            />
+
+          </div>
+
+          <div
+            style={{
+              marginBottom: 20
+            }}
+          >
+
+            <input
+              type="password"
+              placeholder="Contraseña"
+              value={password}
+              onChange={(e) =>
+                setPassword(
+                  e.target.value
+                )
+              }
+            />
+
+          </div>
+
+          <button
+            type="submit"
+            className="btn-primary"
+            style={{
+              width: '100%'
+            }}
+          >
+            Ingresar
+          </button>
+
+        </form>
+
+        <div
+          style={{
+            marginTop: 18,
+            textAlign: 'center'
+          }}
+        >
+
+          <Link to="/forgot-password">
+            ¿Olvidaste tu contraseña?
+          </Link>
+
         </div>
 
-        <br />
+        {
+          error && (
 
-        <div>
-          <input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) =>
-              setPassword(e.target.value)
-            }
-          />
-        </div>
+            <p
+              style={{
+                marginTop: 18,
+                color: '#8a1616',
+                textAlign: 'center'
+              }}
+            >
+              {error}
+            </p>
+          )
+        }
 
-        <br />
-
-        <button type="submit">
-          Ingresar
-        </button>
-        <br />
-<br />
-
-<Link to="/forgot-password">
-  ¿Olvidaste tu contraseña?
-</Link>
-
-      </form>
-
-      {
-        error && (
-          <p>
-            {error}
-          </p>
-        )
-      }
+      </div>
 
     </div>
   );

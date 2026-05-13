@@ -1,23 +1,15 @@
-import {
-  Navigate
-} from 'react-router-dom';
-
+import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from './useAuth';
 
-export default function ProtectedRoute({
-  children
-}: {
-  children: React.ReactNode;
-}) {
+export default function ProtectedRoute() {
 
   const { user } = useAuth();
 
+  // si no hay usuario → fuera
   if (!user) {
-
-    return (
-      <Navigate to="/" replace />
-    );
+    return <Navigate to="/login" replace />;
   }
 
-  return children;
+  // si hay usuario → permite entrar al layout/rutas hijas
+  return <Outlet />;
 }

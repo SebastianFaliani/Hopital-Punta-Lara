@@ -5,17 +5,12 @@ import {
 } from 'react-router-dom';
 
 import LoginPage from '../pages/LoginPage';
-
 import DashboardPage from '../pages/DashboardPage';
+import ResetPasswordPage from '../pages/ResetPasswordPage';
+import ForgotPasswordPage from '../pages/ForgotPasswordPage';
 
-import ResetPasswordPage
-  from '../pages/ResetPasswordPage';
-
-import ProtectedRoute
-  from '../auth/ProtectedRoute';
-
-import ForgotPasswordPage
-  from '../pages/ForgotPasswordPage';
+import ProtectedRoute from '../auth/ProtectedRoute';
+import Layout from '../layout/Layout';
 
 export default function AppRouter() {
 
@@ -25,38 +20,34 @@ export default function AppRouter() {
 
       <Routes>
 
-        <Route
-          path="/"
-          element={<LoginPage />}
-        />
+        {/* AUTH */}
+        <Route path="/" element={<LoginPage />} />
+        <Route path="/login" element={<LoginPage />} />
 
         <Route
-          path="/login"
-          element={<LoginPage />}
+          path="/forgot-password"
+          element={<ForgotPasswordPage />}
         />
 
         <Route
           path="/reset-password"
-          element={
-            <ResetPasswordPage />
-          }
+          element={<ResetPasswordPage />}
         />
 
-        <Route
-          path="/forgot-password"
-          element={
-            <ForgotPasswordPage />
-          }
-        />
+        {/* SISTEMA PROTEGIDO */}
+        <Route element={<ProtectedRoute />}>
 
-        <Route
-          path="/dashboard"
-          element={
-            <ProtectedRoute>
-              <DashboardPage />
-            </ProtectedRoute>
-          }
-        />
+          {/* LAYOUT GLOBAL */}
+          <Route element={<Layout />}>
+
+            <Route
+              path="/dashboard"
+              element={<DashboardPage />}
+            />
+
+          </Route>
+
+        </Route>
 
       </Routes>
 
