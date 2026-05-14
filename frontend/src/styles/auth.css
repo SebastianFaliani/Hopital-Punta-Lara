@@ -46,3 +46,45 @@
 
   margin-bottom: 24px;
 }
+
+.auth-form {
+
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 16px;
+}
+
+.auth-input {
+
+  width: 100%;
+
+  padding: 12px;
+
+  border-radius: 8px;
+
+  border: 1px solid #d1d5db;
+
+  font-size: 14px;
+
+  box-sizing: border-box;
+}
+
+.auth-link {
+
+  text-align: center;
+
+  text-decoration: none;
+
+  color: var(--color-primary);
+
+  font-size: 14px;
+}
+
+.auth-error {
+
+  color: var(--color-danger);
+
+  font-size: 14px;
+}

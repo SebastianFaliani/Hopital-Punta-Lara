@@ -85,45 +85,30 @@ export default function LoginPage() {
           Iniciar sesión
         </p>
 
-        <form onSubmit={handleSubmit}>
+        <form
+          onSubmit={handleSubmit}
+          className="auth-form"
+        >
 
-          <div
-            style={{
-              marginBottom: 16
-            }}
-          >
+          <input
+            type="email"
+            placeholder="Correo electrónico"
+            value={email}
+            onChange={(e) =>
+              setEmail(e.target.value)
+            }
+            className="auth-input"
+          />
 
-            <input
-              type="email"
-              placeholder="Correo electrónico"
-              value={email}
-              onChange={(e) =>
-                setEmail(
-                  e.target.value
-                )
-              }
-            />
-
-          </div>
-
-          <div
-            style={{
-              marginBottom: 20
-            }}
-          >
-
-            <input
-              type="password"
-              placeholder="Contraseña"
-              value={password}
-              onChange={(e) =>
-                setPassword(
-                  e.target.value
-                )
-              }
-            />
-
-          </div>
+          <input
+            type="password"
+            placeholder="Contraseña"
+            value={password}
+            onChange={(e) =>
+              setPassword(e.target.value)
+            }
+            className="auth-input"
+          />
 
           <button
             type="submit"
@@ -135,35 +120,22 @@ export default function LoginPage() {
             Ingresar
           </button>
 
-        </form>
-
-        <div
-          style={{
-            marginTop: 18,
-            textAlign: 'center'
-          }}
-        >
-
-          <Link to="/forgot-password">
+          <Link
+            to="/forgot-password"
+            className="auth-link"
+          >
             ¿Olvidaste tu contraseña?
           </Link>
 
-        </div>
+          {
+            error && (
+              <p className="auth-error">
+                {error}
+              </p>
+            )
+          }
 
-        {
-          error && (
-
-            <p
-              style={{
-                marginTop: 18,
-                color: '#8a1616',
-                textAlign: 'center'
-              }}
-            >
-              {error}
-            </p>
-          )
-        }
+        </form>
 
       </div>
 
