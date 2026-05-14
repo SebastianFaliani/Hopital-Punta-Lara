@@ -12,13 +12,19 @@ import { useAuth }
 import CreateUserModal
   from '../components/users/CreateUserModal';
 
+import EditUserModal
+  from '../components/users/EditUserModal';
+
 type User = {
   id: number;
   first_name: string;
   last_name: string;
   email: string;
   username: string;
+
+  role_id: number;
   role: string;
+
   is_active: boolean;
 };
 
@@ -31,6 +37,9 @@ export default function UsersPage() {
 
   const [openModal, setOpenModal] =
     useState(false);
+
+  const [editUser, setEditUser] =
+    useState<User | null>(null);
 
   async function loadUsers() {
 
@@ -227,6 +236,18 @@ export default function UsersPage() {
               <td style={tdStyle}>
 
                 <button
+                  className="btn-primary"
+                  style={{
+                    marginRight: 10
+                  }}
+                  onClick={() =>
+                    setEditUser(u)
+                  }
+                >
+                  Editar
+                </button>
+
+                <button
                   className={
                     u.is_active
                       ? 'btn-secondary'
@@ -265,6 +286,20 @@ export default function UsersPage() {
 
         )
       }
+
+      {
+  editUser && (
+
+    <EditUserModal
+      user={editUser}
+      onClose={() =>
+        setEditUser(null)
+      }
+      onUpdated={loadUsers}
+    />
+
+  )
+}
 
     </div>
   );

@@ -11,11 +11,19 @@ export async function getAllUsers() {
         u.last_name,
         u.email,
         u.username,
+
+        u.role_id,
+
         u.is_active,
         u.created_at,
+
         r.name AS role
+
       FROM users u
-      INNER JOIN roles r ON r.id = u.role_id
+
+      INNER JOIN roles r
+        ON r.id = u.role_id
+
       ORDER BY u.created_at DESC
     `
   );
@@ -72,15 +80,17 @@ export async function createUser(data: any) {
   };
 }
 
-export async function updateUser(id: number, data: any) {
+export async function updateUser(
+  id: number,
+  data: any
+) {
 
   const {
     first_name,
     last_name,
     email,
     username,
-    role_id,
-    is_active
+    role_id
   } = data;
 
   await pool.query(
@@ -91,8 +101,7 @@ export async function updateUser(id: number, data: any) {
         last_name = ?,
         email = ?,
         username = ?,
-        role_id = ?,
-        is_active = ?
+        role_id = ?
       WHERE id = ?
     `,
     [
@@ -101,7 +110,6 @@ export async function updateUser(id: number, data: any) {
       email,
       username,
       role_id,
-      is_active,
       id
     ]
   );

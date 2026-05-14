@@ -3,34 +3,49 @@ import {
   useState
 } from 'react';
 
-import { apiFetch } from '../../api/api';
+import { apiFetch }
+  from '../../api/api';
 
 type Role = {
   id: number;
   name: string;
 };
 
-type Props = {
-  onClose: () => void;
-  onCreated: () => void;
+type User = {
+  id: number;
+  first_name: string;
+  last_name: string;
+  email: string;
+  username: string;
+
+  role_id: number;
+  role: string;
+
+  is_active: boolean;
 };
 
-export default function CreateUserModal({
-  onClose,
-  onCreated
-}: Props) {
+type Props = {
+  user: User;
+  onClose: () => void;
+  onUpdated: () => void;
+};
 
-  const [form, setForm] = useState({
-    first_name: '',
-    last_name: '',
-    email: '',
-    username: '',
-    password: '',
-    role_id: 1
-  });
+export default function EditUserModal({
+  user,
+  onClose,
+  onUpdated
+}: Props) {
 
   const [roles, setRoles] =
     useState<Role[]>([]);
+
+  const [form, setForm] = useState({
+    first_name: user.first_name,
+    last_name: user.last_name,
+    email: user.email,
+    username: user.username,
+    role_id: user.role_id
+  });
 
   const [loading, setLoading] =
     useState(false);
@@ -67,25 +82,14 @@ export default function CreateUserModal({
 
     setError('');
 
-    // validaciones
     if (
       !form.first_name ||
       !form.last_name ||
-      !form.email ||
-      !form.password
+      !form.email
     ) {
 
       setError(
         'Todos los campos son obligatorios'
-      );
-
-      return;
-    }
-
-    if (form.password.length < 6) {
-
-      setError(
-        'La contraseña debe tener mínimo 6 caracteres'
       );
 
       return;
@@ -96,18 +100,15 @@ export default function CreateUserModal({
       setLoading(true);
 
       await apiFetch(
-        '/users',
+        `/users/${user.id}`,
         {
-          method: 'POST',
+          method: 'PUT',
 
-          body: JSON.stringify({
-            ...form,
-            role_id: Number(form.role_id)
-          })
+          body: JSON.stringify(form)
         }
       );
 
-      onCreated();
+      onUpdated();
 
       onClose();
 
@@ -123,14 +124,17 @@ export default function CreateUserModal({
 
   function handleChange(
     e: React.ChangeEvent<
-      HTMLInputElement | HTMLSelectElement
+      HTMLInputElement |
+      HTMLSelectElement
     >
   ) {
 
     setForm({
       ...form,
       [e.target.name]:
-        e.target.value
+        e.target.name === 'role_id'
+          ? Number(e.target.value)
+          : e.target.value
     });
   }
 
@@ -141,66 +145,55 @@ export default function CreateUserModal({
       <div className="modal-content">
 
         <h2 className="modal-title">
-          Nuevo usuario
+          Editar usuario
         </h2>
 
-        <form onSubmit={handleSubmit}>
+        <form
+          onSubmit={handleSubmit}
+          className="auth-form"
+        >
 
           <input
+            className="auth-input"
             type="text"
             name="first_name"
             placeholder="Nombre"
             value={form.first_name}
             onChange={handleChange}
-            className="form-input"
           />
 
           <input
+            className="auth-input"
             type="text"
             name="last_name"
             placeholder="Apellido"
             value={form.last_name}
             onChange={handleChange}
-            className="form-input"
           />
 
           <input
+            className="auth-input"
             type="email"
             name="email"
             placeholder="Email"
             value={form.email}
             onChange={handleChange}
-            className="form-input"
           />
 
           <input
+            className="auth-input"
             type="text"
             name="username"
             placeholder="Usuario"
             value={form.username}
             onChange={handleChange}
-            className="form-input"
-          />
-
-          <input
-            type="password"
-            name="password"
-            placeholder="Contraseña"
-            value={form.password}
-            onChange={handleChange}
-            className="form-input"
           />
 
           <select
             className="auth-input"
             name="role_id"
             value={form.role_id}
-            onChange={(e) =>
-              setForm({
-                ...form,
-                role_id: Number(e.target.value)
-              })
-            }
+            onChange={handleChange}
           >
 
             {roles.map((role) => (
@@ -216,32 +209,34 @@ export default function CreateUserModal({
 
           </select>
 
-          {error && (
+          {
+            error && (
 
-            <p className="form-error">
-              {error}
-            </p>
-          )}
+              <p className="auth-error">
+                {error}
+              </p>
+            )
+          }
 
           <div className="modal-actions">
 
             <button
               type="button"
-              onClick={onClose}
               className="btn-secondary"
+              onClick={onClose}
             >
               Cancelar
             </button>
 
             <button
               type="submit"
+              className="btn-primary"
               disabled={loading}
-              className="btn-success"
             >
               {
                 loading
-                  ? 'Creando...'
-                  : 'Crear usuario'
+                  ? 'Guardando...'
+                  : 'Guardar cambios'
               }
             </button>
 
