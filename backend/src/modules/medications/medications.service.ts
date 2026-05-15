@@ -16,18 +16,41 @@ export async function getAllMedications() {
     await pool.query(
       `
         SELECT
-          id,
-          name,
-          generic_name,
-          presentation,
-          concentration,
-          unit,
-          description,
-          minimum_stock,
-          is_active,
-          created_at
-        FROM medications
-        ORDER BY name ASC
+          m.id,
+          m.name,
+          m.generic_name,
+          m.presentation,
+          m.concentration,
+          m.unit,
+          m.description,
+          m.minimum_stock,
+          COALESCE(
+            SUM(
+              CASE
+                WHEN mb.is_active = TRUE
+                  THEN mb.current_stock
+                ELSE 0
+              END
+            ),
+            0
+          ) AS total_stock,
+          m.is_active,
+          m.created_at
+        FROM medications m
+        LEFT JOIN medication_batches mb
+          ON mb.medication_id = m.id
+        GROUP BY
+          m.id,
+          m.name,
+          m.generic_name,
+          m.presentation,
+          m.concentration,
+          m.unit,
+          m.description,
+          m.minimum_stock,
+          m.is_active,
+          m.created_at
+        ORDER BY m.name ASC
       `
     );
 

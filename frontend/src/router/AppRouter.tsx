@@ -1,7 +1,8 @@
 import {
   BrowserRouter,
   Routes,
-  Route
+  Route,
+  Navigate
 } from 'react-router-dom';
 
 import LoginPage from '../pages/LoginPage';
@@ -74,16 +75,31 @@ export default function AppRouter() {
 
             <Route
               path="/ambulances"
-              element={<AmbulancesPage />}
+              element={<Navigate to="/transfers/ambulances" replace />}
             />
 
             <Route
               path="/drivers"
-              element={<DriversPage />}
+              element={<Navigate to="/transfers/drivers" replace />}
             />
 
             <Route
               path="/driver-shifts"
+              element={<Navigate to="/transfers/shifts" replace />}
+            />
+
+            <Route
+              path="/transfers/ambulances"
+              element={<AmbulancesPage />}
+            />
+
+            <Route
+              path="/transfers/drivers"
+              element={<DriversPage />}
+            />
+
+            <Route
+              path="/transfers/shifts"
               element={<DriverShiftsPage />}
             />
 

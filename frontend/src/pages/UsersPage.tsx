@@ -32,6 +32,13 @@ export default function UsersPage() {
   const [editUser, setEditUser] =
     useState<User | null>(null);
 
+  const [filters, setFilters] =
+    useState({
+      search: '',
+      role: 'todos',
+      status: 'todos'
+    });
+
   async function loadUsers() {
 
     try {
@@ -79,6 +86,52 @@ export default function UsersPage() {
     return <h2>No autorizado</h2>;
   }
 
+  const roles =
+    Array.from(
+      new Set(
+        users.map((u) => u.role)
+      )
+    );
+
+  const filteredUsers =
+    users.filter((u) => {
+
+      const search =
+        filters.search.toLowerCase();
+
+      const matchesSearch =
+        `${u.first_name} ${u.last_name}`
+          .toLowerCase()
+          .includes(search) ||
+        u.email
+          .toLowerCase()
+          .includes(search) ||
+        (u.username || '')
+          .toLowerCase()
+          .includes(search);
+
+      const matchesRole =
+        filters.role === 'todos' ||
+        u.role === filters.role;
+
+      const matchesStatus =
+        filters.status === 'todos' ||
+        (
+          filters.status === 'activo' &&
+          u.is_active
+        ) ||
+        (
+          filters.status === 'inactivo' &&
+          !u.is_active
+        );
+
+      return (
+        matchesSearch &&
+        matchesRole &&
+        matchesStatus
+      );
+    });
+
   return (
 
     <div>
@@ -99,6 +152,84 @@ export default function UsersPage() {
         </button>
 
       </div>
+
+      <div className="filter-bar">
+
+        <input
+          className="form-input"
+          placeholder="Buscar por nombre, email o usuario"
+          value={filters.search}
+          onChange={(e) =>
+            setFilters({
+              ...filters,
+              search: e.target.value
+            })
+          }
+        />
+
+        <select
+          className="form-input"
+          value={filters.role}
+          onChange={(e) =>
+            setFilters({
+              ...filters,
+              role: e.target.value
+            })
+          }
+        >
+          <option value="todos">
+            Todos los roles
+          </option>
+          {roles.map((role) => (
+            <option
+              key={role}
+              value={role}
+            >
+              {role}
+            </option>
+          ))}
+        </select>
+
+        <select
+          className="form-input"
+          value={filters.status}
+          onChange={(e) =>
+            setFilters({
+              ...filters,
+              status: e.target.value
+            })
+          }
+        >
+          <option value="todos">
+            Todos los estados
+          </option>
+          <option value="activo">
+            Activos
+          </option>
+          <option value="inactivo">
+            Inactivos
+          </option>
+        </select>
+
+        <button
+          className="btn-secondary"
+          onClick={() =>
+            setFilters({
+              search: '',
+              role: 'todos',
+              status: 'todos'
+            })
+          }
+        >
+          Limpiar
+        </button>
+
+      </div>
+
+      <p className="results-summary">
+        Mostrando {filteredUsers.length} de {users.length} usuarios
+      </p>
+
 <div className="table-container">
 
       <table className="data-table">
@@ -141,7 +272,7 @@ export default function UsersPage() {
 
         <tbody>
 
-          {users.map((u) => (
+          {filteredUsers.map((u) => (
 
             <tr
               key={u.id}
@@ -228,6 +359,17 @@ export default function UsersPage() {
             </tr>
 
           ))}
+
+          {
+            filteredUsers.length === 0 && (
+
+              <tr>
+                <td colSpan={6}>
+                  No hay usuarios para esos filtros.
+                </td>
+              </tr>
+            )
+          }
 
         </tbody>
 

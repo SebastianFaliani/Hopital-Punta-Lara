@@ -6,6 +6,9 @@ import {
 import { apiFetch }
   from '../api/api';
 
+import TransfersNav
+  from '../components/transfers/TransfersNav';
+
 type Ambulance = {
   id: number;
   internal_code: string;
@@ -146,6 +149,8 @@ export default function AmbulancesPage() {
   return (
 
     <div>
+
+      <TransfersNav />
 
       <div className="page-header">
         <h1 className="page-title">

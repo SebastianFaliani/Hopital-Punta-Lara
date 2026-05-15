@@ -6,6 +6,9 @@ import {
 import { apiFetch }
   from '../api/api';
 
+import TransfersNav
+  from '../components/transfers/TransfersNav';
+
 type Driver = {
   id: number;
   first_name: string;
@@ -489,6 +492,8 @@ export default function TransfersPage() {
   return (
 
     <div>
+
+      <TransfersNav />
 
       <div className="page-header">
         <div>

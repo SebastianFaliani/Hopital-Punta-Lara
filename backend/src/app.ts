@@ -10,6 +10,7 @@ import driversRoutes from './modules/drivers/drivers.routes';
 import driverShiftsRoutes from './modules/driver-shifts/driver-shifts.routes';
 import transfersRoutes from './modules/transfers/transfers.routes';
 import transferTripsRoutes from './modules/transfer-trips/transfer-trips.routes';
+import dashboardRoutes from './modules/dashboard/dashboard.routes';
 
 const app = express();
 
@@ -35,5 +36,6 @@ app.use('/drivers', driversRoutes);
 app.use('/driver-shifts', driverShiftsRoutes);
 app.use('/transfers', transfersRoutes);
 app.use('/transfer-trips', transferTripsRoutes);
+app.use('/dashboard', dashboardRoutes);
 
 export default app;
