@@ -3,17 +3,10 @@ import {
   useState
 } from 'react';
 
-import { apiFetch }
-  from '../api/api';
-
-import { useAuth }
-  from '../auth/useAuth';
-
-import CreateUserModal
-  from '../components/users/CreateUserModal';
-
-import EditUserModal
-  from '../components/users/EditUserModal';
+import { apiFetch }   from '../api/api';
+import { useAuth }  from '../auth/useAuth';
+import CreateUserModal  from '../components/users/CreateUserModal';
+import EditUserModal   from '../components/users/EditUserModal';
 
 type User = {
   id: number;
@@ -21,10 +14,8 @@ type User = {
   last_name: string;
   email: string;
   username: string;
-
   role_id: number;
   role: string;
-
   is_active: boolean;
 };
 
@@ -92,21 +83,9 @@ export default function UsersPage() {
 
     <div>
 
-      <div
-        style={{
-          display: 'flex',
-          justifyContent:
-            'space-between',
-          alignItems: 'center',
-          marginBottom: 24
-        }}
-      >
+      <div className="page-header">
 
-        <h1
-          style={{
-            margin: 0
-          }}
-        >
+        <h1 className="page-title">
           Usuarios
         </h1>
 
@@ -120,19 +99,9 @@ export default function UsersPage() {
         </button>
 
       </div>
+<div className="table-container">
 
-      <table
-        style={{
-          width: '100%',
-          borderCollapse:
-            'collapse',
-          background: 'white',
-          borderRadius: 12,
-          overflow: 'hidden',
-          boxShadow:
-            '0 4px 12px rgba(0,0,0,0.08)'
-        }}
-      >
+      <table className="data-table">
 
         <thead>
 
@@ -142,27 +111,27 @@ export default function UsersPage() {
             }}
           >
 
-            <th style={thStyle}>
+            <th>
               ID
             </th>
 
-            <th style={thStyle}>
+            <th>
               Nombre
             </th>
 
-            <th style={thStyle}>
+            <th>
               Email
             </th>
 
-            <th style={thStyle}>
+            <th>
               Rol
             </th>
 
-            <th style={thStyle}>
+            <th>
               Estado
             </th>
 
-            <th style={thStyle}>
+            <th>
               Acciones
             </th>
 
@@ -182,47 +151,32 @@ export default function UsersPage() {
               }}
             >
 
-              <td style={tdStyle}>
+              <td>
                 {u.id}
               </td>
 
-              <td style={tdStyle}>
+              <td>
                 {u.first_name}
                 {' '}
                 {u.last_name}
               </td>
 
-              <td style={tdStyle}>
+              <td>
                 {u.email}
               </td>
 
-              <td style={tdStyle}>
+              <td>
                 {u.role}
               </td>
 
-              <td style={tdStyle}>
+              <td>
 
                 <span
-                  style={{
-                    padding:
-                      '6px 10px',
-
-                    borderRadius: 20,
-
-                    fontSize: 13,
-
-                    fontWeight: 600,
-
-                    background:
-                      u.is_active
-                        ? '#dcfce7'
-                        : '#fee2e2',
-
-                    color:
-                      u.is_active
-                        ? '#166534'
-                        : '#991b1b'
-                  }}
+                  className={
+                    u.is_active
+                      ? 'badge badge-success'
+                      : 'badge badge-danger'
+                  }
                 >
                   {
                     u.is_active
@@ -233,36 +187,41 @@ export default function UsersPage() {
 
               </td>
 
-              <td style={tdStyle}>
+              <td>
 
-                <button
-                  className="btn-primary"
-                  style={{
-                    marginRight: 10
-                  }}
-                  onClick={() =>
-                    setEditUser(u)
-                  }
-                >
-                  Editar
-                </button>
+                <div className="table-actions">
 
-                <button
-                  className={
-                    u.is_active
-                      ? 'btn-secondary'
-                      : 'btn-success'
-                  }
-                  onClick={() =>
-                    handleToggle(u.id)
-                  }
-                >
-                  {
-                    u.is_active
-                      ? 'Desactivar'
-                      : 'Activar'
-                  }
-                </button>
+                  <button
+                    className="btn-primary"
+                    style={{
+                      marginRight: 10
+                    }}
+                    onClick={() =>
+                      setEditUser(u)
+                    }
+                  >
+                    Editar
+                  </button>
+
+                  <button
+                    className={
+                      u.is_active
+                        ? 'btn-danger'
+                        : 'btn-success'
+                    }
+                    onClick={() =>
+                      handleToggle(u.id)
+                    }
+                  >
+                    {
+                      u.is_active
+                        ? 'Desactivar'
+                        : 'Activar'
+                    }
+                  </button>
+
+                </div>
+
 
               </td>
 
@@ -273,6 +232,7 @@ export default function UsersPage() {
         </tbody>
 
       </table>
+</div>
 
       {
         openModal && (
@@ -288,37 +248,20 @@ export default function UsersPage() {
       }
 
       {
-  editUser && (
+        editUser && (
 
-    <EditUserModal
-      user={editUser}
-      onClose={() =>
-        setEditUser(null)
+          <EditUserModal
+            user={editUser}
+            onClose={() =>
+              setEditUser(null)
+            }
+            onUpdated={loadUsers}
+          />
+
+        )
       }
-      onUpdated={loadUsers}
-    />
-
-  )
-}
 
     </div>
   );
 }
 
-const thStyle = {
-
-  padding: '14px',
-
-  textAlign: 'left' as const,
-
-  fontSize: 14,
-
-  color: '#374151'
-};
-
-const tdStyle = {
-
-  padding: '14px',
-
-  fontSize: 14
-};

@@ -32,6 +32,15 @@
   box-shadow: var(--shadow-md);
 }
 
+.modal-content-wide {
+
+  width: min(880px, calc(100% - 40px));
+
+  max-height: calc(100vh - 40px);
+
+  overflow-y: auto;
+}
+
 .modal-title {
 
   margin-top: 0;
@@ -48,4 +57,14 @@
   justify-content: space-between;
 
   margin-top: 20px;
+}
+
+.movement-form {
+
+  margin-top: 18px;
+}
+
+.movement-history {
+
+  margin-top: 24px;
 }

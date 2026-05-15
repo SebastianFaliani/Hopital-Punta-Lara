@@ -144,7 +144,9 @@ export default function CreateUserModal({
           Nuevo usuario
         </h2>
 
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit}
+        className="auth-form"
+        >
 
           <input
             type="text"

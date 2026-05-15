@@ -71,11 +71,9 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <div
-      style={{
-        padding: 40
-      }}
-    >
+   <div className="auth-container">
+
+      <div className="auth-card">
 
       <h1>
         Nueva contraseña
@@ -83,6 +81,7 @@ export default function ResetPasswordPage() {
 
       <form
         onSubmit={handleSubmit}
+        className="auth-form"
       >
 
         <input
@@ -94,6 +93,7 @@ export default function ResetPasswordPage() {
               e.target.value
             )
           }
+          className="auth-input"
         />
 
         <br />
@@ -101,6 +101,7 @@ export default function ResetPasswordPage() {
 
         <button
           type="submit"
+          className="btn-primary"
           disabled={loading}
         >
           {
@@ -121,5 +122,6 @@ export default function ResetPasswordPage() {
       }
 
     </div>
+  </div>
   );
 }

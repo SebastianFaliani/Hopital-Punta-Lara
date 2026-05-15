@@ -9,6 +9,12 @@ import DashboardPage from '../pages/DashboardPage';
 import ResetPasswordPage from '../pages/ResetPasswordPage';
 import ForgotPasswordPage from '../pages/ForgotPasswordPage';
 import UsersPage from '../pages/UsersPage';
+import MedicationsPage from '../pages/MedicationsPage';
+import MedicationBatchesPage from '../pages/MedicationBatchesPage';
+import TransfersPage from '../pages/TransfersPage';
+import AmbulancesPage from '../pages/AmbulancesPage';
+import DriversPage from '../pages/DriversPage';
+import DriverShiftsPage from '../pages/DriverShiftsPage';
 
 import ProtectedRoute from '../auth/ProtectedRoute';
 import Layout from '../layout/Layout';
@@ -49,6 +55,36 @@ export default function AppRouter() {
             <Route
               path="/users"
               element={<UsersPage />}
+            />
+
+            <Route
+              path="/medications"
+              element={<MedicationsPage />}
+            />
+
+            <Route
+              path="/medications/:id/batches"
+              element={<MedicationBatchesPage />}
+            />
+
+            <Route
+              path="/transfers"
+              element={<TransfersPage />}
+            />
+
+            <Route
+              path="/ambulances"
+              element={<AmbulancesPage />}
+            />
+
+            <Route
+              path="/drivers"
+              element={<DriversPage />}
+            />
+
+            <Route
+              path="/driver-shifts"
+              element={<DriverShiftsPage />}
             />
 
           </Route>

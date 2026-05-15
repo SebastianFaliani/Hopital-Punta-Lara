@@ -8,7 +8,7 @@ import './styles/buttons.css';
 import './styles/forms.css';
 import './styles/modal.css';
 import './styles/auth.css';
-
+import './styles/table.css';
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <App />

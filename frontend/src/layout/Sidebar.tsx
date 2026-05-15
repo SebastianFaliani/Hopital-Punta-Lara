@@ -38,9 +38,36 @@ export default function Sidebar() {
           Usuarios
         </Link>
       )}
+      
+      {(user?.role === 'admin' || user?.role === 'farmacia') && (
+      <Link to="/medications" style={{ color: 'white' }}>
+        Medicamentos
+      </Link>
+
+        )}
+
+      {(user?.role === 'admin' || user?.role === 'user') && (
+        <>
+          <Link to="/transfers" style={{ color: 'white' }}>
+            Traslados
+          </Link>
+
+          <Link to="/ambulances" style={{ color: 'white' }}>
+            Ambulancias
+          </Link>
+
+          <Link to="/drivers" style={{ color: 'white' }}>
+            Choferes
+          </Link>
+
+          <Link to="/driver-shifts" style={{ color: 'white' }}>
+            Guardias
+          </Link>
+        </>
+      )}
 
       <Link to="/" style={{ color: '#8a1616' }}>
-        Logout
+        Cerrar Session
       </Link>
 
     </div>

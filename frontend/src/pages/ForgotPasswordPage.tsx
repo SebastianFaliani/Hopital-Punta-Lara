@@ -56,11 +56,9 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <div
-      style={{
-        padding: 40
-      }}
-    >
+   <div className="auth-container">
+
+      <div className="auth-card">
 
       <h1>
         Recuperar contraseña
@@ -77,6 +75,7 @@ export default function ForgotPasswordPage() {
 
           <form
             onSubmit={handleSubmit}
+            className="auth-form"
           >
 
             <input
@@ -88,6 +87,7 @@ export default function ForgotPasswordPage() {
                   e.target.value
                 )
               }
+              className="auth-input"
             />
 
             <br />
@@ -95,6 +95,7 @@ export default function ForgotPasswordPage() {
 
             <button
               type="submit"
+              className="btn-primary"
               disabled={loading}
             >
               {
@@ -117,5 +118,6 @@ export default function ForgotPasswordPage() {
       }
 
     </div>
+  </div>
   );
 }
