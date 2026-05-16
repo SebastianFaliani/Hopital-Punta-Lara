@@ -119,3 +119,61 @@
 
   margin-bottom: 16px;
 }
+
+.whatsapp-form {
+
+  display: grid;
+
+  grid-template-columns:
+    repeat(auto-fit, minmax(220px, 1fr));
+
+  gap: 12px;
+
+  margin: 24px 0;
+}
+
+.whatsapp-form .form-input {
+
+  margin-bottom: 0;
+}
+
+.whatsapp-response-input {
+
+  grid-column:
+    1 / -1;
+}
+
+.whatsapp-test {
+
+  display: grid;
+
+  grid-template-columns: 1fr auto;
+
+  gap: 12px;
+}
+
+.whatsapp-test .form-input {
+
+  margin-bottom: 0;
+}
+
+.whatsapp-message {
+
+  margin: 16px 0 0;
+
+  padding: 14px;
+
+  white-space: pre-wrap;
+
+  background: #f3f4f6;
+
+  border:
+    1px solid var(--color-border);
+
+  border-radius: 8px;
+
+  font-family:
+    Arial,
+    Helvetica,
+    sans-serif;
+}

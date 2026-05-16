@@ -16,6 +16,7 @@ import TransfersPage from '../pages/TransfersPage';
 import AmbulancesPage from '../pages/AmbulancesPage';
 import DriversPage from '../pages/DriversPage';
 import DriverShiftsPage from '../pages/DriverShiftsPage';
+import WhatsappPage from '../pages/WhatsappPage';
 
 import ProtectedRoute from '../auth/ProtectedRoute';
 import Layout from '../layout/Layout';
@@ -101,6 +102,11 @@ export default function AppRouter() {
             <Route
               path="/transfers/shifts"
               element={<DriverShiftsPage />}
+            />
+
+            <Route
+              path="/whatsapp"
+              element={<WhatsappPage />}
             />
 
           </Route>

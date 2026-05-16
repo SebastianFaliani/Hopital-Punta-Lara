@@ -52,6 +52,12 @@ export default function Sidebar() {
         </Link>
       )}
 
+      {(user?.role === 'admin' || user?.role === 'user') && (
+        <Link to="/whatsapp" style={{ color: 'white' }}>
+          WhatsApp
+        </Link>
+      )}
+
       <Link to="/" style={{ color: '#8a1616' }}>
         Cerrar Session
       </Link>
