@@ -38,6 +38,12 @@ export default function Sidebar() {
           Usuarios
         </Link>
       )}
+
+      {(user?.role === 'admin' || user?.role === 'user') && (
+        <Link to="/personnel" style={{ color: 'white' }}>
+          Personal
+        </Link>
+      )}
       
       {(user?.role === 'admin' || user?.role === 'farmacia') && (
       <Link to="/medications" style={{ color: 'white' }}>

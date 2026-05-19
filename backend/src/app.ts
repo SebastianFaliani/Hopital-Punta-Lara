@@ -12,6 +12,7 @@ import transfersRoutes from './modules/transfers/transfers.routes';
 import transferTripsRoutes from './modules/transfer-trips/transfer-trips.routes';
 import dashboardRoutes from './modules/dashboard/dashboard.routes';
 import whatsappRoutes from './modules/whatsapp/whatsapp.routes';
+import personnelRoutes from './modules/personnel/personnel.routes';
 
 const app = express();
 
@@ -39,5 +40,6 @@ app.use('/transfers', transfersRoutes);
 app.use('/transfer-trips', transferTripsRoutes);
 app.use('/dashboard', dashboardRoutes);
 app.use('/whatsapp', whatsappRoutes);
+app.use('/personnel', personnelRoutes);
 
 export default app;
