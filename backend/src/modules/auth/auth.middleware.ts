@@ -314,7 +314,8 @@ export function authorizeRoles(
       req.baseUrl === '/health-facilities' &&
       (
         hasEffectivePermission(user, 'medications.view') ||
-        hasEffectivePermission(user, 'vaccines.view')
+        hasEffectivePermission(user, 'vaccines.view') ||
+        hasEffectivePermission(user, 'transfers.view')
       );
 
     const authorized =

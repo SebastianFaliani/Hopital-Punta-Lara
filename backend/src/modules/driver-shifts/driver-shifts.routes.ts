@@ -8,6 +8,7 @@ import {
 
 import {
   create,
+  createBulk,
   getDriverShifts,
   update
 } from './driver-shifts.controller';
@@ -19,6 +20,13 @@ router.get(
   authenticateToken,
   authorizeRoles('admin', 'user', 'dir'),
   getDriverShifts
+);
+
+router.post(
+  '/bulk',
+  authenticateToken,
+  authorizeRoles('admin', 'user'),
+  createBulk
 );
 
 router.post(

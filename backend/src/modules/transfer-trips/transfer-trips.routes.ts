@@ -7,6 +7,7 @@ import {
 } from '../auth/auth.middleware';
 
 import {
+  getAvailableDrivers,
   updateTrip
 } from '../transfers/transfers.controller';
 
@@ -17,6 +18,13 @@ router.put(
   authenticateToken,
   authorizeRoles('admin', 'user'),
   updateTrip
+);
+
+router.get(
+  '/:id/available-drivers',
+  authenticateToken,
+  authorizeRoles('admin', 'user', 'dir'),
+  getAvailableDrivers
 );
 
 export default router;

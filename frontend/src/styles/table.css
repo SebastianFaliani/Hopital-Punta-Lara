@@ -483,6 +483,194 @@
     var(--color-primary);
 }
 
+.transfer-view-tabs button {
+  background: transparent;
+  border-top: 0;
+  border-right: 0;
+  border-left: 0;
+  cursor: pointer;
+}
+
+.transfer-summary-grid,
+.transfer-capacity-grid {
+  display: grid;
+  grid-template-columns:
+    repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.transfer-summary,
+.transfer-capacity {
+  display: grid;
+  gap: 3px;
+  padding: 15px;
+  background: #fff;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+}
+
+.transfer-summary strong,
+.transfer-capacity strong {
+  color: var(--color-primary);
+  font-size: 24px;
+}
+
+.transfer-summary span,
+.transfer-capacity span {
+  color: #374151;
+  font-weight: 700;
+}
+
+.transfer-capacity small {
+  color: var(--color-muted);
+}
+
+.transfer-agenda-list,
+.transfer-request-list {
+  display: grid;
+  gap: 10px;
+}
+
+.transfer-agenda-row {
+  display: grid;
+  grid-template-columns:
+    72px minmax(150px, 1fr)
+    minmax(220px, 1.5fr)
+    minmax(150px, 1fr)
+    auto auto;
+  gap: 14px;
+  align-items: center;
+  padding: 13px;
+  background: #fff;
+  border: 1px solid var(--color-border);
+  border-left: 4px solid var(--color-primary);
+  border-radius: 8px;
+}
+
+.transfer-agenda-row div:not(.transfer-agenda-time),
+.transfer-request-heading div {
+  display: grid;
+  gap: 3px;
+}
+
+.transfer-agenda-row span,
+.transfer-request-heading span,
+.transfer-request-details span {
+  color: var(--color-muted);
+  font-size: 13px;
+}
+
+.transfer-agenda-time {
+  color: var(--color-primary);
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.transfer-request-row {
+  display: grid;
+  gap: 13px;
+  padding: 16px;
+  background: #fff;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+}
+
+.transfer-request-heading,
+.transfer-request-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.transfer-request-heading strong {
+  font-size: 17px;
+}
+
+.transfer-action-note {
+  padding: 8px 10px;
+  color: #475569;
+  background: #f8fafc;
+  border: 1px solid var(--color-border);
+  border-radius: 7px;
+  font-size: 13px;
+}
+
+.transfer-request-details {
+  display: grid;
+  grid-template-columns:
+    repeat(auto-fit, minmax(190px, 1fr));
+  gap: 7px 14px;
+}
+
+.transfer-request-trips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.transfer-trip-chip {
+  display: grid;
+  gap: 2px;
+  min-width: 170px;
+  padding: 9px 11px;
+  text-align: left;
+  background: #f8fafc;
+  border: 1px solid var(--color-border);
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.transfer-trip-chip span {
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+.transfer-status {
+  display: inline-flex;
+  width: fit-content;
+  padding: 4px 8px;
+  color: #374151;
+  background: #f1f5f9;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.transfer-status-confirmado,
+.transfer-status-finalizado {
+  color: #166534;
+  background: #dcfce7;
+}
+
+.transfer-status-pendiente_confirmacion,
+.transfer-status-pendiente {
+  color: #92400e;
+  background: #fef3c7;
+}
+
+.transfer-status-rechazado,
+.transfer-status-cancelado {
+  color: #991b1b;
+  background: #fee2e2;
+}
+
+.transfer-status-en_proceso {
+  color: #075985;
+  background: #e0f2fe;
+}
+
+.empty-state {
+  padding: 28px;
+  color: var(--color-muted);
+  text-align: center;
+  background: #fff;
+  border: 1px dashed var(--color-border);
+  border-radius: 8px;
+}
+
 .attendance-layout {
 
   display: grid;

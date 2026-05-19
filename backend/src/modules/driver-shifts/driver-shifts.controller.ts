@@ -4,6 +4,7 @@ import {
 } from 'express';
 
 import {
+  createBulkDriverShifts,
   createDriverShift,
   getAllDriverShifts,
   updateDriverShift
@@ -33,6 +34,65 @@ function validateShift(
   }
 
   return null;
+}
+
+export async function createBulk(
+  req: Request,
+  res: Response
+) {
+  try {
+    if (
+      !req.body.driver_id ||
+      !req.body.ambulance_id ||
+      !/^\d{4}-\d{2}$/.test(req.body.month || '')
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          'Chofer, ambulancia y mes son obligatorios'
+      });
+    }
+
+    const totalDays =
+      (req.body.morning_days || []).length +
+      (req.body.afternoon_days || []).length;
+
+    if (
+      totalDays === 0 &&
+      !req.body.sync_existing
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          'Selecciona al menos un dia de guardia'
+      });
+    }
+
+    const result =
+      await createBulkDriverShifts(req.body);
+
+    return res.status(201).json({
+      success: true,
+      data: result,
+      message:
+        `Se guardaron ${result.created} guardias` +
+        (
+          result.skipped
+            ? ` y se omitieron ${result.skipped} repetidas`
+            : ''
+        ) +
+        (
+          result.deleted
+            ? `. Se actualizaron ${result.deleted} guardias existentes`
+            : ''
+        )
+    });
+  } catch (error: any) {
+    return res.status(400).json({
+      success: false,
+      message: error.message
+    });
+  }
 }
 
 export async function getDriverShifts(

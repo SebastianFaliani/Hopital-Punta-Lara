@@ -20,6 +20,7 @@ router.get(
   authenticateToken,
   authorizeRoles(
     'admin',
+    'user',
     'farmacia',
     'vacu',
     'dir'
