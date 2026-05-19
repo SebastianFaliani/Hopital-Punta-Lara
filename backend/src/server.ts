@@ -15,7 +15,7 @@ async function startServer() {
 
     connection.release();
 
-    app.listen(PORT, () => {
+    app.listen(Number(PORT), '0.0.0.0', () => {
       console.log(`🚀 Servidor corriendo en puerto ${PORT}`);
     });
 

@@ -1,5 +1,6 @@
 const API_URL =
-  'http://localhost:4000';
+  import.meta.env.VITE_API_URL ||
+  `${window.location.protocol}//${window.location.hostname}:4000`;
 
 async function refreshAccessToken() {
 

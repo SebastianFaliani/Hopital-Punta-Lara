@@ -42,13 +42,23 @@ export async function createUser(data: any) {
     role_id
   } = data;
 
+  const cleanUsername =
+    username?.trim();
+
+  if (!cleanUsername) {
+    throw new Error('El usuario es obligatorio');
+  }
+
   const [existing]: any = await pool.query(
-    'SELECT id FROM users WHERE email = ?',
-    [email]
+    'SELECT id FROM users WHERE email = ? OR username = ?',
+    [
+      email,
+      cleanUsername
+    ]
   );
 
   if (existing.length > 0) {
-    throw new Error('El email ya existe');
+    throw new Error('El email o usuario ya existe');
   }
 
   const hash = await bcrypt.hash(password, 10);
@@ -70,7 +80,7 @@ export async function createUser(data: any) {
       first_name,
       last_name,
       email,
-      username,
+      cleanUsername,
       hash
     ]
   );
@@ -93,6 +103,32 @@ export async function updateUser(
     role_id
   } = data;
 
+  const cleanUsername =
+    username?.trim();
+
+  if (!cleanUsername) {
+    throw new Error('El usuario es obligatorio');
+  }
+
+  const [existing]: any = await pool.query(
+    `
+      SELECT id
+      FROM users
+      WHERE (email = ? OR username = ?)
+        AND id <> ?
+      LIMIT 1
+    `,
+    [
+      email,
+      cleanUsername,
+      id
+    ]
+  );
+
+  if (existing.length > 0) {
+    throw new Error('El email o usuario ya existe');
+  }
+
   await pool.query(
     `
       UPDATE users
@@ -108,7 +144,7 @@ export async function updateUser(
       first_name,
       last_name,
       email,
-      username,
+      cleanUsername,
       role_id,
       id
     ]

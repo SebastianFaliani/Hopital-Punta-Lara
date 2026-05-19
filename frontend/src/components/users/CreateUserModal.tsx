@@ -72,6 +72,7 @@ export default function CreateUserModal({
       !form.first_name ||
       !form.last_name ||
       !form.email ||
+      !form.username ||
       !form.password
     ) {
 
@@ -182,6 +183,7 @@ export default function CreateUserModal({
             value={form.username}
             onChange={handleChange}
             className="form-input"
+            autoComplete="username"
           />
 
           <input

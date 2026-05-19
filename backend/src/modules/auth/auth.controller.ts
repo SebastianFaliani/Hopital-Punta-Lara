@@ -118,10 +118,41 @@ export async function refresh(
       });
     }
 
+    const [userRows]: any =
+      await pool.query(
+        `
+          SELECT
+            u.id,
+            u.email,
+            u.username,
+            r.name AS role
+          FROM users u
+          INNER JOIN roles r
+            ON r.id = u.role_id
+          WHERE u.id = ?
+            AND u.is_active = TRUE
+          LIMIT 1
+        `,
+        [decoded.userId]
+      );
+
+    if (userRows.length === 0) {
+      return res.status(401).json({
+        success: false,
+        message: 'Usuario invalido'
+      });
+    }
+
+    const user =
+      userRows[0];
+
     // generar nuevo access token
     const accessToken =
       generateAccessToken({
-        userId: decoded.userId
+        userId: user.id,
+        email: user.email,
+        username: user.username,
+        role: user.role
       });
 
     return res.status(200).json({

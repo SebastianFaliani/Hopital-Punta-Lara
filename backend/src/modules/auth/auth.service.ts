@@ -30,10 +30,23 @@ export async function registerUser(
     password
   } = data;
 
+  const cleanUsername =
+    username?.trim();
+
+  if (!cleanUsername) {
+
+    throw new Error(
+      'El usuario es obligatorio'
+    );
+  }
+
   // verificar usuario existente
   const [existingUsers] = await pool.query(
-    'SELECT id FROM users WHERE email = ?',
-    [email]
+    'SELECT id FROM users WHERE email = ? OR username = ?',
+    [
+      email,
+      cleanUsername
+    ]
   );
 
   if ((existingUsers as any[]).length > 0) {
@@ -76,7 +89,7 @@ export async function registerUser(
         first_name,
         last_name,
         email,
-        username,
+        cleanUsername,
         passwordHash
       ]
     );
@@ -86,6 +99,7 @@ export async function registerUser(
     generateAccessToken({
       userId: result.insertId,
       email,
+      username: cleanUsername,
       role: 'user'
     });
 
@@ -126,9 +140,19 @@ export async function loginUser(
 ) {
 
   const {
-    email,
+    username,
     password
   } = data;
+
+  const cleanUsername =
+    username?.trim();
+
+  if (!cleanUsername) {
+
+    throw new Error(
+      'Ingresá tu usuario'
+    );
+  }
 
   // buscar usuario
   const [rows]: any =
@@ -139,16 +163,17 @@ export async function loginUser(
           u.first_name,
           u.last_name,
           u.email,
+          u.username,
           u.password_hash,
           u.is_active,
           r.name AS role
         FROM users u
         INNER JOIN roles r
           ON r.id = u.role_id
-        WHERE u.email = ?
+        WHERE u.username = ?
         LIMIT 1
       `,
-      [email]
+      [cleanUsername]
     );
 
   if (rows.length === 0) {
@@ -197,6 +222,7 @@ export async function loginUser(
     generateAccessToken({
       userId: user.id,
       email: user.email,
+      username: user.username,
       role: user.role
     });
 
@@ -237,6 +263,7 @@ export async function loginUser(
       first_name: user.first_name,
       last_name: user.last_name,
       email: user.email,
+      username: user.username,
       role: user.role
     }
   };

@@ -85,7 +85,8 @@ export default function EditUserModal({
     if (
       !form.first_name ||
       !form.last_name ||
-      !form.email
+      !form.email ||
+      !form.username
     ) {
 
       setError(
@@ -187,6 +188,7 @@ export default function EditUserModal({
             placeholder="Usuario"
             value={form.username}
             onChange={handleChange}
+            autoComplete="username"
           />
 
           <select

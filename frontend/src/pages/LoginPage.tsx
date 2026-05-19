@@ -17,7 +17,7 @@ export default function LoginPage() {
 
   const { login } = useAuth();
 
-  const [email, setEmail] =
+  const [username, setUsername] =
     useState('');
 
   const [password, setPassword] =
@@ -43,7 +43,7 @@ export default function LoginPage() {
             method: 'POST',
 
             body: JSON.stringify({
-              email,
+              username,
               password
             })
           }
@@ -91,13 +91,14 @@ export default function LoginPage() {
         >
 
           <input
-            type="email"
-            placeholder="Correo electrónico"
-            value={email}
+            type="text"
+            placeholder="Usuario"
+            value={username}
             onChange={(e) =>
-              setEmail(e.target.value)
+              setUsername(e.target.value)
             }
             className="auth-input"
+            autoComplete="username"
           />
 
           <input
@@ -108,6 +109,7 @@ export default function LoginPage() {
               setPassword(e.target.value)
             }
             className="auth-input"
+            autoComplete="current-password"
           />
 
           <button

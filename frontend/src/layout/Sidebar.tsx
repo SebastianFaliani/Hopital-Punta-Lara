@@ -24,7 +24,7 @@ export default function Sidebar() {
       </h2>
 
       <p style={{ fontSize: 12, opacity: 0.7 }}>
-        {user?.email}
+        {user?.username || user?.email}
       </p>
 
       <hr style={{ opacity: 0.2 }} />

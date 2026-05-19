@@ -2068,10 +2068,43 @@ async function applyLeaveToAttendance(
     const month =
       current.getMonth() + 1;
 
-    const period =
-      await getOrCreateAttendancePeriod(
+    const periodName =
+      getPeriodName(
         year,
         month
+      );
+
+    await connection.query(
+      `
+        INSERT INTO attendance_periods (
+          year,
+          month,
+          name
+        )
+        VALUES (?, ?, ?)
+        ON DUPLICATE KEY UPDATE
+          name = VALUES(name)
+      `,
+      [
+        year,
+        month,
+        periodName
+      ]
+    );
+
+    const [periodRows]: any =
+      await connection.query(
+        `
+          SELECT id
+          FROM attendance_periods
+          WHERE year = ?
+            AND month = ?
+          LIMIT 1
+        `,
+        [
+          year,
+          month
+        ]
       );
 
     const attendanceDate =
@@ -2097,7 +2130,7 @@ async function applyLeaveToAttendance(
       `,
       [
         request.employee_id,
-        period.id,
+        periodRows[0].id,
         request.code_id,
         attendanceDate,
         request.code,
@@ -2196,10 +2229,29 @@ async function adjustVacationBalanceForRequest(
     new Date(request.start_date)
       .getFullYear();
 
-  const employee =
-    await getEmployeeForLeave(
-      request.employee_id
+  const [employeeRows]: any =
+    await connection.query(
+      `
+        SELECT
+          id,
+          full_name,
+          hire_date,
+          is_professional
+        FROM employees
+        WHERE id = ?
+        LIMIT 1
+      `,
+      [request.employee_id]
     );
+
+  if (!employeeRows.length) {
+    throw new Error(
+      'El empleado no existe'
+    );
+  }
+
+  const employee =
+    employeeRows[0];
 
   const allowance =
     await calculateVacationAllowance(
