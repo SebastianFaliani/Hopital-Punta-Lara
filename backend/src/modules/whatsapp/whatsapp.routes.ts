@@ -7,7 +7,9 @@ import {
 } from '../auth/auth.middleware';
 
 import {
+  cleanupWhatsappLogs,
   createReply,
+  exportWhatsappLogs,
   getWhatsappConnectionStatus,
   getWhatsappLogs,
   getReplies,
@@ -60,6 +62,20 @@ router.get(
   authenticateToken,
   authorizeRoles('admin', 'user'),
   getWhatsappLogs
+);
+
+router.get(
+  '/logs/export',
+  authenticateToken,
+  authorizeRoles('admin', 'user'),
+  exportWhatsappLogs
+);
+
+router.delete(
+  '/logs/cleanup',
+  authenticateToken,
+  authorizeRoles('admin', 'user'),
+  cleanupWhatsappLogs
 );
 
 router.get(

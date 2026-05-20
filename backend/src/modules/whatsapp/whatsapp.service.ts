@@ -64,6 +64,55 @@ export async function getRecentWhatsappLogs() {
   return rows;
 }
 
+export async function getAllWhatsappLogsForExport() {
+
+  const [rows]: any =
+    await pool.query(
+      `
+        SELECT
+          id,
+          phone,
+          incoming_message,
+          response_message,
+          created_at
+        FROM whatsapp_message_logs
+        ORDER BY created_at DESC, id DESC
+      `
+    );
+
+  return rows;
+}
+
+export async function deleteWhatsappLogsBefore(
+  beforeDate: string
+) {
+
+  const [result]: any =
+    await pool.query(
+      `
+        DELETE FROM whatsapp_message_logs
+        WHERE created_at < ?
+      `,
+      [beforeDate]
+    );
+
+  return {
+    deleted: Number(result.affectedRows || 0)
+  };
+}
+
+export async function deleteAllWhatsappLogs() {
+
+  const [result]: any =
+    await pool.query(
+      'DELETE FROM whatsapp_message_logs'
+    );
+
+  return {
+    deleted: Number(result.affectedRows || 0)
+  };
+}
+
 export async function createWhatsappReply(
   data: ReplyInput
 ) {

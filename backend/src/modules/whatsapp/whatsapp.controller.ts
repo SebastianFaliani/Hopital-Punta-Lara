@@ -6,6 +6,9 @@ import {
 import {
   buildWhatsappResponse,
   createWhatsappReply,
+  deleteAllWhatsappLogs,
+  deleteWhatsappLogsBefore,
+  getAllWhatsappLogsForExport,
   getRecentWhatsappLogs,
   getAllWhatsappReplies,
   toggleWhatsappReply,
@@ -36,6 +39,48 @@ function validateReply(
   }
 
   return null;
+}
+
+function escapeCsvValue(
+  value: unknown
+) {
+  const text =
+    value === null ||
+    value === undefined
+      ? ''
+      : String(value);
+
+  return `"${text.replace(/"/g, '""')}"`;
+}
+
+function buildLogsCsv(
+  logs: any[]
+) {
+  const headers = [
+    'ID',
+    'Telefono',
+    'Mensaje recibido',
+    'Respuesta enviada',
+    'Fecha'
+  ];
+
+  const rows =
+    logs.map((log) => [
+      log.id,
+      log.phone,
+      log.incoming_message,
+      log.response_message,
+      log.created_at
+    ]);
+
+  return [
+    headers,
+    ...rows
+  ]
+    .map((row) =>
+      row.map(escapeCsvValue).join(',')
+    )
+    .join('\r\n');
 }
 
 export async function getReplies(
@@ -294,6 +339,91 @@ export async function getWhatsappLogs(
   } catch (error: any) {
 
     return res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+}
+
+export async function exportWhatsappLogs(
+  req: Request,
+  res: Response
+) {
+
+  try {
+
+    const logs =
+      await getAllWhatsappLogsForExport();
+
+    const csv =
+      buildLogsCsv(logs);
+
+    const fileDate =
+      new Date()
+        .toISOString()
+        .slice(0, 10);
+
+    res.setHeader(
+      'Content-Type',
+      'text/csv; charset=utf-8'
+    );
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="whatsapp-historial-${fileDate}.csv"`
+    );
+
+    return res.send(
+      `\uFEFF${csv}`
+    );
+
+  } catch (error: any) {
+
+    return res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+}
+
+export async function cleanupWhatsappLogs(
+  req: Request,
+  res: Response
+) {
+
+  try {
+
+    const {
+      before_date,
+      delete_all
+    } = req.body;
+
+    let result;
+
+    if (delete_all) {
+      result =
+        await deleteAllWhatsappLogs();
+    } else {
+      if (!before_date) {
+        return res.status(400).json({
+          success: false,
+          message: 'Debe indicar una fecha limite'
+        });
+      }
+
+      result =
+        await deleteWhatsappLogsBefore(
+          `${before_date} 00:00:00`
+        );
+    }
+
+    return res.json({
+      success: true,
+      data: result
+    });
+
+  } catch (error: any) {
+
+    return res.status(400).json({
       success: false,
       message: error.message
     });

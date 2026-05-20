@@ -5,6 +5,8 @@ import {
 
 import { apiFetch }
   from '../api/api';
+import { getApiUrl }
+  from '../api/api';
 
 type Reply = {
   id: number;
@@ -72,6 +74,15 @@ export default function WhatsappPage() {
 
   const [connectionLoading, setConnectionLoading] =
     useState(false);
+
+  const [cleanupDate, setCleanupDate] =
+    useState('');
+
+  const [cleanupLoading, setCleanupLoading] =
+    useState(false);
+
+  const [successMessage, setSuccessMessage] =
+    useState('');
 
   async function loadReplies() {
 
@@ -145,6 +156,101 @@ export default function WhatsappPage() {
     } finally {
 
       setConnectionLoading(false);
+    }
+  }
+
+  async function exportLogs() {
+    const token =
+      localStorage.getItem('accessToken');
+
+    const response =
+      await fetch(
+        `${getApiUrl()}/whatsapp/logs/export`,
+        {
+          headers: {
+            Authorization:
+              token ? `Bearer ${token}` : ''
+          }
+        }
+      );
+
+    if (!response.ok) {
+      throw new Error(
+        'No se pudo exportar el historial'
+      );
+    }
+
+    const blob =
+      await response.blob();
+
+    const url =
+      window.URL.createObjectURL(blob);
+
+    const link =
+      document.createElement('a');
+
+    link.href = url;
+    link.download =
+      `whatsapp-historial-${new Date()
+        .toISOString()
+        .slice(0, 10)}.csv`;
+    link.click();
+
+    window.URL.revokeObjectURL(url);
+  }
+
+  async function handleExportLogs() {
+    try {
+      setError('');
+      await exportLogs();
+    } catch (error: any) {
+      setError(error.message);
+    }
+  }
+
+  async function cleanupLogs(
+    deleteAll = false
+  ) {
+    const confirmation =
+      deleteAll
+        ? 'Esto va a borrar todo el historial de mensajes de WhatsApp. Antes conviene exportarlo. ¿Continuar?'
+        : `Esto va a borrar los mensajes anteriores al ${cleanupDate}. Antes conviene exportarlos. ¿Continuar?`;
+
+    if (!window.confirm(confirmation)) {
+      return;
+    }
+
+    try {
+      setCleanupLoading(true);
+      setError('');
+      setSuccessMessage('');
+
+      const res =
+        await apiFetch(
+          '/whatsapp/logs/cleanup',
+          {
+            method: 'DELETE',
+            body: JSON.stringify({
+              delete_all: deleteAll,
+              before_date: cleanupDate
+            })
+          }
+        );
+
+      setSuccessMessage(
+        `Se eliminaron ${res.data.deleted} mensajes del historial.`
+      );
+
+      if (deleteAll) {
+        setCleanupDate('');
+      }
+
+      await loadLogs();
+
+    } catch (error: any) {
+      setError(error.message);
+    } finally {
+      setCleanupLoading(false);
     }
   }
 
@@ -451,6 +557,58 @@ export default function WhatsappPage() {
 
       <section className="dashboard-panel whatsapp-preview">
         <h2>Ultimos mensajes</h2>
+
+        <div className="whatsapp-history-actions">
+          <button
+            className="btn-secondary"
+            type="button"
+            onClick={handleExportLogs}
+          >
+            Exportar historial
+          </button>
+
+          <input
+            className="form-input"
+            type="date"
+            value={cleanupDate}
+            onChange={(e) =>
+              setCleanupDate(e.target.value)
+            }
+          />
+
+          <button
+            className="btn-danger"
+            type="button"
+            disabled={
+              cleanupLoading ||
+              !cleanupDate
+            }
+            onClick={() =>
+              cleanupLogs(false)
+            }
+          >
+            Limpiar anteriores
+          </button>
+
+          <button
+            className="btn-danger"
+            type="button"
+            disabled={cleanupLoading}
+            onClick={() =>
+              cleanupLogs(true)
+            }
+          >
+            Limpiar todo
+          </button>
+        </div>
+
+        {
+          successMessage && (
+            <p className="form-success">
+              {successMessage}
+            </p>
+          )
+        }
 
         <div className="table-container">
           <table className="data-table">

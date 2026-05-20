@@ -229,7 +229,19 @@ export async function startWhatsappWebSession() {
     'message',
     async (message: any) => {
       try {
-        if (message.fromMe || !message.body) {
+        if (message.fromMe) {
+          return;
+        }
+
+        if (message.hasMedia) {
+          await message.reply(
+            'Por este canal solo procesamos mensajes de texto. No se guardan audios, imagenes, videos ni archivos.'
+          );
+
+          return;
+        }
+
+        if (!message.body) {
           return;
         }
 
