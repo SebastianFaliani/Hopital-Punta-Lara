@@ -59,6 +59,14 @@ export default function Sidebar() {
     ) &&
     canUseHospitalModules;
 
+  const canSeeNutrition =
+    hasPermission(
+      user,
+      'nutrition.view',
+      ['admin', 'user', 'dir', 'nutri']
+    ) &&
+    canUseHospitalModules;
+
   const canSeeVaccines =
     hasPermission(
       user,
@@ -133,6 +141,12 @@ export default function Sidebar() {
       {canSeeLaboratory && (
         <NavLink to="/laboratory" className="app-nav-link">
           Laboratorio
+        </NavLink>
+      )}
+
+      {canSeeNutrition && (
+        <NavLink to="/nutrition" className="app-nav-link">
+          Nutricion
         </NavLink>
       )}
 

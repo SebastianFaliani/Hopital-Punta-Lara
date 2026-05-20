@@ -28,6 +28,7 @@ import VaccineTransfersPage from '../pages/VaccineTransfersPage';
 import VaccineDeliveriesPage from '../pages/VaccineDeliveriesPage';
 import AuditPage from '../pages/AuditPage';
 import LaboratoryPage from '../pages/LaboratoryPage';
+import NutritionPage from '../pages/NutritionPage';
 
 import ProtectedRoute from '../auth/ProtectedRoute';
 import Layout from '../layout/Layout';
@@ -173,6 +174,11 @@ export default function AppRouter() {
             <Route
               path="/laboratory"
               element={<LaboratoryPage />}
+            />
+
+            <Route
+              path="/nutrition"
+              element={<NutritionPage />}
             />
 
             <Route

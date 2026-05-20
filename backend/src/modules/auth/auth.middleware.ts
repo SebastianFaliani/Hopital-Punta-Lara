@@ -63,6 +63,11 @@ function getRequestPermission(
       ],
       view: 'transfers.view',
       manage: 'transfers.manage'
+    },
+    {
+      paths: ['/nutrition'],
+      view: 'nutrition.view',
+      manage: 'nutrition.manage'
     }
   ];
 
