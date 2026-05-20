@@ -18,14 +18,12 @@ const router = Router();
 
 const readRoles = [
   'admin',
-  'user',
   'dir',
   'nutri'
 ];
 
 const writeRoles = [
   'admin',
-  'user',
   'nutri'
 ];
 

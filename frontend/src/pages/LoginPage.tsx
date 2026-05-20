@@ -63,7 +63,7 @@ export default function LoginPage() {
         response.data.accessToken
       );
 
-      navigate('/dashboard');
+      navigate('/inicio');
 
     } catch (error: any) {
 

@@ -458,14 +458,14 @@ export default function NutritionPage() {
     hasPermission(
       user,
       'nutrition.view',
-      ['admin', 'user', 'dir', 'nutri']
+      ['admin', 'dir', 'nutri']
     );
 
   const canEdit =
     hasPermission(
       user,
       'nutrition.manage',
-      ['admin', 'user', 'nutri']
+      ['admin', 'nutri']
     );
 
   const [patients, setPatients] =

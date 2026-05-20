@@ -31,6 +31,7 @@ import LaboratoryPage from '../pages/LaboratoryPage';
 import NutritionPage from '../pages/NutritionPage';
 
 import ProtectedRoute from '../auth/ProtectedRoute';
+import HomeRedirect from '../auth/HomeRedirect';
 import Layout from '../layout/Layout';
 
 export default function AppRouter() {
@@ -60,6 +61,11 @@ export default function AppRouter() {
 
           {/* LAYOUT GLOBAL */}
           <Route element={<Layout />}>
+
+            <Route
+              path="/inicio"
+              element={<HomeRedirect />}
+            />
 
             <Route
               path="/dashboard"

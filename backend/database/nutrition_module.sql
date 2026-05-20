@@ -232,17 +232,6 @@ INSERT INTO role_permissions (role_id, permission_id, allowed)
 SELECT r.id, p.id, TRUE
 FROM roles r
 INNER JOIN permissions p
-  ON p.permission_key IN (
-    'nutrition.view',
-    'nutrition.manage'
-  )
-WHERE r.name = 'user'
-ON DUPLICATE KEY UPDATE allowed = VALUES(allowed);
-
-INSERT INTO role_permissions (role_id, permission_id, allowed)
-SELECT r.id, p.id, TRUE
-FROM roles r
-INNER JOIN permissions p
   ON p.permission_key = 'nutrition.view'
 WHERE r.name = 'dir'
 ON DUPLICATE KEY UPDATE allowed = VALUES(allowed);

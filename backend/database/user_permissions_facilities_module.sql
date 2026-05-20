@@ -71,6 +71,7 @@ INSERT INTO permissions (
   sort_order
 )
 VALUES
+  ('dashboard.view', 'Dashboard', 'Ver dashboard general', 5),
   ('personnel.view', 'Personal', 'Ver personal y licencias', 10),
   ('personnel.manage', 'Personal', 'Administrar personal y licencias', 11),
   ('transfers.view', 'Traslados', 'Ver traslados', 20),
@@ -154,6 +155,7 @@ INNER JOIN permissions p
     'medications.view',
     'vaccines.view',
     'laboratory.view',
+    'dashboard.view',
     'audit.view'
   )
 WHERE r.name = 'dir'

@@ -54,12 +54,44 @@ INSERT INTO permissions (
   sort_order
 )
 VALUES
+  ('dashboard.view', 'Dashboard', 'Ver dashboard general', 5),
   ('nutrition.view', 'Nutricion', 'Ver pacientes y controles nutricionales', 55),
   ('nutrition.manage', 'Nutricion', 'Administrar pacientes y controles nutricionales', 56)
 ON DUPLICATE KEY UPDATE
   module_name = VALUES(module_name),
   description = VALUES(description),
   sort_order = VALUES(sort_order);
+
+DELETE rp
+FROM role_permissions rp
+INNER JOIN roles r
+  ON r.id = rp.role_id
+INNER JOIN permissions p
+  ON p.id = rp.permission_id
+WHERE r.name = 'user'
+  AND p.permission_key IN (
+    'nutrition.view',
+    'nutrition.manage'
+  );
+
+INSERT INTO role_permissions (
+  role_id,
+  permission_id,
+  allowed
+)
+SELECT
+  r.id,
+  p.id,
+  TRUE
+FROM roles r
+INNER JOIN permissions p
+  ON p.permission_key = 'dashboard.view'
+WHERE r.name IN (
+  'admin',
+  'dir'
+)
+ON DUPLICATE KEY UPDATE
+  allowed = VALUES(allowed);
 
 INSERT INTO role_permissions (
   role_id,

@@ -17,11 +17,7 @@ router.get(
   authenticateToken,
   authorizeRoles(
     'admin',
-    'user',
-    'farmacia',
-    'vacu',
-    'dir',
-    'lab'
+    'dir'
   ),
   getDashboard
 );

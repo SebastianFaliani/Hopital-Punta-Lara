@@ -27,6 +27,11 @@ function getRequestPermission(
     manage: string;
   }> = [
     {
+      paths: ['/dashboard'],
+      view: 'dashboard.view',
+      manage: 'dashboard.view'
+    },
+    {
       paths: [
         '/medications',
         '/batches',
