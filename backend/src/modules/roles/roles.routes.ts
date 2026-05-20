@@ -7,6 +7,7 @@ import {
 } from '../auth/auth.middleware';
 
 import {
+  createNewRole,
   getAllRoles
 } from './roles.controller';
 
@@ -17,6 +18,13 @@ router.get(
   authenticateToken,
   authorizeRoles('admin', 'dir'),
   getAllRoles
+);
+
+router.post(
+  '/',
+  authenticateToken,
+  authorizeRoles('admin'),
+  createNewRole
 );
 
 export default router;

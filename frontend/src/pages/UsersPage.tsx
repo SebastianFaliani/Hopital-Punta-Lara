@@ -23,12 +23,36 @@ type User = {
   is_active: boolean;
 };
 
+type Role = {
+  id: number;
+  name: string;
+  description: string;
+};
+
 export default function UsersPage() {
 
   const { user } = useAuth();
 
   const [users, setUsers] =
     useState<User[]>([]);
+
+  const [roles, setRoles] =
+    useState<Role[]>([]);
+
+  const [activeTab, setActiveTab] =
+    useState<'users' | 'roles'>('users');
+
+  const [roleForm, setRoleForm] =
+    useState({
+      name: '',
+      description: ''
+    });
+
+  const [roleSaving, setRoleSaving] =
+    useState(false);
+
+  const [roleError, setRoleError] =
+    useState('');
 
   const [openModal, setOpenModal] =
     useState(false);
@@ -64,9 +88,25 @@ export default function UsersPage() {
     }
   }
 
+  async function loadRoles() {
+
+    try {
+
+      const res =
+        await apiFetch('/roles');
+
+      setRoles(res.data);
+
+    } catch (error) {
+
+      console.error(error);
+    }
+  }
+
   useEffect(() => {
 
     loadUsers();
+    loadRoles();
 
   }, []);
 
@@ -91,17 +131,52 @@ export default function UsersPage() {
     }
   }
 
+  async function handleCreateRole(
+    e: React.FormEvent
+  ) {
+
+    e.preventDefault();
+
+    setRoleError('');
+
+    if (!roleForm.name.trim()) {
+      setRoleError('El nombre del rol es obligatorio');
+      return;
+    }
+
+    try {
+
+      setRoleSaving(true);
+
+      await apiFetch(
+        '/roles',
+        {
+          method: 'POST',
+          body: JSON.stringify(roleForm)
+        }
+      );
+
+      setRoleForm({
+        name: '',
+        description: ''
+      });
+
+      await loadRoles();
+
+    } catch (error: any) {
+
+      setRoleError(error.message);
+
+    } finally {
+
+      setRoleSaving(false);
+    }
+  }
+
   if (user?.role !== 'admin') {
 
     return <h2>No autorizado</h2>;
   }
-
-  const roles =
-    Array.from(
-      new Set(
-        users.map((u) => u.role)
-      )
-    );
 
   const filteredUsers =
     users.filter((u) => {
@@ -152,16 +227,58 @@ export default function UsersPage() {
           Usuarios
         </h1>
 
+        {
+          activeTab === 'users' && (
+
+            <button
+              className="btn-primary"
+              onClick={() =>
+                setOpenModal(true)
+              }
+            >
+              + Nuevo usuario
+            </button>
+          )
+        }
+
+      </div>
+
+      <div className="module-tabs">
+
         <button
-          className="btn-primary"
+          type="button"
+          className={
+            activeTab === 'users'
+              ? 'active'
+              : ''
+          }
           onClick={() =>
-            setOpenModal(true)
+            setActiveTab('users')
           }
         >
-          + Nuevo usuario
+          Usuarios
+        </button>
+
+        <button
+          type="button"
+          className={
+            activeTab === 'roles'
+              ? 'active'
+              : ''
+          }
+          onClick={() =>
+            setActiveTab('roles')
+          }
+        >
+          Roles
         </button>
 
       </div>
+
+      {
+        activeTab === 'users' && (
+
+          <>
 
       <div className="filter-bar">
 
@@ -192,10 +309,10 @@ export default function UsersPage() {
           </option>
           {roles.map((role) => (
             <option
-              key={role}
-              value={role}
+              key={role.id}
+              value={role.name}
             >
-              {role}
+              {role.description || role.name}
             </option>
           ))}
         </select>
@@ -408,6 +525,127 @@ export default function UsersPage() {
 
       </table>
 </div>
+
+          </>
+        )
+      }
+
+      {
+        activeTab === 'roles' && (
+
+          <section>
+
+            <form
+              className="filter-bar"
+              onSubmit={handleCreateRole}
+            >
+
+              <input
+                className="form-input"
+                placeholder="Nombre interno. Ej: nutri"
+                value={roleForm.name}
+                onChange={(e) =>
+                  setRoleForm({
+                    ...roleForm,
+                    name: e.target.value
+                  })
+                }
+              />
+
+              <input
+                className="form-input"
+                placeholder="Descripcion visible. Ej: Nutricion"
+                value={roleForm.description}
+                onChange={(e) =>
+                  setRoleForm({
+                    ...roleForm,
+                    description: e.target.value
+                  })
+                }
+              />
+
+              <button
+                className="btn-primary"
+                type="submit"
+                disabled={roleSaving}
+              >
+                {
+                  roleSaving
+                    ? 'Guardando...'
+                    : '+ Crear rol'
+                }
+              </button>
+
+            </form>
+
+            {
+              roleError && (
+
+                <p className="form-error">
+                  {roleError}
+                </p>
+              )
+            }
+
+            <p className="results-summary">
+              Los permisos concretos se asignan desde el boton Permisos de cada usuario.
+            </p>
+
+            <div className="table-container">
+
+              <table className="data-table">
+
+                <thead>
+
+                  <tr>
+
+                    <th>ID</th>
+
+                    <th>Nombre interno</th>
+
+                    <th>Descripcion</th>
+
+                  </tr>
+
+                </thead>
+
+                <tbody>
+
+                  {roles.map((role) => (
+
+                    <tr key={role.id}>
+
+                      <td>{role.id}</td>
+
+                      <td>{role.name}</td>
+
+                      <td>{role.description || role.name}</td>
+
+                    </tr>
+                  ))}
+
+                  {
+                    roles.length === 0 && (
+
+                      <tr>
+
+                        <td colSpan={3}>
+                          No hay roles cargados.
+                        </td>
+
+                      </tr>
+                    )
+                  }
+
+                </tbody>
+
+              </table>
+
+            </div>
+
+          </section>
+        )
+      }
 
       {
         openModal && (

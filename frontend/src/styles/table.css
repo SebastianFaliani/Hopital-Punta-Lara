@@ -165,6 +165,10 @@
   height: 275px;
 
   max-height: 275px;
+
+  position: relative;
+
+  overflow: auto;
 }
 
 .attendance-summary-table {
@@ -172,6 +176,12 @@
   box-shadow: none;
 
   border-radius: 0;
+
+  overflow: visible;
+
+  border-collapse: separate;
+
+  border-spacing: 0;
 }
 
 .attendance-summary-table th,
@@ -188,7 +198,18 @@
 
 .attendance-summary-table thead th {
 
+  position: sticky;
+
+  top: 0;
+
+  z-index: 2;
+
   height: 34px;
+
+  background: #f8fafc;
+
+  box-shadow:
+    0 1px 0 #e5e7eb;
 }
 
 .pagination-bar {
@@ -754,6 +775,8 @@
 
   border-radius: 0;
 
+  overflow: visible;
+
   border-collapse: separate;
 
   border-spacing: 0;
@@ -799,13 +822,25 @@
   height: 42px;
 }
 
+.attendance-grid thead,
+.attendance-summary-table thead,
+.attendance-grid thead tr,
+.attendance-summary-table thead tr {
+
+  position: sticky;
+
+  top: 0;
+
+  z-index: 20;
+}
+
 .attendance-grid thead th {
 
   position: sticky;
 
   top: 0;
 
-  z-index: 2;
+  z-index: 22;
 
   height: 42px;
 
@@ -845,6 +880,8 @@
 .attendance-grid thead .attendance-employee-cell {
 
   background: #f3f4f6;
+
+  z-index: 30;
 }
 
 .attendance-employee-cell strong,
