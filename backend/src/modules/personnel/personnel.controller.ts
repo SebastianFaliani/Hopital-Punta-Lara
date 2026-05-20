@@ -26,6 +26,7 @@ import {
   getEmployeeDirectiveSummary,
   getAttendanceSummary,
   getEmployeeLeaveSummary,
+  fillPresentAttendanceDay,
   getLeaveBalanceAdjustments,
   getLeaveRequests,
   getVacationBalances,
@@ -265,6 +266,80 @@ export async function handleSaveAttendanceMonth(
 
     return res.json({
       success: true
+    });
+
+  } catch (error: any) {
+    return res.status(400).json({
+      success: false,
+      message: error.message
+    });
+  }
+}
+
+export async function handleFillPresentAttendanceDay(
+  req: AuthRequest,
+  res: Response
+) {
+
+  try {
+
+    const year =
+      Number(req.body.year);
+
+    const month =
+      Number(req.body.month);
+
+    const day =
+      Number(req.body.day);
+
+    const departmentId =
+      req.body.department_id
+        ? Number(req.body.department_id)
+        : null;
+
+    if (
+      !year ||
+      !month ||
+      !day ||
+      month < 1 ||
+      month > 12
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          'Anio, mes y dia son obligatorios'
+      });
+    }
+
+    const result =
+      await fillPresentAttendanceDay(
+        year,
+        month,
+        day,
+        departmentId,
+        req.user?.id
+      );
+
+    await logAudit({
+      user: req.user,
+      module: 'personal',
+      action: 'completar_presentes',
+      entityType: 'attendance_record',
+      description:
+        `Completo presentes del dia ${result.date}`,
+      newData: {
+        ...req.body,
+        completed: result.completed
+      },
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'] || null
+    });
+
+    return res.json({
+      success: true,
+      data: result,
+      message:
+        `Se completaron ${result.completed} presente(s)`
     });
 
   } catch (error: any) {

@@ -18,6 +18,7 @@ import {
   handleGetAttendanceMonth,
   handleGetAttendanceSummary,
   handleGetEmployeeDirectiveSummary,
+  handleFillPresentAttendanceDay,
   handleGetDepartments,
   handleGetEmployeeLeaveSummary,
   handleGetEmployees,
@@ -76,6 +77,11 @@ router.get(
 router.put(
   '/attendance',
   handleSaveAttendanceMonth
+);
+
+router.post(
+  '/attendance/fill-present',
+  handleFillPresentAttendanceDay
 );
 
 router.get(

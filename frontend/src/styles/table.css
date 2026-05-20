@@ -935,6 +935,19 @@
   border-color: #ef4444;
 }
 
+.attendance-code-permission {
+
+  box-shadow:
+    inset 0 0 0 2px #0ea5e9;
+
+  background:
+    linear-gradient(
+      180deg,
+      #ffffff 0%,
+      #eff6ff 100%
+    );
+}
+
 .attendance-code-input:focus {
 
   outline:
@@ -959,9 +972,9 @@
   }
 
   .attendance-toolbar .form-input,
-  .attendance-filter-small,
-  .attendance-filter-wide,
-  .attendance-filter-search {
+.attendance-filter-small,
+.attendance-filter-wide,
+.attendance-filter-search {
 
     width: 100%;
 

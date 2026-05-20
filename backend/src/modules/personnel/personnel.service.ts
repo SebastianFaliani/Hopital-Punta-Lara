@@ -496,8 +496,38 @@ export async function getAttendanceMonth(
       [period.id]
     );
 
+  const [permissionRows]: any =
+    await pool.query(
+      `
+        SELECT
+          lr.employee_id,
+          DAY(lr.start_date) AS day,
+          ac.code,
+          ac.description,
+          lr.status,
+          lr.permission_kind,
+          lr.total_hours
+        FROM leave_requests lr
+        INNER JOIN attendance_codes ac
+          ON ac.id = lr.attendance_code_id
+        WHERE ac.code IN ('24', '43')
+          AND lr.status IN ('pendiente', 'aprobado')
+          AND lr.start_date BETWEEN ? AND ?
+        ORDER BY
+          lr.employee_id ASC,
+          lr.start_date ASC
+      `,
+      [
+        getDateKey(year, month, 1),
+        getDateKey(year, month, getDaysInMonth(year, month))
+      ]
+    );
+
   const recordMap =
     new Map<string, any>();
+
+  const permissionMap =
+    new Map<string, any[]>();
 
   for (const record of records) {
     recordMap.set(
@@ -507,6 +537,24 @@ export async function getAttendanceMonth(
         description: record.description || ''
       }
     );
+  }
+
+  for (const permission of permissionRows) {
+    const key =
+      `${permission.employee_id}-${permission.day}`;
+
+    const current =
+      permissionMap.get(key) || [];
+
+    current.push({
+      code: permission.code,
+      description: permission.description,
+      status: permission.status,
+      permission_kind: permission.permission_kind,
+      total_hours: Number(permission.total_hours || 0)
+    });
+
+    permissionMap.set(key, current);
   }
 
   const days =
@@ -521,12 +569,20 @@ export async function getAttendanceMonth(
       const attendance: Record<string, any> = {};
 
       for (let day = 1; day <= days; day += 1) {
-        attendance[day] =
-          recordMap.get(
-            `${employee.id}-${day}`
-          ) || {
+        const key =
+          `${employee.id}-${day}`;
+
+        const baseRecord =
+          recordMap.get(key) || {
             code: '',
             description: ''
+          };
+
+        attendance[day] =
+          {
+            ...baseRecord,
+            permissions:
+              permissionMap.get(key) || []
           };
       }
 
@@ -670,6 +726,113 @@ export async function saveAttendanceMonth(
   }
 
   return true;
+}
+
+export async function fillPresentAttendanceDay(
+  year: number,
+  month: number,
+  day: number,
+  departmentId: number | null,
+  userId?: number
+) {
+
+  const days =
+    getDaysInMonth(
+      year,
+      month
+    );
+
+  if (!day || day < 1 || day > days) {
+    throw new Error(
+      'Dia invalido para el mes seleccionado'
+    );
+  }
+
+  const period =
+    await getOrCreateAttendancePeriod(
+      year,
+      month
+    );
+
+  const attendanceDate =
+    getDateKey(
+      year,
+      month,
+      day
+    );
+
+  const [codeRows]: any =
+    await pool.query(
+      `
+        SELECT id
+        FROM attendance_codes
+        WHERE code = 'P'
+          AND is_active = TRUE
+        LIMIT 1
+      `
+    );
+
+  if (!codeRows.length) {
+    throw new Error(
+      'La clave P de Presente no existe o esta inactiva'
+    );
+  }
+
+  const params: any[] = [
+    period.id,
+    codeRows[0].id,
+    attendanceDate,
+    'P',
+    userId || null,
+    attendanceDate
+  ];
+
+  let departmentFilter = '';
+
+  if (departmentId) {
+    departmentFilter =
+      'AND e.department_id = ?';
+    params.push(departmentId);
+  }
+
+  const [result]: any =
+    await pool.query(
+      `
+        INSERT INTO attendance_records (
+          employee_id,
+          attendance_period_id,
+          attendance_code_id,
+          attendance_date,
+          raw_code,
+          source,
+          created_by
+        )
+        SELECT
+          e.id,
+          ?,
+          ?,
+          ?,
+          ?,
+          'auto_present',
+          ?
+        FROM employees e
+        WHERE e.is_active = TRUE
+          AND NOT EXISTS (
+            SELECT 1
+            FROM attendance_records ar
+            WHERE ar.employee_id = e.id
+              AND ar.attendance_date = ?
+          )
+          ${departmentFilter}
+      `,
+      params
+    );
+
+  return {
+    date: attendanceDate,
+    completed:
+      Number(result.affectedRows || 0)
+  };
 }
 
 export async function getAttendanceSummary(
