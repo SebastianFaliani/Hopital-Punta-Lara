@@ -8,9 +8,14 @@ import {
 
 import {
   createReply,
+  getWhatsappConnectionStatus,
+  getWhatsappLogs,
   getReplies,
+  logoutWhatsappConnection,
   receiveIncomingMessage,
   simulateMessage,
+  startWhatsappConnection,
+  stopWhatsappConnection,
   toggleReply,
   updateReply
 } from './whatsapp.controller';
@@ -20,6 +25,41 @@ const router = Router();
 router.post(
   '/incoming',
   receiveIncomingMessage
+);
+
+router.get(
+  '/web/status',
+  authenticateToken,
+  authorizeRoles('admin', 'user'),
+  getWhatsappConnectionStatus
+);
+
+router.post(
+  '/web/start',
+  authenticateToken,
+  authorizeRoles('admin', 'user'),
+  startWhatsappConnection
+);
+
+router.post(
+  '/web/stop',
+  authenticateToken,
+  authorizeRoles('admin', 'user'),
+  stopWhatsappConnection
+);
+
+router.post(
+  '/web/logout',
+  authenticateToken,
+  authorizeRoles('admin', 'user'),
+  logoutWhatsappConnection
+);
+
+router.get(
+  '/logs',
+  authenticateToken,
+  authorizeRoles('admin', 'user'),
+  getWhatsappLogs
 );
 
 router.get(

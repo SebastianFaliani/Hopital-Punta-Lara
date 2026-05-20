@@ -6,10 +6,18 @@ import {
 import {
   buildWhatsappResponse,
   createWhatsappReply,
+  getRecentWhatsappLogs,
   getAllWhatsappReplies,
   toggleWhatsappReply,
   updateWhatsappReply
 } from './whatsapp.service';
+
+import {
+  getWhatsappWebStatus,
+  logoutWhatsappWebSession,
+  startWhatsappWebSession,
+  stopWhatsappWebSession
+} from './whatsapp-web.service';
 
 function validateReply(
   body: any
@@ -199,6 +207,93 @@ export async function receiveIncomingMessage(
   } catch (error: any) {
 
     return res.status(400).json({
+      success: false,
+      message: error.message
+    });
+  }
+}
+
+export async function getWhatsappConnectionStatus(
+  req: Request,
+  res: Response
+) {
+
+  return res.json({
+    success: true,
+    data: getWhatsappWebStatus()
+  });
+}
+
+export async function startWhatsappConnection(
+  req: Request,
+  res: Response
+) {
+
+  try {
+
+    const status =
+      await startWhatsappWebSession();
+
+    return res.json({
+      success: true,
+      data: status
+    });
+
+  } catch (error: any) {
+
+    return res.status(400).json({
+      success: false,
+      message: error.message
+    });
+  }
+}
+
+export async function stopWhatsappConnection(
+  req: Request,
+  res: Response
+) {
+
+  const status =
+    await stopWhatsappWebSession();
+
+  return res.json({
+    success: true,
+    data: status
+  });
+}
+
+export async function logoutWhatsappConnection(
+  req: Request,
+  res: Response
+) {
+
+  const status =
+    await logoutWhatsappWebSession();
+
+  return res.json({
+    success: true,
+    data: status
+  });
+}
+
+export async function getWhatsappLogs(
+  req: Request,
+  res: Response
+) {
+
+  try {
+
+    const logs =
+      await getRecentWhatsappLogs();
+
+    return res.json({
+      success: true,
+      data: logs
+    });
+
+  } catch (error: any) {
+
+    return res.status(500).json({
       success: false,
       message: error.message
     });

@@ -44,6 +44,26 @@ export async function getAllWhatsappReplies() {
   return rows;
 }
 
+export async function getRecentWhatsappLogs() {
+
+  const [rows]: any =
+    await pool.query(
+      `
+        SELECT
+          id,
+          phone,
+          incoming_message,
+          response_message,
+          created_at
+        FROM whatsapp_message_logs
+        ORDER BY created_at DESC, id DESC
+        LIMIT 25
+      `
+    );
+
+  return rows;
+}
+
 export async function createWhatsappReply(
   data: ReplyInput
 ) {

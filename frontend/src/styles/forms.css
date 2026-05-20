@@ -581,3 +581,76 @@
     Helvetica,
     sans-serif;
 }
+
+.whatsapp-connection-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.whatsapp-connection-header h2 {
+  margin: 0;
+}
+
+.whatsapp-connection-grid {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 20px;
+  align-items: stretch;
+}
+
+.whatsapp-qr-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 260px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.whatsapp-qr-box img {
+  width: 230px;
+  max-width: 100%;
+  height: auto;
+}
+
+.whatsapp-qr-placeholder {
+  padding: 18px;
+  color: #64748b;
+  font-weight: 700;
+  text-align: center;
+}
+
+.whatsapp-connection-info {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+}
+
+.whatsapp-connection-info p {
+  margin: 0;
+}
+
+.badge-warning {
+  color: #92400e;
+  background: #fef3c7;
+}
+
+@media (max-width: 760px) {
+  .whatsapp-connection-header {
+    display: block;
+  }
+
+  .whatsapp-connection-header .badge {
+    display: inline-block;
+    margin-top: 10px;
+  }
+
+  .whatsapp-connection-grid {
+    grid-template-columns: 1fr;
+  }
+}
