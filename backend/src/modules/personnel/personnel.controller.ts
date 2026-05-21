@@ -8,6 +8,7 @@ import {
 } from '../auth/auth.middleware';
 
 import {
+  createAttendanceCode,
   createDepartment,
   createEmployee,
   createLeaveBalanceAdjustment,
@@ -93,6 +94,29 @@ export async function handleGetAttendanceCodes(
     });
   } catch (error: any) {
     return res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+}
+
+export async function handleCreateAttendanceCode(
+  req: Request,
+  res: Response
+) {
+
+  try {
+
+    const id =
+      await createAttendanceCode(req.body);
+
+    return res.status(201).json({
+      success: true,
+      data: { id }
+    });
+
+  } catch (error: any) {
+    return res.status(400).json({
       success: false,
       message: error.message
     });

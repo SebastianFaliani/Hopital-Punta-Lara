@@ -153,6 +153,12 @@ type LeaveSummary = {
     pending_days: number;
     remaining_days: number;
   };
+  compensatory: {
+    earned_days: number;
+    used_days: number;
+    pending_days: number;
+    remaining_days: number;
+  };
 };
 
 const emptyEmployee = {
@@ -200,6 +206,56 @@ const emptyBalanceAdjustmentForm = {
   used_hours: '',
   notes: ''
 };
+
+const emptyCodeForm = {
+  code: '',
+  description: '',
+  category: 'otro',
+  counts_as_present: false,
+  requires_approval: false,
+  requires_documentation: false,
+  affects_salary: false,
+  annual_limit_days: '',
+  advance_notice_days: '',
+  is_active: true
+};
+
+const codeCategories = [
+  'presente',
+  'ausencia',
+  'franco',
+  'licencia',
+  'vacaciones',
+  'maternidad',
+  'gremial',
+  'otro'
+];
+
+const leaveCodeOptions = [
+  '1',
+  '4',
+  '5',
+  '6',
+  '7',
+  '8',
+  '14',
+  '15',
+  '16',
+  '17',
+  '18',
+  '26',
+  '29',
+  '31',
+  '33',
+  '34',
+  '35',
+  '40',
+  '42',
+  '46',
+  '51',
+  '24',
+  '43'
+];
 
 function toDateInput(
   value: string | null
@@ -459,6 +515,9 @@ export default function PersonnelPage() {
   const [balanceAdjustmentForm, setBalanceAdjustmentForm] =
     useState(emptyBalanceAdjustmentForm);
 
+  const [codeForm, setCodeForm] =
+    useState(emptyCodeForm);
+
   const [employeeForm, setEmployeeForm] =
     useState(emptyEmployee);
 
@@ -687,6 +746,91 @@ export default function PersonnelPage() {
         name: '',
         description: ''
       });
+
+      loadData();
+
+    } catch (error: any) {
+
+      setError(error.message);
+    }
+  }
+
+  function handleCodeFormChange(
+    e: React.ChangeEvent<
+      HTMLInputElement |
+      HTMLSelectElement
+    >
+  ) {
+
+    const target =
+      e.target as HTMLInputElement;
+
+    setCodeForm({
+      ...codeForm,
+      [target.name]:
+        target.type === 'checkbox'
+          ? target.checked
+          : target.value
+    });
+  }
+
+  async function handleCodeSubmit(
+    e: React.FormEvent
+  ) {
+
+    e.preventDefault();
+    setError('');
+
+    try {
+
+      await apiFetch(
+        '/personnel/attendance-codes',
+        {
+          method: 'POST',
+          body:
+            JSON.stringify({
+              ...codeForm,
+              annual_limit_days:
+                codeForm.annual_limit_days
+                  ? Number(codeForm.annual_limit_days)
+                  : null,
+              advance_notice_days:
+                codeForm.advance_notice_days
+                  ? Number(codeForm.advance_notice_days)
+                  : null
+            })
+        }
+      );
+
+      setCodeForm(emptyCodeForm);
+      loadData();
+
+    } catch (error: any) {
+
+      setError(error.message);
+    }
+  }
+
+  async function updateCode(
+    code: AttendanceCode,
+    data: Partial<AttendanceCode>
+  ) {
+
+    setError('');
+
+    try {
+
+      await apiFetch(
+        `/personnel/attendance-codes/${code.id}`,
+        {
+          method: 'PUT',
+          body:
+            JSON.stringify({
+              ...code,
+              ...data
+            })
+        }
+      );
 
       loadData();
 
@@ -1088,6 +1232,66 @@ export default function PersonnelPage() {
     });
   }
 
+  function hasPendingAttendanceChanges() {
+
+    return Object.keys(attendanceEdits).length > 0;
+  }
+
+  function confirmDiscardAttendanceChanges() {
+
+    if (!hasPendingAttendanceChanges()) {
+      return true;
+    }
+
+    return window.confirm(
+      'Tenes cambios de presentismo sin guardar. Si continuas, vas a perder esos cambios.'
+    );
+  }
+
+  function changeTab(
+    tab: string
+  ) {
+
+    if (
+      activeTab === 'attendance' &&
+      tab !== 'attendance' &&
+      !confirmDiscardAttendanceChanges()
+    ) {
+      return;
+    }
+
+    if (
+      activeTab === 'attendance' &&
+      tab !== 'attendance'
+    ) {
+      setAttendanceEdits({});
+    }
+
+    setActiveTab(tab);
+  }
+
+  function updateAttendanceFilters(
+    data: Partial<typeof attendanceFilters>,
+    shouldDiscardEdits = false
+  ) {
+
+    if (
+      shouldDiscardEdits &&
+      !confirmDiscardAttendanceChanges()
+    ) {
+      return;
+    }
+
+    if (shouldDiscardEdits) {
+      setAttendanceEdits({});
+    }
+
+    setAttendanceFilters({
+      ...attendanceFilters,
+      ...data
+    });
+  }
+
   function focusAttendanceInput(
     rowIndex: number,
     day: number
@@ -1228,6 +1432,80 @@ export default function PersonnelPage() {
 
   useEffect(() => {
 
+    const hasChanges =
+      Object.keys(attendanceEdits).length > 0;
+
+    function handleBeforeUnload(
+      event: BeforeUnloadEvent
+    ) {
+
+      if (!hasChanges) {
+        return;
+      }
+
+      event.preventDefault();
+      event.returnValue = '';
+    }
+
+    function handleDocumentClick(
+      event: MouseEvent
+    ) {
+
+      if (!hasChanges || activeTab !== 'attendance') {
+        return;
+      }
+
+      const link =
+        (event.target as HTMLElement)
+          .closest('a');
+
+      if (!link) {
+        return;
+      }
+
+      const href =
+        link.getAttribute('href');
+
+      if (!href || href.startsWith('#')) {
+        return;
+      }
+
+      if (
+        !window.confirm(
+          'Tenes cambios de presentismo sin guardar. Si continuas, vas a perder esos cambios.'
+        )
+      ) {
+        event.preventDefault();
+      }
+    }
+
+    window.addEventListener(
+      'beforeunload',
+      handleBeforeUnload
+    );
+
+    document.addEventListener(
+      'click',
+      handleDocumentClick,
+      true
+    );
+
+    return () => {
+      window.removeEventListener(
+        'beforeunload',
+        handleBeforeUnload
+      );
+      document.removeEventListener(
+        'click',
+        handleDocumentClick,
+        true
+      );
+    };
+
+  }, [attendanceEdits, activeTab]);
+
+  useEffect(() => {
+
     if (activeTab === 'attendance') {
       loadAttendance();
     }
@@ -1251,7 +1529,13 @@ export default function PersonnelPage() {
       loadVacationData();
     }
 
-  }, [activeTab, attendanceFilters, vacationYear]);
+  }, [
+    activeTab,
+    attendanceFilters.year,
+    attendanceFilters.month,
+    attendanceFilters.department,
+    vacationYear
+  ]);
 
   const filteredEmployees =
     employees.filter((employee) => {
@@ -1498,7 +1782,7 @@ export default function PersonnelPage() {
               : 'module-tab'
           }
           onClick={() =>
-            setActiveTab('employees')
+            changeTab('employees')
           }
         >
           Empleados
@@ -1511,7 +1795,7 @@ export default function PersonnelPage() {
               : 'module-tab'
           }
           onClick={() =>
-            setActiveTab('departments')
+            changeTab('departments')
           }
         >
           Sectores
@@ -1524,7 +1808,7 @@ export default function PersonnelPage() {
               : 'module-tab'
           }
           onClick={() =>
-            setActiveTab('codes')
+            changeTab('codes')
           }
         >
           Claves
@@ -1537,7 +1821,7 @@ export default function PersonnelPage() {
               : 'module-tab'
           }
           onClick={() =>
-            setActiveTab('attendance')
+            changeTab('attendance')
           }
         >
           Presentismo
@@ -1550,7 +1834,7 @@ export default function PersonnelPage() {
               : 'module-tab'
           }
           onClick={() =>
-            setActiveTab('leaves')
+            changeTab('leaves')
           }
         >
           Licencias
@@ -1563,7 +1847,7 @@ export default function PersonnelPage() {
               : 'module-tab'
           }
           onClick={() =>
-            setActiveTab('leave-requests')
+            changeTab('leave-requests')
           }
         >
           Licencias pendientes
@@ -1576,7 +1860,7 @@ export default function PersonnelPage() {
               : 'module-tab'
           }
           onClick={() =>
-            setActiveTab('vacation-rules')
+            changeTab('vacation-rules')
           }
         >
           Reglas vacaciones
@@ -1589,7 +1873,7 @@ export default function PersonnelPage() {
               : 'module-tab'
           }
           onClick={() =>
-            setActiveTab('balance-adjustments')
+            changeTab('balance-adjustments')
           }
         >
           Saldos iniciales
@@ -1980,42 +2264,284 @@ export default function PersonnelPage() {
 
       {
         activeTab === 'codes' && (
-          <div className="table-container">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Clave</th>
-                  <th>Descripcion</th>
-                  <th>Categoria</th>
-                  <th>Aprueba</th>
-                  <th>Documentacion</th>
-                  <th>Limite anual</th>
-                  <th>Anticipacion</th>
-                </tr>
-              </thead>
-              <tbody>
-                {codes.map((code) => (
-                  <tr key={code.id}>
-                    <td>{code.code}</td>
-                    <td>{code.description}</td>
-                    <td>{code.category}</td>
-                    <td>
-                      {code.requires_approval ? 'Si' : 'No'}
-                    </td>
-                    <td>
-                      {code.requires_documentation ? 'Si' : 'No'}
-                    </td>
-                    <td>
-                      {code.annual_limit_days || '-'}
-                    </td>
-                    <td>
-                      {code.advance_notice_days || '-'}
-                    </td>
-                  </tr>
+          <>
+            <form
+              className="personnel-form"
+              onSubmit={handleCodeSubmit}
+            >
+              <input
+                className="form-input"
+                name="code"
+                placeholder="Clave"
+                value={codeForm.code}
+                onChange={handleCodeFormChange}
+              />
+
+              <input
+                className="form-input"
+                name="description"
+                placeholder="Descripcion"
+                value={codeForm.description}
+                onChange={handleCodeFormChange}
+              />
+
+              <select
+                className="form-input"
+                name="category"
+                value={codeForm.category}
+                onChange={handleCodeFormChange}
+              >
+                {codeCategories.map((category) => (
+                  <option
+                    key={category}
+                    value={category}
+                  >
+                    {category}
+                  </option>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </select>
+
+              <label className="checkbox-row">
+                <input
+                  type="checkbox"
+                  name="counts_as_present"
+                  checked={codeForm.counts_as_present}
+                  onChange={handleCodeFormChange}
+                />
+                Cuenta como presente
+              </label>
+
+              <label className="checkbox-row">
+                <input
+                  type="checkbox"
+                  name="requires_approval"
+                  checked={codeForm.requires_approval}
+                  onChange={handleCodeFormChange}
+                />
+                Requiere aprobacion
+              </label>
+
+              <label className="checkbox-row">
+                <input
+                  type="checkbox"
+                  name="requires_documentation"
+                  checked={codeForm.requires_documentation}
+                  onChange={handleCodeFormChange}
+                />
+                Documentacion
+              </label>
+
+              <button
+                className="btn-success"
+                type="submit"
+              >
+                Crear clave
+              </button>
+            </form>
+
+            <div className="table-container">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Clave</th>
+                    <th>Descripcion</th>
+                    <th>Categoria</th>
+                    <th>Presente</th>
+                    <th>Aprueba</th>
+                    <th>Documentacion</th>
+                    <th>Sueldo</th>
+                    <th>Limite anual</th>
+                    <th>Anticipacion</th>
+                    <th>Estado</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {codes.map((code) => (
+                    <tr key={code.id}>
+                      <td>
+                        <input
+                          className="attendance-code-input"
+                          defaultValue={code.code}
+                          onBlur={(e) =>
+                            updateCode(
+                              code,
+                              {
+                                code:
+                                  e.target.value
+                                    .trim()
+                                    .toUpperCase()
+                              }
+                            )
+                          }
+                        />
+                      </td>
+                      <td>
+                        <input
+                          className="form-input"
+                          defaultValue={code.description}
+                          onBlur={(e) =>
+                            updateCode(
+                              code,
+                              {
+                                description:
+                                  e.target.value
+                              }
+                            )
+                          }
+                        />
+                      </td>
+                      <td>
+                        <select
+                          className="form-input"
+                          defaultValue={code.category}
+                          onChange={(e) =>
+                            updateCode(
+                              code,
+                              {
+                                category:
+                                  e.target.value
+                              }
+                            )
+                          }
+                        >
+                          {codeCategories.map((category) => (
+                            <option
+                              key={category}
+                              value={category}
+                            >
+                              {category}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td>
+                        <input
+                          type="checkbox"
+                          defaultChecked={code.counts_as_present}
+                          onChange={(e) =>
+                            updateCode(
+                              code,
+                              {
+                                counts_as_present:
+                                  e.target.checked
+                              }
+                            )
+                          }
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="checkbox"
+                          defaultChecked={code.requires_approval}
+                          onChange={(e) =>
+                            updateCode(
+                              code,
+                              {
+                                requires_approval:
+                                  e.target.checked
+                              }
+                            )
+                          }
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="checkbox"
+                          defaultChecked={code.requires_documentation}
+                          onChange={(e) =>
+                            updateCode(
+                              code,
+                              {
+                                requires_documentation:
+                                  e.target.checked
+                              }
+                            )
+                          }
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="checkbox"
+                          defaultChecked={code.affects_salary}
+                          onChange={(e) =>
+                            updateCode(
+                              code,
+                              {
+                                affects_salary:
+                                  e.target.checked
+                              }
+                            )
+                          }
+                        />
+                      </td>
+                      <td>
+                        <input
+                          className="attendance-code-input"
+                          type="number"
+                          defaultValue={
+                            code.annual_limit_days || ''
+                          }
+                          onBlur={(e) =>
+                            updateCode(
+                              code,
+                              {
+                                annual_limit_days:
+                                  e.target.value
+                                    ? Number(e.target.value)
+                                    : null
+                              }
+                            )
+                          }
+                        />
+                      </td>
+                      <td>
+                        <input
+                          className="attendance-code-input"
+                          type="number"
+                          defaultValue={
+                            code.advance_notice_days || ''
+                          }
+                          onBlur={(e) =>
+                            updateCode(
+                              code,
+                              {
+                                advance_notice_days:
+                                  e.target.value
+                                    ? Number(e.target.value)
+                                    : null
+                              }
+                            )
+                          }
+                        />
+                      </td>
+                      <td>
+                        <select
+                          className="form-input"
+                          defaultValue={
+                            code.is_active
+                              ? 'true'
+                              : 'false'
+                          }
+                          onChange={(e) =>
+                            updateCode(
+                              code,
+                              {
+                                is_active:
+                                  e.target.value === 'true'
+                              }
+                            )
+                          }
+                        >
+                          <option value="true">Activa</option>
+                          <option value="false">Inactiva</option>
+                        </select>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )
       }
 
@@ -2037,12 +2563,11 @@ export default function PersonnelPage() {
                     return;
                   }
 
-                  setAttendanceFilters({
-                    ...attendanceFilters,
+                  updateAttendanceFilters({
                     year,
                     month: String(Number(month)),
                     department: 'todos'
-                  });
+                  }, true);
                 }}
               />
 
@@ -2051,8 +2576,7 @@ export default function PersonnelPage() {
                 placeholder="Filtrar sector"
                 value={attendanceFilters.departmentSearch}
                 onChange={(e) =>
-                  setAttendanceFilters({
-                    ...attendanceFilters,
+                  updateAttendanceFilters({
                     departmentSearch: e.target.value,
                     department: 'todos'
                   })
@@ -2064,8 +2588,7 @@ export default function PersonnelPage() {
                 placeholder="Buscar nombre, DNI o legajo"
                 value={attendanceFilters.search}
                 onChange={(e) =>
-                  setAttendanceFilters({
-                    ...attendanceFilters,
+                  updateAttendanceFilters({
                     search: e.target.value
                   })
                 }
@@ -2074,7 +2597,13 @@ export default function PersonnelPage() {
               <button
                 className="btn-primary"
                 type="button"
-                onClick={loadAttendance}
+                onClick={() => {
+                  if (!confirmDiscardAttendanceChanges()) {
+                    return;
+                  }
+                  setAttendanceEdits({});
+                  loadAttendance();
+                }}
               >
                 Actualizar
               </button>
@@ -2400,6 +2929,13 @@ export default function PersonnelPage() {
                       Asignados {leaveSummary.code29.allowed_days}, usados {leaveSummary.code29.used_days}, pendientes {leaveSummary.code29.pending_days}
                     </span>
                   </div>
+                  <div className="dashboard-card">
+                    <h3>Compensatorios</h3>
+                    <p>{leaveSummary.compensatory.remaining_days}</p>
+                    <span>
+                      Ganados {leaveSummary.compensatory.earned_days}, usados {leaveSummary.compensatory.used_days}, pendientes {leaveSummary.compensatory.pending_days}
+                    </span>
+                  </div>
                 </div>
               )
             }
@@ -2426,31 +2962,7 @@ export default function PersonnelPage() {
               >
                 {codes
                   .filter((code) =>
-                    [
-                      '1',
-                      '4',
-                      '5',
-                      '6',
-                      '7',
-                      '8',
-                      '14',
-                      '15',
-                      '16',
-                      '17',
-                      '18',
-                      '26',
-                      '29',
-                      '31',
-                      '33',
-                      '35',
-                      '40',
-                      '42',
-                      '46',
-                      '51',
-                      '24',
-                      '43'
-                    ]
-                      .includes(code.code)
+                    leaveCodeOptions.includes(code.code)
                   )
                   .map((code) => (
                     <option
@@ -2860,30 +3372,7 @@ export default function PersonnelPage() {
                 <option value="todos">Todas las claves</option>
                 {codes
                   .filter((code) =>
-                    [
-                      '1',
-                      '4',
-                      '5',
-                      '6',
-                      '7',
-                      '8',
-                      '14',
-                      '15',
-                      '16',
-                      '17',
-                      '18',
-                      '26',
-                      '29',
-                      '31',
-                      '33',
-                      '35',
-                      '40',
-                      '42',
-                      '46',
-                      '51',
-                      '24',
-                      '43'
-                    ].includes(code.code)
+                    leaveCodeOptions.includes(code.code)
                   )
                   .map((code) => (
                     <option
@@ -3048,6 +3537,8 @@ export default function PersonnelPage() {
                     [
                       '8',
                       '29',
+                      '34',
+                      'C',
                       '26',
                       '24',
                       '43',

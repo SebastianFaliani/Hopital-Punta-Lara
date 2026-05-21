@@ -16,8 +16,12 @@ export async function sendResetPasswordEmail(
   token: string
 ) {
 
+  const frontendUrl =
+    process.env.FRONTEND_URL ||
+    'http://localhost:5173';
+
   const resetLink =
-    `http://localhost:5173/reset-password?token=${token}`;
+    `${frontendUrl.replace(/\/$/, '')}/reset-password?token=${token}`;
 
   await transporter.sendMail({
     from: process.env.MAIL_FROM,

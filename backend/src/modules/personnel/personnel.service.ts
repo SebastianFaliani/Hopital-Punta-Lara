@@ -296,6 +296,55 @@ export async function updateAttendanceCode(
   return true;
 }
 
+export async function createAttendanceCode(
+  data: any
+) {
+
+  const cleanCode =
+    String(data.code || '')
+      .trim()
+      .toUpperCase();
+
+  if (!cleanCode || !data.description) {
+    throw new Error(
+      'Codigo y descripcion son obligatorios'
+    );
+  }
+
+  const [result]: any =
+    await pool.query(
+      `
+        INSERT INTO attendance_codes (
+          code,
+          description,
+          category,
+          counts_as_present,
+          requires_approval,
+          requires_documentation,
+          affects_salary,
+          annual_limit_days,
+          advance_notice_days,
+          is_active
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `,
+      [
+        cleanCode,
+        data.description,
+        data.category || 'otro',
+        Boolean(data.counts_as_present),
+        Boolean(data.requires_approval),
+        Boolean(data.requires_documentation),
+        Boolean(data.affects_salary),
+        data.annual_limit_days || null,
+        data.advance_notice_days || null,
+        data.is_active ?? true
+      ]
+    );
+
+  return result.insertId;
+}
+
 function getPeriodName(
   year: number,
   month: number
@@ -1518,6 +1567,122 @@ async function getUsageByCodes(
   };
 }
 
+async function getCompensatoryBalance(
+  employeeId: number,
+  year: number
+) {
+
+  const [creditRows]: any =
+    await pool.query(
+      `
+        SELECT COUNT(*) AS total
+        FROM attendance_records ar
+        INNER JOIN attendance_codes ac
+          ON ac.id = ar.attendance_code_id
+        WHERE ar.employee_id = ?
+          AND ac.code = 'C'
+          AND YEAR(ar.attendance_date) = ?
+      `,
+      [
+        employeeId,
+        year
+      ]
+    );
+
+  const [usedRows]: any =
+    await pool.query(
+      `
+        SELECT COUNT(*) AS total
+        FROM attendance_records ar
+        INNER JOIN attendance_codes ac
+          ON ac.id = ar.attendance_code_id
+        WHERE ar.employee_id = ?
+          AND ac.code = '34'
+          AND YEAR(ar.attendance_date) = ?
+      `,
+      [
+        employeeId,
+        year
+      ]
+    );
+
+  const [pendingRows]: any =
+    await pool.query(
+      `
+        SELECT COALESCE(SUM(lr.total_days), 0) AS total
+        FROM leave_requests lr
+        INNER JOIN attendance_codes ac
+          ON ac.id = lr.attendance_code_id
+        WHERE lr.employee_id = ?
+          AND ac.code = '34'
+          AND lr.status = 'pendiente'
+          AND YEAR(lr.start_date) = ?
+      `,
+      [
+        employeeId,
+        year
+      ]
+    );
+
+  const [creditAdjustments]: any =
+    await pool.query(
+      `
+        SELECT COALESCE(SUM(lba.used_days), 0) AS total
+        FROM leave_balance_adjustments lba
+        INNER JOIN attendance_codes ac
+          ON ac.id = lba.attendance_code_id
+        WHERE lba.employee_id = ?
+          AND ac.code = 'C'
+          AND lba.year = ?
+      `,
+      [
+        employeeId,
+        year
+      ]
+    );
+
+  const [usedAdjustments]: any =
+    await pool.query(
+      `
+        SELECT COALESCE(SUM(lba.used_days), 0) AS total
+        FROM leave_balance_adjustments lba
+        INNER JOIN attendance_codes ac
+          ON ac.id = lba.attendance_code_id
+        WHERE lba.employee_id = ?
+          AND ac.code = '34'
+          AND lba.year = ?
+      `,
+      [
+        employeeId,
+        year
+      ]
+    );
+
+  const earnedDays =
+    Number(creditRows[0].total || 0) +
+    Number(creditAdjustments[0].total || 0);
+
+  const usedDays =
+    Number(usedRows[0].total || 0) +
+    Number(usedAdjustments[0].total || 0);
+
+  const pendingDays =
+    Number(pendingRows[0].total || 0);
+
+  return {
+    earnedDays,
+    usedDays,
+    pendingDays,
+    remainingDays:
+      Math.max(
+        0,
+        earnedDays -
+          usedDays -
+          pendingDays
+      )
+  };
+}
+
 async function assertAnnualDayLimit(
   employeeId: number,
   code: string,
@@ -1599,6 +1764,12 @@ export async function getEmployeeLeaveSummary(
   const code29Allowance =
     getCode29Allowance(
       employee,
+      year
+    );
+
+  const compensatory =
+    await getCompensatoryBalance(
+      employeeId,
       year
     );
 
@@ -1689,6 +1860,16 @@ export async function getEmployeeLeaveSummary(
             code29.approvedDays -
             code29.pendingDays
         )
+    },
+    compensatory: {
+      earned_days:
+        compensatory.earnedDays,
+      used_days:
+        compensatory.usedDays,
+      pending_days:
+        compensatory.pendingDays,
+      remaining_days:
+        compensatory.remainingDays
     }
   };
 }
@@ -1808,6 +1989,20 @@ async function validateLeaveRequest(
     if (usage.days + totalDays > allowance && !isException) {
       throw new Error(
         `La clave 29 supera el saldo disponible. Disponible: ${Math.max(0, allowance - usage.days)} dias`
+      );
+    }
+  }
+
+  if (code.code === '34') {
+    const compensatory =
+      await getCompensatoryBalance(
+        employee.id,
+        startYear
+      );
+
+    if (totalDays > compensatory.remainingDays && !isException) {
+      throw new Error(
+        `La clave 34 requiere compensatorios disponibles. Disponibles: ${compensatory.remainingDays} dias`
       );
     }
   }

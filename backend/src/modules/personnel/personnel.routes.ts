@@ -8,6 +8,7 @@ import {
 
 import {
   handleCreateDepartment,
+  handleCreateAttendanceCode,
   handleCreateEmployee,
   handleCreateLeaveBalanceAdjustment,
   handleCreateLeaveRequest,
@@ -52,6 +53,11 @@ router.post(
 router.get(
   '/attendance-codes',
   handleGetAttendanceCodes
+);
+
+router.post(
+  '/attendance-codes',
+  handleCreateAttendanceCode
 );
 
 router.put(
