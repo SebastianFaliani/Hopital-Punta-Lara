@@ -8,9 +8,15 @@ build/
 
 # Env
 .env
+.env.*
 .env.local
 .env.development.local
 .env.production.local
+!.env.example
+!backend/.env.example
+!frontend/.env.example
+!frontend/.env.production.example
+!frontend/.env.android.example
 
 # Logs
 logs

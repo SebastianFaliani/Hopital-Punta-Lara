@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import dotenv from 'dotenv';
 import authRoutes from './modules/auth/auth.routes';
 import usersRoutes from './modules/users/users.routes';
 import rolesRoutes  from './modules/roles/roles.routes';
@@ -14,9 +15,32 @@ import dashboardRoutes from './modules/dashboard/dashboard.routes';
 import whatsappRoutes from './modules/whatsapp/whatsapp.routes';
 import personnelRoutes from './modules/personnel/personnel.routes';
 
+dotenv.config();
+
 const app = express();
 
-app.use(cors());
+const corsOrigins = (
+  process.env.CORS_ORIGINS ||
+  process.env.FRONTEND_URL ||
+  ''
+)
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+app.use(
+  cors({
+    origin(origin, callback) {
+      if (!origin || corsOrigins.length === 0 || corsOrigins.includes(origin)) {
+        callback(null, true);
+        return;
+      }
+
+      callback(new Error('Origen no permitido por CORS'));
+    },
+    credentials: true
+  })
+);
 
 app.use(express.json());
 
