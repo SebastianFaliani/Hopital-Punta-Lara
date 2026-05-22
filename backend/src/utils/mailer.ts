@@ -22,6 +22,7 @@ function getTransporter() {
     host: process.env.MAIL_HOST,
     port: Number(process.env.MAIL_PORT),
     secure: process.env.MAIL_SECURE === 'true',
+    family: 4,
     connectionTimeout: 10000,
     greetingTimeout: 10000,
     socketTimeout: 15000,
@@ -30,7 +31,7 @@ function getTransporter() {
       user: process.env.MAIL_USER,
       pass: process.env.MAIL_PASS
     }
-  });
+  } as any);
 }
 
 export async function sendResetPasswordEmail(
