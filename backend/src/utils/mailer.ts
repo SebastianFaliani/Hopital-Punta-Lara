@@ -1,9 +1,13 @@
 import nodemailer from 'nodemailer';
 import dns from 'node:dns';
+import { promisify } from 'node:util';
 
 dns.setDefaultResultOrder('ipv4first');
 
-function getTransporter() {
+const resolve4 =
+  promisify(dns.resolve4);
+
+async function getTransporter() {
   const requiredVariables = [
     'MAIL_HOST',
     'MAIL_PORT',
@@ -21,8 +25,14 @@ function getTransporter() {
     );
   }
 
+  const mailHost =
+    process.env.MAIL_HOST as string;
+
+  const [ipv4Host] =
+    await resolve4(mailHost);
+
   return nodemailer.createTransport({
-    host: process.env.MAIL_HOST,
+    host: ipv4Host || mailHost,
     port: Number(process.env.MAIL_PORT),
     secure: process.env.MAIL_SECURE === 'true',
     family: 4,
@@ -33,6 +43,10 @@ function getTransporter() {
     auth: {
       user: process.env.MAIL_USER,
       pass: process.env.MAIL_PASS
+    },
+
+    tls: {
+      servername: mailHost
     }
   } as any);
 }
@@ -50,7 +64,7 @@ export async function sendResetPasswordEmail(
     `${frontendUrl.replace(/\/$/, '')}/reset-password?token=${token}`;
 
   const transporter =
-    getTransporter();
+    await getTransporter();
 
   await transporter.sendMail({
     from: process.env.MAIL_FROM,
