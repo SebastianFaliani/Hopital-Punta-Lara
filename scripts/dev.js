@@ -45,7 +45,7 @@ const processes = [
     color: '\x1b[35m',
     ...npmScript(
       'frontend',
-      'dev:lan'
+      'dev'
     )
   }
 ];

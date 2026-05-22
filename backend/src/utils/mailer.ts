@@ -1,15 +1,34 @@
 import nodemailer from 'nodemailer';
 
-const transporter = nodemailer.createTransport({
-  host: process.env.MAIL_HOST,
-  port: Number(process.env.MAIL_PORT),
-  secure: false,
+function getTransporter() {
+  const requiredVariables = [
+    'MAIL_HOST',
+    'MAIL_PORT',
+    'MAIL_USER',
+    'MAIL_PASS',
+    'MAIL_FROM'
+  ];
 
-  auth: {
-    user: process.env.MAIL_USER,
-    pass: process.env.MAIL_PASS
+  const missingVariables =
+    requiredVariables.filter((name) => !process.env[name]);
+
+  if (missingVariables.length > 0) {
+    throw new Error(
+      `Faltan variables de correo: ${missingVariables.join(', ')}`
+    );
   }
-});
+
+  return nodemailer.createTransport({
+    host: process.env.MAIL_HOST,
+    port: Number(process.env.MAIL_PORT),
+    secure: process.env.MAIL_SECURE === 'true',
+
+    auth: {
+      user: process.env.MAIL_USER,
+      pass: process.env.MAIL_PASS
+    }
+  });
+}
 
 export async function sendResetPasswordEmail(
   email: string,
@@ -22,6 +41,9 @@ export async function sendResetPasswordEmail(
 
   const resetLink =
     `${frontendUrl.replace(/\/$/, '')}/reset-password?token=${token}`;
+
+  const transporter =
+    getTransporter();
 
   await transporter.sendMail({
     from: process.env.MAIL_FROM,

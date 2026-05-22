@@ -51,19 +51,19 @@ frontend/.env.android
 Actualmente apunta a:
 
 ```text
-VITE_API_URL=http://192.168.0.157:4000
+VITE_API_URL=https://hopital-punta-lara-production.up.railway.app
 ```
 
-Cuando el sistema se suba a un servidor, cambiar esa URL por el dominio real del backend, por ejemplo:
+Si cambia el servidor, reemplazar esa URL por el dominio real del backend, por ejemplo:
 
 ```text
 VITE_API_URL=https://api.hospitalpuntalara.com
 ```
 
-Mientras se use HTTP en red local, Android tiene una excepcion de seguridad para `192.168.0.157` en:
+La app ya apunta a un backend HTTPS publicado. Si mas adelante se vuelve a probar contra una IP local con HTTP, revisar la excepcion de seguridad en:
 
 ```text
 frontend/android/app/src/main/res/xml/network_security_config.xml
 ```
 
-En produccion conviene usar HTTPS y eliminar la excepcion de HTTP local.
+En produccion conviene usar siempre HTTPS.
