@@ -10,6 +10,7 @@ import {
 
 import { apiFetch }
   from '../api/api';
+import { useAuth } from '../auth/useAuth';
 
 import CreateBatchModal
   from '../components/batches/CreateBatchModal';
@@ -66,6 +67,8 @@ function formatMoney(
 
 export default function MedicationBatchesPage() {
 
+  const { user } = useAuth();
+
   const { id } =
     useParams();
 
@@ -92,6 +95,10 @@ export default function MedicationBatchesPage() {
 
   const [error, setError] =
     useState('');
+
+  const canEdit =
+    user?.role === 'admin' ||
+    user?.role === 'farmacia';
 
   async function loadBatches() {
 
@@ -191,14 +198,16 @@ export default function MedicationBatchesPage() {
 
         </div>
 
-        <button
-          className="btn-primary"
-          onClick={() =>
-            setOpenCreateModal(true)
-          }
-        >
-          + Nuevo lote
-        </button>
+        {canEdit && (
+          <button
+            className="btn-primary"
+            onClick={() =>
+              setOpenCreateModal(true)
+            }
+          >
+            + Nuevo lote
+          </button>
+        )}
 
       </div>
 
@@ -283,40 +292,46 @@ export default function MedicationBatchesPage() {
 
                   <div className="table-actions">
 
-                    <button
-                      className="btn-primary"
-                      onClick={() =>
-                        setSelectedBatch(batch)
-                      }
-                    >
-                      Editar
-                    </button>
+                    {canEdit && (
+                      <button
+                        className="btn-primary"
+                        onClick={() =>
+                          setSelectedBatch(batch)
+                        }
+                      >
+                        Editar
+                      </button>
+                    )}
 
-                    <button
-                      className="btn-secondary"
-                      onClick={() =>
-                        setMovementBatch(batch)
-                      }
-                    >
-                      Movimientos
-                    </button>
+                    {canEdit && (
+                      <button
+                        className="btn-secondary"
+                        onClick={() =>
+                          setMovementBatch(batch)
+                        }
+                      >
+                        Movimientos
+                      </button>
+                    )}
 
-                    <button
-                      className={
-                        batch.is_active
-                          ? 'btn-danger'
-                          : 'btn-success'
-                      }
-                      onClick={() =>
-                        handleToggle(batch.id)
-                      }
-                    >
-                      {
-                        batch.is_active
-                          ? 'Desactivar'
-                          : 'Activar'
-                      }
-                    </button>
+                    {canEdit && (
+                      <button
+                        className={
+                          batch.is_active
+                            ? 'btn-danger'
+                            : 'btn-success'
+                        }
+                        onClick={() =>
+                          handleToggle(batch.id)
+                        }
+                      >
+                        {
+                          batch.is_active
+                            ? 'Desactivar'
+                            : 'Activar'
+                        }
+                      </button>
+                    )}
 
                   </div>
 

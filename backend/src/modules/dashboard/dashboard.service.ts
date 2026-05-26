@@ -30,7 +30,16 @@ export async function getDashboardStats() {
     todayTransfers,
     activeAmbulances,
     activeDrivers,
-    activeShifts
+    activeShifts,
+    totalVaccines,
+    activeVaccines,
+    totalVaccineBatches,
+    lowStockVaccines,
+    expiringVaccineBatches,
+    expiredVaccineBatches,
+    activeEmployees,
+    absentToday,
+    pendingLeaveRequests
   ] = await Promise.all([
     getSingleValue(
       'SELECT COUNT(*) AS value FROM users'
@@ -122,6 +131,78 @@ export async function getDashboardStats() {
         FROM driver_shifts
         WHERE status = 'activa'
       `
+    ),
+    getSingleValue(
+      'SELECT COUNT(*) AS value FROM vaccines'
+    ),
+    getSingleValue(
+      'SELECT COUNT(*) AS value FROM vaccines WHERE is_active = TRUE'
+    ),
+    getSingleValue(
+      'SELECT COUNT(*) AS value FROM vaccine_batches'
+    ),
+    getSingleValue(
+      `
+        SELECT COUNT(*) AS value
+        FROM (
+          SELECT
+            v.id,
+            v.minimum_stock,
+            COALESCE(
+              SUM(
+                CASE
+                  WHEN vb.is_active = TRUE
+                    THEN vb.current_stock
+                  ELSE 0
+                END
+              ),
+              0
+            ) AS total_stock
+          FROM vaccines v
+          LEFT JOIN vaccine_batches vb
+            ON vb.vaccine_id = v.id
+          WHERE v.is_active = TRUE
+          GROUP BY v.id, v.minimum_stock
+          HAVING total_stock <= v.minimum_stock
+        ) low_stock
+      `
+    ),
+    getSingleValue(
+      `
+        SELECT COUNT(*) AS value
+        FROM vaccine_batches
+        WHERE is_active = TRUE
+        AND expiration_date BETWEEN CURDATE()
+          AND DATE_ADD(CURDATE(), INTERVAL 30 DAY)
+      `
+    ),
+    getSingleValue(
+      `
+        SELECT COUNT(*) AS value
+        FROM vaccine_batches
+        WHERE is_active = TRUE
+        AND expiration_date < CURDATE()
+      `
+    ),
+    getSingleValue(
+      'SELECT COUNT(*) AS value FROM employees WHERE is_active = TRUE'
+    ),
+    getSingleValue(
+      `
+        SELECT COUNT(*) AS value
+        FROM attendance_records ar
+        INNER JOIN attendance_codes ac
+          ON ac.id = ar.attendance_code_id
+        WHERE ar.attendance_date = CURDATE()
+          AND ac.code <> 'P'
+      `
+    ),
+    getSingleValue(
+      `
+        SELECT COUNT(*) AS value
+        FROM leave_requests
+        WHERE status = 'pendiente'
+      `
     )
   ]);
 
@@ -180,6 +261,72 @@ export async function getDashboardStats() {
       `
     );
 
+  const [criticalVaccines]: any =
+    await pool.query(
+      `
+        SELECT
+          v.id,
+          v.name,
+          v.minimum_stock,
+          COALESCE(
+            SUM(
+              CASE
+                WHEN vb.is_active = TRUE
+                  THEN vb.current_stock
+                ELSE 0
+              END
+            ),
+            0
+          ) AS total_stock
+        FROM vaccines v
+        LEFT JOIN vaccine_batches vb
+          ON vb.vaccine_id = v.id
+        WHERE v.is_active = TRUE
+        GROUP BY v.id, v.name, v.minimum_stock
+        HAVING total_stock <= v.minimum_stock
+        ORDER BY total_stock ASC, v.name ASC
+        LIMIT 6
+      `
+    );
+
+  const [expiringMedicationBatchesList]: any =
+    await pool.query(
+      `
+        SELECT
+          m.name,
+          mb.batch_number,
+          mb.expiration_date,
+          mb.current_stock
+        FROM medication_batches mb
+        INNER JOIN medications m
+          ON m.id = mb.medication_id
+        WHERE mb.is_active = TRUE
+          AND mb.expiration_date BETWEEN CURDATE()
+          AND DATE_ADD(CURDATE(), INTERVAL 30 DAY)
+        ORDER BY mb.expiration_date ASC
+        LIMIT 6
+      `
+    );
+
+  const [expiringVaccineBatchesList]: any =
+    await pool.query(
+      `
+        SELECT
+          v.name,
+          vb.batch_number,
+          vb.expiration_date,
+          vb.current_stock
+        FROM vaccine_batches vb
+        INNER JOIN vaccines v
+          ON v.id = vb.vaccine_id
+        WHERE vb.is_active = TRUE
+          AND vb.expiration_date BETWEEN CURDATE()
+          AND DATE_ADD(CURDATE(), INTERVAL 30 DAY)
+        ORDER BY vb.expiration_date ASC
+        LIMIT 6
+      `
+    );
+
   return {
     users: {
       total: totalUsers,
@@ -202,7 +349,23 @@ export async function getDashboardStats() {
       activeDrivers,
       activeShifts
     },
+    vaccines: {
+      total: totalVaccines,
+      active: activeVaccines,
+      batches: totalVaccineBatches,
+      lowStock: lowStockVaccines,
+      expiringBatches: expiringVaccineBatches,
+      expiredBatches: expiredVaccineBatches
+    },
+    personnel: {
+      activeEmployees,
+      absentToday,
+      pendingLeaveRequests
+    },
     upcomingTransfers,
-    criticalMedications
+    criticalMedications,
+    criticalVaccines,
+    expiringMedicationBatches: expiringMedicationBatchesList,
+    expiringVaccineBatches: expiringVaccineBatchesList
   };
 }

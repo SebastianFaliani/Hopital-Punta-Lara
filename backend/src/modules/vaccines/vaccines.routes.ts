@@ -22,7 +22,13 @@ const router = Router();
 
 const vaccineRoles = [
   'admin',
-  'user'
+  'vacu',
+  'dir'
+];
+
+const vaccineWriteRoles = [
+  'admin',
+  'vacu'
 ];
 
 router.get(
@@ -42,7 +48,7 @@ router.get(
 router.post(
   '/:id/batches',
   authenticateToken,
-  authorizeRoles(...vaccineRoles),
+  authorizeRoles(...vaccineWriteRoles),
   handleCreateVaccineBatch
 );
 
@@ -56,21 +62,21 @@ router.get(
 router.post(
   '/',
   authenticateToken,
-  authorizeRoles(...vaccineRoles),
+  authorizeRoles(...vaccineWriteRoles),
   handleCreateVaccine
 );
 
 router.put(
   '/:id',
   authenticateToken,
-  authorizeRoles(...vaccineRoles),
+  authorizeRoles(...vaccineWriteRoles),
   handleUpdateVaccine
 );
 
 router.patch(
   '/:id/toggle',
   authenticateToken,
-  authorizeRoles(...vaccineRoles),
+  authorizeRoles(...vaccineWriteRoles),
   handleToggleVaccine
 );
 

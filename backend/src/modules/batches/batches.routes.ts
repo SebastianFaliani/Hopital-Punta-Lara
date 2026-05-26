@@ -23,7 +23,8 @@ router.get(
   authenticateToken,
   authorizeRoles(
     'admin',
-    'farmacia'
+    'farmacia',
+    'dir'
   ),
   handleGetMovementsByBatch
 );

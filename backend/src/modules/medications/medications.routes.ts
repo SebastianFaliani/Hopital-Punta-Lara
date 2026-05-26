@@ -31,7 +31,8 @@ router.get(
   authenticateToken,
   authorizeRoles(
     'admin',
-    'farmacia'
+    'farmacia',
+    'dir'
   ),
   handleGetAllMedications
 );
@@ -47,7 +48,8 @@ router.get(
   authenticateToken,
   authorizeRoles(
     'admin',
-    'farmacia'
+    'farmacia',
+    'dir'
   ),
   handleGetBatchesByMedication
 );
@@ -73,7 +75,8 @@ router.get(
   authenticateToken,
   authorizeRoles(
     'admin',
-    'farmacia'
+    'farmacia',
+    'dir'
   ),
   handleGetMedicationById
 );

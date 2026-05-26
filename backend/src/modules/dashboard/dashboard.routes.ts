@@ -18,7 +18,9 @@ router.get(
   authorizeRoles(
     'admin',
     'user',
-    'farmacia'
+    'farmacia',
+    'vacu',
+    'dir'
   ),
   getDashboard
 );

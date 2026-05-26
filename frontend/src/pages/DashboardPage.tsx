@@ -31,6 +31,19 @@ type DashboardStats = {
     activeDrivers: number;
     activeShifts: number;
   };
+  vaccines: {
+    total: number;
+    active: number;
+    batches: number;
+    lowStock: number;
+    expiringBatches: number;
+    expiredBatches: number;
+  };
+  personnel: {
+    activeEmployees: number;
+    absentToday: number;
+    pendingLeaveRequests: number;
+  };
   upcomingTransfers: Array<{
     id: number;
     patient_name: string;
@@ -48,6 +61,24 @@ type DashboardStats = {
     minimum_stock: number;
     total_stock: number;
   }>;
+  criticalVaccines: Array<{
+    id: number;
+    name: string;
+    minimum_stock: number;
+    total_stock: number;
+  }>;
+  expiringMedicationBatches: Array<{
+    name: string;
+    batch_number: string;
+    expiration_date: string;
+    current_stock: number;
+  }>;
+  expiringVaccineBatches: Array<{
+    name: string;
+    batch_number: string;
+    expiration_date: string;
+    current_stock: number;
+  }>;
 };
 
 function formatDateTime(
@@ -60,6 +91,13 @@ function formatDateTime(
 
   return new Date(value)
     .toLocaleString('es-AR');
+}
+
+function formatDate(
+  value: string
+) {
+  return new Date(value)
+    .toLocaleDateString('es-AR');
 }
 
 export default function DashboardPage() {
@@ -153,6 +191,20 @@ export default function DashboardPage() {
         />
 
         <Card
+          title="Vacunas activas"
+          value={stats.vaccines.active}
+          detail={`${stats.vaccines.lowStock} con stock bajo`}
+          color="#0891b2"
+        />
+
+        <Card
+          title="Personal activo"
+          value={stats.personnel.activeEmployees}
+          detail={`${stats.personnel.absentToday} ausentes hoy`}
+          color="#4d7c0f"
+        />
+
+        <Card
           title="Ambulancias activas"
           value={stats.transfers.activeAmbulances}
           detail={`${stats.transfers.activeDrivers} choferes activos`}
@@ -164,6 +216,13 @@ export default function DashboardPage() {
           value={stats.transfers.activeShifts}
           detail={`${stats.transfers.total} traslados historicos`}
           color="#b45309"
+        />
+
+        <Card
+          title="Licencias pendientes"
+          value={stats.personnel.pendingLeaveRequests}
+          detail="Solicitudes para revisar"
+          color="#be123c"
         />
 
       </div>
@@ -233,6 +292,99 @@ export default function DashboardPage() {
               stats.criticalMedications.length === 0 && (
                 <p className="page-subtitle">
                   No hay medicamentos con stock bajo.
+                </p>
+              )
+            }
+          </div>
+        </section>
+
+        <section className="dashboard-panel">
+          <h2>Vacunas criticas</h2>
+
+          <div className="dashboard-list">
+            {stats.criticalVaccines.map((vaccine) => (
+              <div
+                className="dashboard-list-item"
+                key={vaccine.id}
+              >
+                <strong>
+                  {vaccine.name}
+                </strong>
+                <span>
+                  Stock actual: {Number(vaccine.total_stock)}
+                </span>
+                <span>
+                  Stock minimo: {Number(vaccine.minimum_stock)}
+                </span>
+              </div>
+            ))}
+
+            {
+              stats.criticalVaccines.length === 0 && (
+                <p className="page-subtitle">
+                  No hay vacunas con stock bajo.
+                </p>
+              )
+            }
+          </div>
+        </section>
+
+        <section className="dashboard-panel">
+          <h2>Medicamentos por vencer</h2>
+
+          <div className="dashboard-list">
+            {stats.expiringMedicationBatches.map((batch) => (
+              <div
+                className="dashboard-list-item"
+                key={`${batch.name}-${batch.batch_number}`}
+              >
+                <strong>
+                  {batch.name} - lote {batch.batch_number}
+                </strong>
+                <span>
+                  Vence: {formatDate(batch.expiration_date)}
+                </span>
+                <span>
+                  Stock: {Number(batch.current_stock)}
+                </span>
+              </div>
+            ))}
+
+            {
+              stats.expiringMedicationBatches.length === 0 && (
+                <p className="page-subtitle">
+                  No hay medicamentos por vencer en 30 dias.
+                </p>
+              )
+            }
+          </div>
+        </section>
+
+        <section className="dashboard-panel">
+          <h2>Vacunas por vencer</h2>
+
+          <div className="dashboard-list">
+            {stats.expiringVaccineBatches.map((batch) => (
+              <div
+                className="dashboard-list-item"
+                key={`${batch.name}-${batch.batch_number}`}
+              >
+                <strong>
+                  {batch.name} - lote {batch.batch_number}
+                </strong>
+                <span>
+                  Vence: {formatDate(batch.expiration_date)}
+                </span>
+                <span>
+                  Stock: {Number(batch.current_stock)}
+                </span>
+              </div>
+            ))}
+
+            {
+              stats.expiringVaccineBatches.length === 0 && (
+                <p className="page-subtitle">
+                  No hay vacunas por vencer en 30 dias.
                 </p>
               )
             }

@@ -5,6 +5,7 @@ import {
 
 import { apiFetch }
   from '../api/api';
+import { useAuth } from '../auth/useAuth';
 
 type Department = {
   id: number;
@@ -432,6 +433,11 @@ function getAutomaticEndDate(
 }
 
 export default function PersonnelPage() {
+
+  const { user } = useAuth();
+
+  const readOnly =
+    user?.role === 'dir';
 
   const [activeTab, setActiveTab] =
     useState('employees');
@@ -1788,31 +1794,35 @@ export default function PersonnelPage() {
           Empleados
         </button>
 
-        <button
-          className={
-            activeTab === 'departments'
-              ? 'module-tab module-tab-active'
-              : 'module-tab'
-          }
-          onClick={() =>
-            changeTab('departments')
-          }
-        >
-          Sectores
-        </button>
+        {!readOnly && (
+          <button
+            className={
+              activeTab === 'departments'
+                ? 'module-tab module-tab-active'
+                : 'module-tab'
+            }
+            onClick={() =>
+              changeTab('departments')
+            }
+          >
+            Sectores
+          </button>
+        )}
 
-        <button
-          className={
-            activeTab === 'codes'
-              ? 'module-tab module-tab-active'
-              : 'module-tab'
-          }
-          onClick={() =>
-            changeTab('codes')
-          }
-        >
-          Claves
-        </button>
+        {!readOnly && (
+          <button
+            className={
+              activeTab === 'codes'
+                ? 'module-tab module-tab-active'
+                : 'module-tab'
+            }
+            onClick={() =>
+              changeTab('codes')
+            }
+          >
+            Claves
+          </button>
+        )}
 
         <button
           className={
@@ -1853,31 +1863,35 @@ export default function PersonnelPage() {
           Licencias pendientes
         </button>
 
-        <button
-          className={
-            activeTab === 'vacation-rules'
-              ? 'module-tab module-tab-active'
-              : 'module-tab'
-          }
-          onClick={() =>
-            changeTab('vacation-rules')
-          }
-        >
-          Reglas vacaciones
-        </button>
+        {!readOnly && (
+          <button
+            className={
+              activeTab === 'vacation-rules'
+                ? 'module-tab module-tab-active'
+                : 'module-tab'
+            }
+            onClick={() =>
+              changeTab('vacation-rules')
+            }
+          >
+            Reglas vacaciones
+          </button>
+        )}
 
-        <button
-          className={
-            activeTab === 'balance-adjustments'
-              ? 'module-tab module-tab-active'
-              : 'module-tab'
-          }
-          onClick={() =>
-            changeTab('balance-adjustments')
-          }
-        >
-          Saldos iniciales
-        </button>
+        {!readOnly && (
+          <button
+            className={
+              activeTab === 'balance-adjustments'
+                ? 'module-tab module-tab-active'
+                : 'module-tab'
+            }
+            onClick={() =>
+              changeTab('balance-adjustments')
+            }
+          >
+            Saldos iniciales
+          </button>
+        )}
       </div>
 
       {
@@ -1891,6 +1905,7 @@ export default function PersonnelPage() {
       {
         activeTab === 'employees' && (
           <>
+            {!readOnly && (
             <form
               className="personnel-form"
               onSubmit={handleEmployeeSubmit}
@@ -2046,6 +2061,7 @@ export default function PersonnelPage() {
                 }
               </div>
             </form>
+            )}
 
             <div className="filter-bar">
               <input
@@ -2119,7 +2135,9 @@ export default function PersonnelPage() {
                     <th>Ingreso</th>
                     <th>Antiguedad</th>
                     <th>Estado</th>
-                    <th>Acciones</th>
+                      {!readOnly && (
+                        <th>Acciones</th>
+                      )}
                   </tr>
                 </thead>
                 <tbody>
@@ -2145,42 +2163,44 @@ export default function PersonnelPage() {
                           }
                         </span>
                       </td>
-                      <td>
-                        <div className="table-actions">
-                          <button
-                            className="btn-primary"
-                            onClick={() =>
-                              startEditEmployee(employee)
-                            }
-                          >
-                            Editar
-                          </button>
+                      {!readOnly && (
+                        <td>
+                          <div className="table-actions">
+                            <button
+                              className="btn-primary"
+                              onClick={() =>
+                                startEditEmployee(employee)
+                              }
+                            >
+                              Editar
+                            </button>
 
-                          <button
-                            className={
-                              employee.is_active
-                                ? 'btn-danger'
-                                : 'btn-success'
-                            }
-                            onClick={() =>
-                              handleToggleEmployee(employee.id)
-                            }
-                          >
-                            {
-                              employee.is_active
-                                ? 'Desactivar'
-                                : 'Activar'
-                            }
-                          </button>
-                        </div>
-                      </td>
+                            <button
+                              className={
+                                employee.is_active
+                                  ? 'btn-danger'
+                                  : 'btn-success'
+                              }
+                              onClick={() =>
+                                handleToggleEmployee(employee.id)
+                              }
+                            >
+                              {
+                                employee.is_active
+                                  ? 'Desactivar'
+                                  : 'Activar'
+                              }
+                            </button>
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   ))}
 
                   {
                     filteredEmployees.length === 0 && (
                       <tr>
-                        <td colSpan={7}>
+                        <td colSpan={readOnly ? 6 : 7}>
                           No hay empleados para esos filtros.
                         </td>
                       </tr>
@@ -2613,7 +2633,8 @@ export default function PersonnelPage() {
                 type="button"
                 disabled={
                   savingAttendance ||
-                  Object.keys(attendanceEdits).length === 0
+                  Object.keys(attendanceEdits).length === 0 ||
+                  readOnly
                 }
                 onClick={saveAttendance}
               >
@@ -2696,12 +2717,14 @@ export default function PersonnelPage() {
                                 day
                               )}
                               onChange={(e) =>
+                                !readOnly &&
                                 updateAttendanceCell(
                                   employee.id,
                                   day,
                                   e.target.value
                                 )
                               }
+                              readOnly={readOnly}
                               onKeyDown={(e) =>
                                 handleAttendanceKeyDown(
                                   e,
@@ -2940,6 +2963,7 @@ export default function PersonnelPage() {
               )
             }
 
+            {!readOnly && (
             <form
               className="personnel-form"
               onSubmit={handleLeaveSubmit}
@@ -3036,6 +3060,7 @@ export default function PersonnelPage() {
                 Crear solicitud
               </button>
             </form>
+            )}
 
             <div className="table-container">
               <table className="data-table">
@@ -3048,7 +3073,9 @@ export default function PersonnelPage() {
                     <th>Dias</th>
                     <th>Horas</th>
                     <th>Estado</th>
-                    <th>Acciones</th>
+                    {!readOnly && (
+                      <th>Acciones</th>
+                    )}
                   </tr>
                 </thead>
                 <tbody>
@@ -3079,8 +3106,9 @@ export default function PersonnelPage() {
                           {request.status}
                         </span>
                       </td>
-                      <td>
-                        <div className="table-actions">
+                      {!readOnly && (
+                        <td>
+                          <div className="table-actions">
                           {
                             request.status === 'pendiente' && (
                               <>
@@ -3127,15 +3155,16 @@ export default function PersonnelPage() {
                               </button>
                             )
                           }
-                        </div>
-                      </td>
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   ))}
 
                   {
                     selectedEmployeeLeaveRequests.length === 0 && (
                       <tr>
-                        <td colSpan={8}>
+                        <td colSpan={readOnly ? 7 : 8}>
                           {
                             selectedLeaveEmployee
                               ? 'Este empleado todavia no tiene solicitudes cargadas.'
@@ -3400,7 +3429,9 @@ export default function PersonnelPage() {
                     <th>Dias</th>
                     <th>Horas</th>
                     <th>Estado</th>
-                    <th>Acciones</th>
+                    {!readOnly && (
+                      <th>Acciones</th>
+                    )}
                   </tr>
                 </thead>
                 <tbody>
@@ -3431,8 +3462,9 @@ export default function PersonnelPage() {
                           {request.status}
                         </span>
                       </td>
-                      <td>
-                        <div className="table-actions">
+                      {!readOnly && (
+                        <td>
+                          <div className="table-actions">
                           {
                             request.status === 'pendiente' && (
                               <>
@@ -3479,15 +3511,16 @@ export default function PersonnelPage() {
                               </button>
                             )
                           }
-                        </div>
-                      </td>
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   ))}
 
                   {
                     filteredLeaveRequests.length === 0 && (
                       <tr>
-                        <td colSpan={8}>
+                        <td colSpan={readOnly ? 7 : 8}>
                           No hay solicitudes para esos filtros.
                         </td>
                       </tr>

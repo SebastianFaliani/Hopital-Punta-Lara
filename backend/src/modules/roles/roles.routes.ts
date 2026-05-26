@@ -15,7 +15,7 @@ const router = Router();
 router.get(
   '/',
   authenticateToken,
-  authorizeRoles('admin'),
+  authorizeRoles('admin', 'dir'),
   getAllRoles
 );
 

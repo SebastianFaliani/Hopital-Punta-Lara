@@ -37,7 +37,7 @@ const router = Router();
 
 router.use(
   authenticateToken,
-  authorizeRoles('admin', 'user')
+  authorizeRoles('admin', 'user', 'dir')
 );
 
 router.get(

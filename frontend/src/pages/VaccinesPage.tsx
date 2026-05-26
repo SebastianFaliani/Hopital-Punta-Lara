@@ -22,6 +22,19 @@ type Vaccine = {
   is_active: boolean;
 };
 
+type VaccineBatch = {
+  id: number;
+  batch_number: string;
+  expiration_date: string;
+  current_stock: number;
+  is_active: boolean;
+};
+
+type VaccineAlert = {
+  vaccine: Vaccine;
+  batches: VaccineBatch[];
+};
+
 const emptyForm = {
   name: '',
   target_disease: '',
@@ -55,6 +68,9 @@ export default function VaccinesPage() {
       stock: 'todos'
     });
 
+  const [batchAlerts, setBatchAlerts] =
+    useState<VaccineAlert[]>([]);
+
   const [loading, setLoading] =
     useState(false);
 
@@ -67,6 +83,23 @@ export default function VaccinesPage() {
         await apiFetch('/vaccines');
 
       setVaccines(res.data);
+
+      const alerts =
+        await Promise.all(
+          res.data.map(async (vaccine: Vaccine) => {
+            const batchesRes =
+              await apiFetch(
+                `/vaccines/${vaccine.id}/batches`
+              );
+
+            return {
+              vaccine,
+              batches: batchesRes.data.batches
+            };
+          })
+        );
+
+      setBatchAlerts(alerts);
     } catch (error: any) {
       setError(error.message);
     }
@@ -153,10 +186,15 @@ export default function VaccinesPage() {
 
   if (
     user?.role !== 'admin' &&
-    user?.role !== 'user'
+    user?.role !== 'vacu' &&
+    user?.role !== 'dir'
   ) {
     return <h2>No autorizado</h2>;
   }
+
+  const canEdit =
+    user?.role === 'admin' ||
+    user?.role === 'vacu';
 
   const presentations =
     Array.from(
@@ -202,6 +240,54 @@ export default function VaccinesPage() {
       );
     });
 
+  const lowStockVaccines =
+    vaccines.filter((v) =>
+      Number(v.total_stock || 0) <=
+      Number(v.minimum_stock || 0)
+    );
+
+  const today =
+    new Date();
+
+  const in30Days =
+    new Date();
+
+  in30Days.setDate(
+    today.getDate() + 30
+  );
+
+  const expiringBatches =
+    batchAlerts.flatMap((item) =>
+      item.batches
+        .filter((batch) => {
+          const expiration =
+            new Date(batch.expiration_date);
+
+          return (
+            batch.is_active &&
+            expiration >= today &&
+            expiration <= in30Days
+          );
+        })
+        .map((batch) => ({
+          ...batch,
+          vaccineName: item.vaccine.name
+        }))
+    );
+
+  const expiredBatches =
+    batchAlerts.flatMap((item) =>
+      item.batches
+        .filter((batch) =>
+          batch.is_active &&
+          new Date(batch.expiration_date) < today
+        )
+        .map((batch) => ({
+          ...batch,
+          vaccineName: item.vaccine.name
+        }))
+    );
+
   return (
 
     <div>
@@ -212,12 +298,78 @@ export default function VaccinesPage() {
           Vacunas
         </h1>
 
-        <button
-          className="btn-primary"
-          onClick={openCreate}
-        >
-          + Nueva vacuna
-        </button>
+        {canEdit && (
+          <button
+            className="btn-primary"
+            onClick={openCreate}
+          >
+            + Nueva vacuna
+          </button>
+        )}
+
+      </div>
+
+      <div className="dashboard-grid">
+
+        <div className="dashboard-card">
+          <h3>Stock bajo</h3>
+          <p>{lowStockVaccines.length}</p>
+          <span>Vacunas para revisar</span>
+        </div>
+
+        <div className="dashboard-card">
+          <h3>Por vencer</h3>
+          <p>{expiringBatches.length}</p>
+          <span>Lotes en los proximos 30 dias</span>
+        </div>
+
+        <div className="dashboard-card">
+          <h3>Vencidos</h3>
+          <p>{expiredBatches.length}</p>
+          <span>Lotes activos vencidos</span>
+        </div>
+
+      </div>
+
+      <div className="dashboard-sections">
+
+        <section className="dashboard-panel">
+          <h2>Alertas de stock</h2>
+          <div className="dashboard-list">
+            {lowStockVaccines.slice(0, 5).map((vaccine) => (
+              <div
+                className="dashboard-list-item"
+                key={vaccine.id}
+              >
+                <strong>{vaccine.name}</strong>
+                <span>Stock: {Number(vaccine.total_stock || 0)}</span>
+                <span>Minimo: {Number(vaccine.minimum_stock || 0)}</span>
+              </div>
+            ))}
+            {lowStockVaccines.length === 0 && (
+              <p className="page-subtitle">Sin alertas de stock.</p>
+            )}
+          </div>
+        </section>
+
+        <section className="dashboard-panel">
+          <h2>Vencimientos proximos</h2>
+          <div className="dashboard-list">
+            {expiringBatches.slice(0, 5).map((batch) => (
+              <div
+                className="dashboard-list-item"
+                key={batch.id}
+              >
+                <strong>{batch.vaccineName} - lote {batch.batch_number}</strong>
+                <span>Vence: {new Date(batch.expiration_date).toLocaleDateString('es-AR')}</span>
+                <span>Stock: {Number(batch.current_stock)}</span>
+              </div>
+            ))}
+            {expiringBatches.length === 0 && (
+              <p className="page-subtitle">Sin vencimientos proximos.</p>
+            )}
+          </div>
+        </section>
 
       </div>
 
@@ -370,14 +522,16 @@ export default function VaccinesPage() {
                 </td>
                 <td>
                   <div className="table-actions">
-                    <button
-                      className="btn-primary"
-                      onClick={() =>
-                        openEdit(vaccine)
-                      }
-                    >
-                      Editar
-                    </button>
+                    {canEdit && (
+                      <button
+                        className="btn-primary"
+                        onClick={() =>
+                          openEdit(vaccine)
+                        }
+                      >
+                        Editar
+                      </button>
+                    )}
 
                     <Link
                       className="btn-secondary table-link-button"
@@ -386,18 +540,20 @@ export default function VaccinesPage() {
                       Ver lotes
                     </Link>
 
-                    <button
-                      className={
-                        vaccine.is_active
-                          ? 'btn-danger'
-                          : 'btn-success'
-                      }
-                      onClick={() =>
-                        handleToggle(vaccine.id)
-                      }
-                    >
-                      {vaccine.is_active ? 'Desactivar' : 'Activar'}
-                    </button>
+                    {canEdit && (
+                      <button
+                        className={
+                          vaccine.is_active
+                            ? 'btn-danger'
+                            : 'btn-success'
+                        }
+                        onClick={() =>
+                          handleToggle(vaccine.id)
+                        }
+                      >
+                        {vaccine.is_active ? 'Desactivar' : 'Activar'}
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>
