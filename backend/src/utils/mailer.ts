@@ -51,6 +51,52 @@ async function getTransporter() {
   } as any);
 }
 
+async function sendWithResend(
+  email: string,
+  subject: string,
+  html: string
+) {
+  const apiKey =
+    process.env.RESEND_API_KEY;
+
+  const from =
+    process.env.RESEND_FROM ||
+    process.env.MAIL_FROM;
+
+  if (!apiKey || !from) {
+    throw new Error(
+      'Faltan variables de Resend: RESEND_API_KEY y RESEND_FROM'
+    );
+  }
+
+  const response =
+    await fetch(
+      'https://api.resend.com/emails',
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          from,
+          to: email,
+          subject,
+          html
+        })
+      }
+    );
+
+  if (!response.ok) {
+    const errorText =
+      await response.text();
+
+    throw new Error(
+      `No se pudo enviar el correo por Resend: ${errorText}`
+    );
+  }
+}
+
 export async function sendResetPasswordEmail(
   email: string,
   token: string
@@ -63,28 +109,42 @@ export async function sendResetPasswordEmail(
   const resetLink =
     `${frontendUrl.replace(/\/$/, '')}/reset-password?token=${token}`;
 
+  const subject =
+    'Recuperar contrasena';
+
+  const html = `
+    <h2>Recuperacion de contrasena</h2>
+
+    <p>
+      Hace click en el siguiente link:
+    </p>
+
+    <a href="${resetLink}">
+      Recuperar contrasena
+    </a>
+
+    <p>
+      Este enlace expira en 1 hora.
+    </p>
+  `;
+
+  if (process.env.RESEND_API_KEY) {
+    await sendWithResend(
+      email,
+      subject,
+      html
+    );
+
+    return;
+  }
+
   const transporter =
     await getTransporter();
 
   await transporter.sendMail({
     from: process.env.MAIL_FROM,
     to: email,
-    subject: 'Recuperar contraseña',
-
-    html: `
-      <h2>Recuperación de contraseña</h2>
-
-      <p>
-        Hacé click en el siguiente link:
-      </p>
-
-      <a href="${resetLink}">
-        Recuperar contraseña
-      </a>
-
-      <p>
-        Este enlace expira en 1 hora.
-      </p>
-    `
+    subject,
+    html
   });
 }
