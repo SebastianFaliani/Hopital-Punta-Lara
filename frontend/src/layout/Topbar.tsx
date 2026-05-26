@@ -1,12 +1,21 @@
 import { useAuth } from '../auth/useAuth';
+import {
+  useState
+} from 'react';
+import ChangePasswordModal from '../components/users/ChangePasswordModal';
 
 export default function Topbar() {
 
   const { user, logout } = useAuth();
 
+  const [openPasswordModal, setOpenPasswordModal] =
+    useState(false);
+
   return (
 
-    <header className="app-topbar">
+    <>
+
+      <header className="app-topbar">
 
       <span className="app-topbar-title">
         Panel Hospital
@@ -19,6 +28,16 @@ export default function Topbar() {
         </span>
 
         <button
+          type="button"
+          onClick={() =>
+            setOpenPasswordModal(true)
+          }
+          className="btn-secondary"
+        >
+          Cambiar contraseña
+        </button>
+
+        <button
           onClick={logout}
           className="btn-danger"
         >
@@ -27,6 +46,18 @@ export default function Topbar() {
 
       </div>
 
-    </header>
+      </header>
+
+      {
+        openPasswordModal && (
+          <ChangePasswordModal
+            onClose={() =>
+              setOpenPasswordModal(false)
+            }
+          />
+        )
+      }
+
+    </>
   );
 }

@@ -50,6 +50,15 @@
   color: var(--color-primary);
 }
 
+.modal-subtitle {
+
+  margin-top: -10px;
+
+  margin-bottom: 18px;
+
+  color: var(--color-muted);
+}
+
 .modal-actions {
 
   display: flex;

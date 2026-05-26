@@ -3,9 +3,12 @@ import {
   getAllUsers, 
   createUser, 
   updateUser,
+  changeOwnPassword,
+  adminResetUserPassword,
   toggleUserStatusService,
   deleteUser
 } from './users.service';
+import { AuthRequest } from '../auth/auth.middleware';
 
 export async function getUsers(req: Request, res: Response) {
 
@@ -58,6 +61,60 @@ export async function update(req: Request, res: Response) {
     return res.json({
       success: true,
       message: 'Usuario actualizado'
+    });
+
+  } catch (error: any) {
+
+    return res.status(400).json({
+      success: false,
+      message: error.message
+    });
+  }
+}
+
+export async function changePassword(
+  req: AuthRequest,
+  res: Response
+) {
+
+  try {
+
+    await changeOwnPassword(
+      Number(req.user?.userId),
+      req.body
+    );
+
+    return res.json({
+      success: true,
+      message: 'Contrasena actualizada'
+    });
+
+  } catch (error: any) {
+
+    return res.status(400).json({
+      success: false,
+      message: error.message
+    });
+  }
+}
+
+export async function resetPasswordByAdmin(
+  req: Request,
+  res: Response
+) {
+
+  try {
+
+    const { id } = req.params;
+
+    await adminResetUserPassword(
+      Number(id),
+      req.body
+    );
+
+    return res.json({
+      success: true,
+      message: 'Contrasena actualizada'
     });
 
   } catch (error: any) {

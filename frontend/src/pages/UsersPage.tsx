@@ -7,6 +7,7 @@ import { apiFetch }   from '../api/api';
 import { useAuth }  from '../auth/useAuth';
 import CreateUserModal  from '../components/users/CreateUserModal';
 import EditUserModal   from '../components/users/EditUserModal';
+import AdminResetPasswordModal from '../components/users/AdminResetPasswordModal';
 
 type User = {
   id: number;
@@ -30,6 +31,9 @@ export default function UsersPage() {
     useState(false);
 
   const [editUser, setEditUser] =
+    useState<User | null>(null);
+
+  const [passwordUser, setPasswordUser] =
     useState<User | null>(null);
 
   const [filters, setFilters] =
@@ -324,14 +328,20 @@ export default function UsersPage() {
 
                   <button
                     className="btn-primary"
-                    style={{
-                      marginRight: 10
-                    }}
                     onClick={() =>
                       setEditUser(u)
                     }
                   >
                     Editar
+                  </button>
+
+                  <button
+                    className="btn-secondary"
+                    onClick={() =>
+                      setPasswordUser(u)
+                    }
+                  >
+                    Nueva contraseña
                   </button>
 
                   <button
@@ -398,6 +408,19 @@ export default function UsersPage() {
               setEditUser(null)
             }
             onUpdated={loadUsers}
+          />
+
+        )
+      }
+
+      {
+        passwordUser && (
+
+          <AdminResetPasswordModal
+            user={passwordUser}
+            onClose={() =>
+              setPasswordUser(null)
+            }
           />
 
         )

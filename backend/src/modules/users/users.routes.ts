@@ -3,6 +3,8 @@ import {
     getUsers,
     create,
     update,
+    changePassword,
+    resetPasswordByAdmin,
     toggleUserStatus,
     remove
  } from './users.controller';
@@ -32,6 +34,19 @@ router.put(
   authenticateToken,
   authorizeRoles('admin'),
   update
+);
+
+router.patch(
+  '/me/password',
+  authenticateToken,
+  changePassword
+);
+
+router.patch(
+  '/:id/password',
+  authenticateToken,
+  authorizeRoles('admin'),
+  resetPasswordByAdmin
 );
 
 router.patch(

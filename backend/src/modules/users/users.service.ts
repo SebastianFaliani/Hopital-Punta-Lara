@@ -153,6 +153,122 @@ export async function updateUser(
   return true;
 }
 
+export async function changeOwnPassword(
+  userId: number,
+  data: any
+) {
+  const {
+    current_password,
+    new_password
+  } = data;
+
+  if (!current_password || !new_password) {
+    throw new Error('La contrasena actual y la nueva son obligatorias');
+  }
+
+  if (new_password.length < 6) {
+    throw new Error('La nueva contrasena debe tener minimo 6 caracteres');
+  }
+
+  const [rows]: any =
+    await pool.query(
+      `
+        SELECT password_hash
+        FROM users
+        WHERE id = ?
+          AND is_active = TRUE
+        LIMIT 1
+      `,
+      [userId]
+    );
+
+  if (rows.length === 0) {
+    throw new Error('Usuario no encontrado');
+  }
+
+  const validPassword =
+    await bcrypt.compare(
+      current_password,
+      rows[0].password_hash
+    );
+
+  if (!validPassword) {
+    throw new Error('La contrasena actual no es correcta');
+  }
+
+  const hash =
+    await bcrypt.hash(
+      new_password,
+      Number(process.env.BCRYPT_ROUNDS || 10)
+    );
+
+  await pool.query(
+    `
+      UPDATE users
+      SET password_hash = ?
+      WHERE id = ?
+    `,
+    [
+      hash,
+      userId
+    ]
+  );
+
+  return true;
+}
+
+export async function adminResetUserPassword(
+  userId: number,
+  data: any
+) {
+  const {
+    new_password
+  } = data;
+
+  if (!new_password) {
+    throw new Error('La nueva contrasena es obligatoria');
+  }
+
+  if (new_password.length < 6) {
+    throw new Error('La nueva contrasena debe tener minimo 6 caracteres');
+  }
+
+  const [rows]: any =
+    await pool.query(
+      `
+        SELECT id
+        FROM users
+        WHERE id = ?
+        LIMIT 1
+      `,
+      [userId]
+    );
+
+  if (rows.length === 0) {
+    throw new Error('Usuario no encontrado');
+  }
+
+  const hash =
+    await bcrypt.hash(
+      new_password,
+      Number(process.env.BCRYPT_ROUNDS || 10)
+    );
+
+  await pool.query(
+    `
+      UPDATE users
+      SET password_hash = ?
+      WHERE id = ?
+    `,
+    [
+      hash,
+      userId
+    ]
+  );
+
+  return true;
+}
+
 export async function toggleUserStatusService(
   userId: number
 ) {
