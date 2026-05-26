@@ -2695,6 +2695,10 @@ export async function getLeaveRequests() {
           lr.end_date,
           lr.total_days,
           lr.total_hours,
+          lr.permission_kind,
+          lr.exit_reason,
+          lr.exit_time,
+          lr.return_time,
           lr.is_exception,
           lr.exception_reason,
           lr.status,
@@ -2734,12 +2738,16 @@ export async function createLeaveRequest(
           end_date,
           total_days,
           total_hours,
+          permission_kind,
+          exit_reason,
+          exit_time,
+          return_time,
           is_exception,
           exception_reason,
           requested_by,
           notes
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
       [
         validated.employee.id,
@@ -2748,6 +2756,18 @@ export async function createLeaveRequest(
         validated.endDate,
         validated.totalDays,
         validated.totalHours,
+        validated.code.code === '24'
+          ? 'entrada'
+          : 'salida',
+        ['24', '43'].includes(validated.code.code)
+          ? data.exit_reason || null
+          : null,
+        ['24', '43'].includes(validated.code.code)
+          ? data.exit_time || null
+          : null,
+        ['24', '43'].includes(validated.code.code)
+          ? data.return_time || null
+          : null,
         Boolean(data.is_exception),
         data.exception_reason || null,
         userId || null,

@@ -23,6 +23,9 @@ logs
 *.log
 npm-debug.log*
 
+# Local temp
+.tmp_*/
+
 # OS
 .DS_Store
 Thumbs.db

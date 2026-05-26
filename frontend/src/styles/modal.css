@@ -77,3 +77,220 @@
 
   margin-top: 24px;
 }
+
+.permission-print-actions {
+
+  display: flex;
+
+  justify-content: flex-end;
+
+  gap: 10px;
+
+  margin-bottom: 18px;
+}
+
+.permission-print-area {
+
+  background: white;
+
+  color: #111827;
+}
+
+.permission-print-copy {
+
+  width: 760px;
+
+  max-width: 100%;
+
+  margin: 0 auto;
+
+  padding: 28px 34px;
+
+  border: 1px solid #d1d5db;
+
+  font-family: Arial, sans-serif;
+}
+
+.permission-print-copy h2 {
+
+  margin: 0 0 6px;
+
+  text-align: center;
+
+  font-size: 18px;
+
+  font-weight: 700;
+}
+
+.permission-print-copy h3 {
+
+  margin: 0 0 24px;
+
+  text-align: center;
+
+  font-size: 16px;
+
+  letter-spacing: 0;
+}
+
+.permission-print-row {
+
+  display: grid;
+
+  grid-template-columns: 170px 1fr;
+
+  gap: 12px;
+
+  align-items: center;
+
+  min-height: 34px;
+
+  border-bottom: 1px solid #111827;
+}
+
+.permission-print-row span {
+
+  font-weight: 700;
+}
+
+.permission-print-motive {
+
+  grid-template-columns: 90px 1fr 1fr;
+
+  border-bottom: 0;
+}
+
+.permission-print-motive label {
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 8px;
+
+  font-weight: 600;
+}
+
+.permission-print-box {
+
+  display: inline-flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  width: 18px;
+
+  height: 18px;
+
+  border: 1px solid #111827;
+
+  font-size: 13px;
+}
+
+.permission-print-hours {
+
+  grid-template-columns: 1fr 1fr;
+
+  gap: 30px;
+
+  border-bottom: 0;
+}
+
+.permission-print-hours div {
+
+  display: grid;
+
+  grid-template-columns: 120px 1fr;
+
+  gap: 8px;
+
+  border-bottom: 1px solid #111827;
+
+  min-height: 34px;
+
+  align-items: center;
+}
+
+.permission-print-notes {
+
+  margin-top: 14px;
+
+  min-height: 52px;
+}
+
+.permission-print-notes span {
+
+  font-weight: 700;
+
+  margin-right: 8px;
+}
+
+.permission-print-signatures {
+
+  display: grid;
+
+  grid-template-columns: repeat(3, 1fr);
+
+  gap: 24px;
+
+  margin-top: 52px;
+
+  text-align: center;
+}
+
+.permission-print-signatures span {
+
+  display: block;
+
+  border-bottom: 1px dotted #111827;
+
+  height: 24px;
+}
+
+.permission-print-signatures p {
+
+  margin: 8px 0 0;
+
+  font-size: 12px;
+}
+
+@media print {
+
+  body * {
+
+    visibility: hidden;
+  }
+
+  .permission-print-area,
+  .permission-print-area * {
+
+    visibility: visible;
+  }
+
+  .permission-print-area {
+
+    position: fixed;
+
+    left: 0;
+    top: 0;
+
+    width: 100%;
+
+    padding: 0;
+  }
+
+  .permission-print-actions {
+
+    display: none;
+  }
+
+  .permission-print-copy {
+
+    width: auto;
+
+    border: 0;
+
+    padding: 16mm 12mm;
+  }
+}

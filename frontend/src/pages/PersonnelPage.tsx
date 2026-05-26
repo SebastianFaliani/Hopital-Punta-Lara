@@ -91,6 +91,10 @@ type LeaveRequest = {
   end_date: string;
   total_days: number;
   total_hours: number;
+  permission_kind: string | null;
+  exit_reason: string | null;
+  exit_time: string | null;
+  return_time: string | null;
   is_exception: boolean;
   exception_reason: string | null;
   status: string;
@@ -212,6 +216,10 @@ const emptyLeaveForm = {
   start_date: '',
   end_date: '',
   total_hours: '',
+  permission_kind: 'salida',
+  exit_reason: 'particular',
+  exit_time: '',
+  return_time: '',
   is_exception: false,
   exception_reason: '',
   notes: ''
@@ -510,6 +518,9 @@ export default function PersonnelPage() {
 
   const [leaveRequests, setLeaveRequests] =
     useState<LeaveRequest[]>([]);
+
+  const [printLeaveRequest, setPrintLeaveRequest] =
+    useState<LeaveRequest | null>(null);
 
   const [leaveForm, setLeaveForm] =
     useState(emptyLeaveForm);
@@ -1047,7 +1058,8 @@ export default function PersonnelPage() {
 
     try {
 
-      await apiFetch(
+      const res =
+        await apiFetch(
         '/personnel/leave-requests',
         {
           method: 'POST',
@@ -1065,6 +1077,9 @@ export default function PersonnelPage() {
         }
       );
 
+      const createdId =
+        res.data?.id;
+
       setLeaveForm(emptyLeaveForm);
       if (selectedLeaveEmployee) {
         setLeaveForm({
@@ -1074,7 +1089,23 @@ export default function PersonnelPage() {
         });
         loadLeaveSummary(selectedLeaveEmployee.id);
       }
-      loadLeaveRequests();
+      const requestsRes =
+        await apiFetch('/personnel/leave-requests');
+
+      setLeaveRequests(requestsRes.data);
+
+      const createdRequest =
+        requestsRes.data.find(
+          (request: LeaveRequest) =>
+            request.id === createdId
+        );
+
+      if (
+        createdRequest &&
+        ['24', '43'].includes(createdRequest.code)
+      ) {
+        setPrintLeaveRequest(createdRequest);
+      }
 
     } catch (error: any) {
 
@@ -2441,6 +2472,17 @@ export default function PersonnelPage() {
       }
 
       {
+        printLeaveRequest && (
+          <PermissionPrintModal
+            request={printLeaveRequest}
+            onClose={() =>
+              setPrintLeaveRequest(null)
+            }
+          />
+        )
+      }
+
+      {
         activeTab === 'departments' && (
           <>
             <form
@@ -3252,6 +3294,50 @@ export default function PersonnelPage() {
                 onChange={handleLeaveChange}
               />
 
+              {['24', '43'].includes(leaveForm.code) && (
+                <>
+                  <select
+                    className="form-input"
+                    name="exit_reason"
+                    value={leaveForm.exit_reason}
+                    onChange={handleLeaveChange}
+                  >
+                    <option value="particular">
+                      Motivo particular
+                    </option>
+                    <option value="tramite_oficial">
+                      Tramite oficial
+                    </option>
+                  </select>
+
+                  <input
+                    className="form-input"
+                    type="time"
+                    name="exit_time"
+                    aria-label={
+                      leaveForm.code === '24'
+                        ? 'Hora entrada'
+                        : 'Hora salida'
+                    }
+                    value={leaveForm.exit_time}
+                    onChange={handleLeaveChange}
+                  />
+
+                  <input
+                    className="form-input"
+                    type="time"
+                    name="return_time"
+                    aria-label={
+                      leaveForm.code === '24'
+                        ? 'Hora salida'
+                        : 'Hora regreso'
+                    }
+                    value={leaveForm.return_time}
+                    onChange={handleLeaveChange}
+                  />
+                </>
+              )}
+
               <label className="checkbox-row">
                 <input
                   type="checkbox"
@@ -3335,7 +3421,19 @@ export default function PersonnelPage() {
                       </td>
                       {!readOnly && (
                         <td>
-                          <div className="table-actions">
+                        <div className="table-actions">
+                          {['24', '43'].includes(request.code) && (
+                            <button
+                              className="btn-secondary"
+                              type="button"
+                              onClick={() =>
+                                setPrintLeaveRequest(request)
+                              }
+                            >
+                              Comprobante
+                            </button>
+                          )}
+
                           {
                             request.status === 'pendiente' && (
                               <>
@@ -3691,7 +3789,19 @@ export default function PersonnelPage() {
                       </td>
                       {!readOnly && (
                         <td>
-                          <div className="table-actions">
+                        <div className="table-actions">
+                          {['24', '43'].includes(request.code) && (
+                            <button
+                              className="btn-secondary"
+                              type="button"
+                              onClick={() =>
+                                setPrintLeaveRequest(request)
+                              }
+                            >
+                              Comprobante
+                            </button>
+                          )}
+
                           {
                             request.status === 'pendiente' && (
                               <>
@@ -3951,5 +4061,167 @@ export default function PersonnelPage() {
       }
 
     </div>
+  );
+}
+
+function formatPrintTime(
+  value: string | null
+) {
+  if (!value) {
+    return '';
+  }
+
+  return String(value).slice(0, 5);
+}
+
+function PermissionPrintModal({
+  request,
+  onClose
+}: {
+  request: LeaveRequest;
+  onClose: () => void;
+}) {
+
+  function handlePrint() {
+    window.print();
+  }
+
+  const isOfficial =
+    request.exit_reason === 'tramite_oficial';
+
+  return (
+
+    <div className="modal-overlay">
+
+      <div className="modal-content modal-content-wide">
+
+        <div className="permission-print-actions">
+          <button
+            className="btn-secondary"
+            type="button"
+            onClick={onClose}
+          >
+            Cerrar
+          </button>
+
+          <button
+            className="btn-success"
+            type="button"
+            onClick={handlePrint}
+          >
+            Imprimir
+          </button>
+        </div>
+
+        <div className="permission-print-area">
+          <PermissionPrintCopy
+            request={request}
+            isOfficial={isOfficial}
+          />
+        </div>
+
+      </div>
+
+    </div>
+  );
+}
+
+function PermissionPrintCopy({
+  request,
+  isOfficial
+}: {
+  request: LeaveRequest;
+  isOfficial: boolean;
+}) {
+
+  const isEntry =
+    request.permission_kind === 'entrada';
+
+  const permissionTitle =
+    isEntry
+      ? 'PERMISO DE ENTRADA'
+      : 'PERMISO DE SALIDA';
+
+  const firstTimeLabel =
+    isEntry
+      ? 'Hora entrada:'
+      : 'Hora salida:';
+
+  const secondTimeLabel =
+    isEntry
+      ? 'Hora salida:'
+      : 'Hora regreso:';
+
+  return (
+
+    <section className="permission-print-copy">
+      <h2>HOSPITAL MUNICIPAL DE PUNTA LARA</h2>
+      <h3>{permissionTitle}</h3>
+
+      <div className="permission-print-row">
+        <span>Apellido y Nombre:</span>
+        <strong>{request.full_name}</strong>
+      </div>
+
+      <div className="permission-print-row">
+        <span>Departamento:</span>
+        <strong>{request.department_name || '-'}</strong>
+      </div>
+
+      <div className="permission-print-row permission-print-motive">
+        <span>Motivo:</span>
+        <label>
+          <span className="permission-print-box">
+            {!isOfficial ? 'X' : ''}
+          </span>
+          Particular
+        </label>
+        <label>
+          <span className="permission-print-box">
+            {isOfficial ? 'X' : ''}
+          </span>
+          Tramite Oficial
+        </label>
+      </div>
+
+      <div className="permission-print-row">
+        <span>Fecha:</span>
+        <strong>{toDateInput(request.start_date)}</strong>
+      </div>
+
+      <div className="permission-print-row permission-print-hours">
+        <div>
+          <span>{firstTimeLabel}</span>
+          <strong>{formatPrintTime(request.exit_time)}</strong>
+        </div>
+        <div>
+          <span>{secondTimeLabel}</span>
+          <strong>{formatPrintTime(request.return_time)}</strong>
+        </div>
+      </div>
+
+      <div className="permission-print-notes">
+        <span>Clave:</span>
+        <strong>{request.code} - {request.description}</strong>
+        {request.notes && (
+          <p>{request.notes}</p>
+        )}
+      </div>
+
+      <div className="permission-print-signatures">
+        <div>
+          <span />
+          <p>Firma del Empleado</p>
+        </div>
+        <div>
+          <span />
+          <p>Firma del Jefe de Departamento</p>
+        </div>
+        <div>
+          <span />
+          <p>Firma del Director</p>
+        </div>
+      </div>
+    </section>
   );
 }
