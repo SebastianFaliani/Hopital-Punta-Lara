@@ -1874,6 +1874,189 @@ export async function getEmployeeLeaveSummary(
   };
 }
 
+export async function getEmployeeDirectiveSummary(
+  employeeId: number,
+  year: number,
+  month: number
+) {
+
+  const [employeeRows]: any =
+    await pool.query(
+      `
+        SELECT
+          e.id,
+          e.department_id,
+          e.full_name,
+          e.dni,
+          e.cuil,
+          e.birth_date,
+          e.hire_date,
+          e.file_number,
+          e.address,
+          e.phone,
+          e.email,
+          e.license_number,
+          e.employment_type,
+          e.is_professional,
+          e.notes,
+          e.is_active,
+          d.name AS department_name
+        FROM employees e
+        LEFT JOIN employee_departments d
+          ON d.id = e.department_id
+        WHERE e.id = ?
+        LIMIT 1
+      `,
+      [employeeId]
+    );
+
+  if (employeeRows.length === 0) {
+    throw new Error('Empleado no encontrado');
+  }
+
+  const employee =
+    employeeRows[0];
+
+  const period =
+    await getOrCreateAttendancePeriod(
+      year,
+      month
+    );
+
+  const [attendanceRows]: any =
+    await pool.query(
+      `
+        SELECT
+          ac.code,
+          ac.description,
+          ac.category,
+          COUNT(*) AS total
+        FROM attendance_records ar
+        INNER JOIN attendance_codes ac
+          ON ac.id = ar.attendance_code_id
+        WHERE ar.employee_id = ?
+          AND ar.attendance_period_id = ?
+        GROUP BY
+          ac.code,
+          ac.description,
+          ac.category
+        ORDER BY total DESC
+      `,
+      [
+        employeeId,
+        period.id
+      ]
+    );
+
+  const attendanceTotals =
+    attendanceRows.reduce(
+      (totals: any, row: any) => {
+        const category =
+          row.category || 'otro';
+
+        totals[category] =
+          (totals[category] || 0) +
+          Number(row.total || 0);
+
+        totals.totalLoaded +=
+          Number(row.total || 0);
+
+        return totals;
+      },
+      {
+        presente: 0,
+        ausencia: 0,
+        franco: 0,
+        licencia: 0,
+        vacaciones: 0,
+        maternidad: 0,
+        gremial: 0,
+        otro: 0,
+        totalLoaded: 0
+      }
+    );
+
+  const leaveSummary =
+    await getEmployeeLeaveSummary(
+      employeeId,
+      year,
+      month
+    );
+
+  const [recentLeaves]: any =
+    await pool.query(
+      `
+        SELECT
+          lr.id,
+          ac.code,
+          ac.description,
+          lr.start_date,
+          lr.end_date,
+          lr.total_days,
+          lr.total_hours,
+          lr.status,
+          lr.requested_at,
+          lr.notes
+        FROM leave_requests lr
+        INNER JOIN attendance_codes ac
+          ON ac.id = lr.attendance_code_id
+        WHERE lr.employee_id = ?
+        ORDER BY
+          lr.start_date DESC,
+          lr.id DESC
+        LIMIT 10
+      `,
+      [employeeId]
+    );
+
+  const [recentAttendance]: any =
+    await pool.query(
+      `
+        SELECT
+          ar.attendance_date,
+          ac.code,
+          ac.description,
+          ac.category
+        FROM attendance_records ar
+        INNER JOIN attendance_codes ac
+          ON ac.id = ar.attendance_code_id
+        WHERE ar.employee_id = ?
+          AND ac.code <> 'P'
+        ORDER BY ar.attendance_date DESC
+        LIMIT 10
+      `,
+      [employeeId]
+    );
+
+  return {
+    employee: {
+      ...employee,
+      seniority_years:
+        getSeniorityAtYearStart(
+          employee.hire_date,
+          year
+        )
+    },
+    period: {
+      year,
+      month
+    },
+    attendance: {
+      totals: attendanceTotals,
+      byCode: attendanceRows
+    },
+    balances: {
+      vacation: leaveSummary.vacation,
+      code26: leaveSummary.code26,
+      hours24_43: leaveSummary.hours24_43,
+      code29: leaveSummary.code29,
+      compensatory: leaveSummary.compensatory
+    },
+    recentLeaves,
+    recentAttendance
+  };
+}
+
 async function validateLeaveRequest(
   data: any
 ) {

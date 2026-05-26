@@ -122,6 +122,33 @@ type LeaveBalanceAdjustment = {
   notes: string | null;
 };
 
+type DirectiveSummary = {
+  employee: Employee & {
+    seniority_years: number;
+  };
+  period: {
+    year: number;
+    month: number;
+  };
+  attendance: {
+    totals: Record<string, number>;
+    byCode: Array<{
+      code: string;
+      description: string;
+      category: string;
+      total: number;
+    }>;
+  };
+  balances: any;
+  recentLeaves: LeaveRequest[];
+  recentAttendance: Array<{
+    attendance_date: string;
+    code: string;
+    description: string;
+    category: string;
+  }>;
+};
+
 type LeaveSummary = {
   vacation: {
     allowed_days: number;
@@ -546,6 +573,12 @@ export default function PersonnelPage() {
   const [error, setError] =
     useState('');
 
+  const [directiveSummary, setDirectiveSummary] =
+    useState<DirectiveSummary | null>(null);
+
+  const [loadingDirectiveSummary, setLoadingDirectiveSummary] =
+    useState(false);
+
   async function loadData() {
 
     try {
@@ -613,6 +646,35 @@ export default function PersonnelPage() {
     } catch (error: any) {
 
       setError(error.message);
+    }
+  }
+
+  async function loadDirectiveSummary(
+    employee: Employee
+  ) {
+
+    try {
+
+      setLoadingDirectiveSummary(true);
+      setError('');
+
+      const now =
+        new Date();
+
+      const res =
+        await apiFetch(
+          `/personnel/employees/${employee.id}/directive-summary?year=${now.getFullYear()}&month=${now.getMonth() + 1}`
+        );
+
+      setDirectiveSummary(res.data);
+
+    } catch (error: any) {
+
+      setError(error.message);
+
+    } finally {
+
+      setLoadingDirectiveSummary(false);
     }
   }
 
@@ -2135,6 +2197,9 @@ export default function PersonnelPage() {
                     <th>Ingreso</th>
                     <th>Antiguedad</th>
                     <th>Estado</th>
+                      {(readOnly || user?.role === 'admin') && (
+                        <th>Resumen</th>
+                      )}
                       {!readOnly && (
                         <th>Acciones</th>
                       )}
@@ -2163,6 +2228,19 @@ export default function PersonnelPage() {
                           }
                         </span>
                       </td>
+                      {(readOnly || user?.role === 'admin') && (
+                        <td>
+                          <button
+                            className="btn-secondary"
+                            type="button"
+                            onClick={() =>
+                              loadDirectiveSummary(employee)
+                            }
+                          >
+                            Ver resumen
+                          </button>
+                        </td>
+                      )}
                       {!readOnly && (
                         <td>
                           <div className="table-actions">
@@ -2200,7 +2278,7 @@ export default function PersonnelPage() {
                   {
                     filteredEmployees.length === 0 && (
                       <tr>
-                        <td colSpan={readOnly ? 6 : 7}>
+                        <td colSpan={readOnly ? 7 : user?.role === 'admin' ? 8 : 7}>
                           No hay empleados para esos filtros.
                         </td>
                       </tr>
@@ -2210,6 +2288,155 @@ export default function PersonnelPage() {
               </table>
             </div>
           </>
+        )
+      }
+
+      {
+        directiveSummary && (
+          <div className="modal-overlay">
+            <div className="modal-content modal-content-wide">
+              <div className="page-header">
+                <div>
+                  <h2 className="modal-title">
+                    Resumen de {directiveSummary.employee.full_name}
+                  </h2>
+                  <p className="page-subtitle">
+                    {directiveSummary.employee.department_name || 'Sin sector'} - Legajo {directiveSummary.employee.file_number || '-'}
+                  </p>
+                </div>
+                <button
+                  className="btn-secondary"
+                  type="button"
+                  onClick={() =>
+                    setDirectiveSummary(null)
+                  }
+                >
+                  Cerrar
+                </button>
+              </div>
+
+              {loadingDirectiveSummary ? (
+                <p>Cargando resumen...</p>
+              ) : (
+                <>
+                  <div className="dashboard-grid">
+                    <div className="dashboard-card">
+                      <h3>Antiguedad</h3>
+                      <p>{directiveSummary.employee.seniority_years}</p>
+                      <span>Ingreso {toDateInput(directiveSummary.employee.hire_date) || '-'}</span>
+                    </div>
+
+                    <div className="dashboard-card">
+                      <h3>Ausencias del mes</h3>
+                      <p>{directiveSummary.attendance.totals.ausencia || 0}</p>
+                      <span>{directiveSummary.period.month}/{directiveSummary.period.year}</span>
+                    </div>
+
+                    <div className="dashboard-card">
+                      <h3>Licencias del mes</h3>
+                      <p>{directiveSummary.attendance.totals.licencia || 0}</p>
+                      <span>Incluye articulos y permisos</span>
+                    </div>
+
+                    <div className="dashboard-card">
+                      <h3>Vacaciones disponibles</h3>
+                      <p>{directiveSummary.balances.vacation.available_days}</p>
+                      <span>Asignadas {directiveSummary.balances.vacation.allowed_days}</span>
+                    </div>
+
+                    <div className="dashboard-card">
+                      <h3>Articulo 26</h3>
+                      <p>{directiveSummary.balances.code26.remaining_days}</p>
+                      <span>Restantes en el año</span>
+                    </div>
+
+                    <div className="dashboard-card">
+                      <h3>Horas 24/43</h3>
+                      <p>{directiveSummary.balances.hours24_43.remaining_hours_year}</p>
+                      <span>Este mes quedan {directiveSummary.balances.hours24_43.remaining_hours_month} hs</span>
+                    </div>
+
+                    <div className="dashboard-card">
+                      <h3>Clave 29</h3>
+                      <p>{directiveSummary.balances.code29.remaining_days}</p>
+                      <span>Dias restantes</span>
+                    </div>
+
+                    <div className="dashboard-card">
+                      <h3>Compensatorios</h3>
+                      <p>{directiveSummary.balances.compensatory.remaining_days}</p>
+                      <span>Ganados {directiveSummary.balances.compensatory.earned_days}</span>
+                    </div>
+                  </div>
+
+                  <div className="dashboard-sections">
+                    <section className="dashboard-panel">
+                      <h2>Presentismo por clave</h2>
+                      <div className="dashboard-list">
+                        {directiveSummary.attendance.byCode.map((item) => (
+                          <div
+                            className="dashboard-list-item"
+                            key={item.code}
+                          >
+                            <strong>{item.code} - {item.description}</strong>
+                            <span>{item.total} dias</span>
+                            <span>{item.category}</span>
+                          </div>
+                        ))}
+                        {directiveSummary.attendance.byCode.length === 0 && (
+                          <p className="page-subtitle">
+                            No hay presentismo cargado para este mes.
+                          </p>
+                        )}
+                      </div>
+                    </section>
+
+                    <section className="dashboard-panel">
+                      <h2>Ultimas licencias</h2>
+                      <div className="dashboard-list">
+                        {directiveSummary.recentLeaves.map((item) => (
+                          <div
+                            className="dashboard-list-item"
+                            key={item.id}
+                          >
+                            <strong>{item.code} - {item.description}</strong>
+                            <span>{toDateInput(item.start_date)} al {toDateInput(item.end_date)}</span>
+                            <span>{item.status}</span>
+                          </div>
+                        ))}
+                        {directiveSummary.recentLeaves.length === 0 && (
+                          <p className="page-subtitle">
+                            No hay licencias recientes.
+                          </p>
+                        )}
+                      </div>
+                    </section>
+
+                    <section className="dashboard-panel">
+                      <h2>Ultimas novedades de presentismo</h2>
+                      <div className="dashboard-list">
+                        {directiveSummary.recentAttendance.map((item) => (
+                          <div
+                            className="dashboard-list-item"
+                            key={`${item.attendance_date}-${item.code}`}
+                          >
+                            <strong>{item.code} - {item.description}</strong>
+                            <span>{toDateInput(item.attendance_date)}</span>
+                            <span>{item.category}</span>
+                          </div>
+                        ))}
+                        {directiveSummary.recentAttendance.length === 0 && (
+                          <p className="page-subtitle">
+                            No hay novedades recientes.
+                          </p>
+                        )}
+                      </div>
+                    </section>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
         )
       }
 

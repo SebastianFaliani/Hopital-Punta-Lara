@@ -19,6 +19,7 @@ import {
   getAttendanceCodes,
   getDepartments,
   getEmployees,
+  getEmployeeDirectiveSummary,
   getAttendanceSummary,
   getEmployeeLeaveSummary,
   getLeaveBalanceAdjustments,
@@ -340,6 +341,46 @@ export async function handleGetEmployeeLeaveSummary(
       success: true,
       data:
         await getEmployeeLeaveSummary(
+          Number(req.params.employeeId),
+          year,
+          month
+        )
+    });
+
+  } catch (error: any) {
+    return res.status(400).json({
+      success: false,
+      message: error.message
+    });
+  }
+}
+
+export async function handleGetEmployeeDirectiveSummary(
+  req: Request,
+  res: Response
+) {
+
+  try {
+
+    const now =
+      new Date();
+
+    const year =
+      Number(
+        req.query.year ||
+          now.getFullYear()
+      );
+
+    const month =
+      Number(
+        req.query.month ||
+          now.getMonth() + 1
+      );
+
+    return res.json({
+      success: true,
+      data:
+        await getEmployeeDirectiveSummary(
           Number(req.params.employeeId),
           year,
           month

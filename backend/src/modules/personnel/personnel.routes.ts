@@ -17,6 +17,7 @@ import {
   handleGetAttendanceCodes,
   handleGetAttendanceMonth,
   handleGetAttendanceSummary,
+  handleGetEmployeeDirectiveSummary,
   handleGetDepartments,
   handleGetEmployeeLeaveSummary,
   handleGetEmployees,
@@ -88,6 +89,11 @@ router.get(
 router.get(
   '/employees/:employeeId/leave-summary',
   handleGetEmployeeLeaveSummary
+);
+
+router.get(
+  '/employees/:employeeId/directive-summary',
+  handleGetEmployeeDirectiveSummary
 );
 
 router.post(
