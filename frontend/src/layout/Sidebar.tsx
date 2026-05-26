@@ -34,6 +34,12 @@ export default function Sidebar() {
           Personal
         </NavLink>
       )}
+
+      {(user?.role === 'admin' || user?.role === 'user') && (
+        <NavLink to="/vaccines" className="app-nav-link">
+          Vacunas
+        </NavLink>
+      )}
       
       {(user?.role === 'admin' || user?.role === 'farmacia') && (
       <NavLink to="/medications" className="app-nav-link">

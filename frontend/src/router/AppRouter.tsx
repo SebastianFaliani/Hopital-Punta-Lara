@@ -18,6 +18,8 @@ import DriversPage from '../pages/DriversPage';
 import DriverShiftsPage from '../pages/DriverShiftsPage';
 import WhatsappPage from '../pages/WhatsappPage';
 import PersonnelPage from '../pages/PersonnelPage';
+import VaccinesPage from '../pages/VaccinesPage';
+import VaccineBatchesPage from '../pages/VaccineBatchesPage';
 
 import ProtectedRoute from '../auth/ProtectedRoute';
 import Layout from '../layout/Layout';
@@ -113,6 +115,16 @@ export default function AppRouter() {
             <Route
               path="/personnel"
               element={<PersonnelPage />}
+            />
+
+            <Route
+              path="/vaccines"
+              element={<VaccinesPage />}
+            />
+
+            <Route
+              path="/vaccines/:id/batches"
+              element={<VaccineBatchesPage />}
             />
 
           </Route>
