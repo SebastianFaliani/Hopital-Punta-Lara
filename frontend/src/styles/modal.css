@@ -255,6 +255,112 @@
   font-size: 12px;
 }
 
+.code26-print-area {
+
+  width: 760px;
+
+  max-width: 100%;
+
+  margin: 0 auto;
+}
+
+.code26-print-copy {
+
+  padding: 18px 28px 22px;
+
+  border: 1px solid #d1d5db;
+
+  font-family: Arial, sans-serif;
+}
+
+.code26-print-copy + .code26-print-copy {
+
+  margin-top: 18px;
+}
+
+.code26-print-copy h2 {
+
+  margin: 0 0 4px;
+
+  text-align: center;
+
+  font-size: 17px;
+
+  font-weight: 700;
+}
+
+.code26-print-copy h3 {
+
+  margin: 0 0 18px;
+
+  text-align: center;
+
+  font-size: 16px;
+}
+
+.code26-print-row {
+
+  display: grid;
+
+  grid-template-columns: 150px 1fr;
+
+  gap: 10px;
+
+  align-items: center;
+
+  min-height: 30px;
+
+  border-bottom: 1px solid #111827;
+}
+
+.code26-print-row span {
+
+  font-weight: 700;
+}
+
+.code26-print-grid {
+
+  display: grid;
+
+  grid-template-columns: 1fr 1fr;
+
+  gap: 28px;
+}
+
+.code26-print-grid .code26-print-row {
+
+  grid-template-columns: 70px 1fr;
+}
+
+.code26-print-signatures {
+
+  display: grid;
+
+  grid-template-columns: 1fr 1fr;
+
+  gap: 64px;
+
+  margin-top: 34px;
+
+  text-align: center;
+}
+
+.code26-print-signatures span {
+
+  display: block;
+
+  height: 22px;
+
+  border-bottom: 1px dotted #111827;
+}
+
+.code26-print-signatures p {
+
+  margin: 7px 0 0;
+
+  font-size: 12px;
+}
+
 @media print {
 
   body * {
@@ -292,5 +398,24 @@
     border: 0;
 
     padding: 16mm 12mm;
+  }
+
+  .code26-print-area {
+
+    width: auto;
+  }
+
+  .code26-print-copy {
+
+    border: 0;
+
+    padding: 7mm 10mm;
+
+    page-break-inside: avoid;
+  }
+
+  .code26-print-copy + .code26-print-copy {
+
+    margin-top: 5mm;
   }
 }

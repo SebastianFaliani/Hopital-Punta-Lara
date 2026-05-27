@@ -2699,6 +2699,7 @@ export async function getLeaveRequests() {
           lr.exit_reason,
           lr.exit_time,
           lr.return_time,
+          lr.shift_label,
           lr.is_exception,
           lr.exception_reason,
           lr.status,
@@ -2742,12 +2743,13 @@ export async function createLeaveRequest(
           exit_reason,
           exit_time,
           return_time,
+          shift_label,
           is_exception,
           exception_reason,
           requested_by,
           notes
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
       [
         validated.employee.id,
@@ -2767,6 +2769,9 @@ export async function createLeaveRequest(
           : null,
         ['24', '43'].includes(validated.code.code)
           ? data.return_time || null
+          : null,
+        validated.code.code === '26'
+          ? data.shift_label || null
           : null,
         Boolean(data.is_exception),
         data.exception_reason || null,

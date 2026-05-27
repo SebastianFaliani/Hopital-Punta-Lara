@@ -95,6 +95,7 @@ type LeaveRequest = {
   exit_reason: string | null;
   exit_time: string | null;
   return_time: string | null;
+  shift_label: string | null;
   is_exception: boolean;
   exception_reason: string | null;
   status: string;
@@ -220,6 +221,7 @@ const emptyLeaveForm = {
   exit_reason: 'particular',
   exit_time: '',
   return_time: '',
+  shift_label: '',
   is_exception: false,
   exception_reason: '',
   notes: ''
@@ -1102,7 +1104,7 @@ export default function PersonnelPage() {
 
       if (
         createdRequest &&
-        ['24', '43'].includes(createdRequest.code)
+        ['24', '43', '26'].includes(createdRequest.code)
       ) {
         setPrintLeaveRequest(createdRequest);
       }
@@ -3338,6 +3340,16 @@ export default function PersonnelPage() {
                 </>
               )}
 
+              {leaveForm.code === '26' && (
+                <input
+                  className="form-input"
+                  name="shift_label"
+                  placeholder="Turno"
+                  value={leaveForm.shift_label}
+                  onChange={handleLeaveChange}
+                />
+              )}
+
               <label className="checkbox-row">
                 <input
                   type="checkbox"
@@ -3422,7 +3434,7 @@ export default function PersonnelPage() {
                       {!readOnly && (
                         <td>
                         <div className="table-actions">
-                          {['24', '43'].includes(request.code) && (
+                          {['24', '43', '26'].includes(request.code) && (
                             <button
                               className="btn-secondary"
                               type="button"
@@ -3790,7 +3802,7 @@ export default function PersonnelPage() {
                       {!readOnly && (
                         <td>
                         <div className="table-actions">
-                          {['24', '43'].includes(request.code) && (
+                          {['24', '43', '26'].includes(request.code) && (
                             <button
                               className="btn-secondary"
                               type="button"
@@ -4114,15 +4126,84 @@ function PermissionPrintModal({
         </div>
 
         <div className="permission-print-area">
-          <PermissionPrintCopy
-            request={request}
-            isOfficial={isOfficial}
-          />
+          {request.code === '26'
+            ? (
+              <Code26PrintArea
+                request={request}
+              />
+            )
+            : (
+              <PermissionPrintCopy
+                request={request}
+                isOfficial={isOfficial}
+              />
+            )}
         </div>
 
       </div>
 
     </div>
+  );
+}
+
+function Code26PrintArea({
+  request
+}: {
+  request: LeaveRequest;
+}) {
+
+  return (
+    <div className="code26-print-area">
+      <Code26PrintCopy
+        request={request}
+      />
+    </div>
+  );
+}
+
+function Code26PrintCopy({
+  request
+}: {
+  request: LeaveRequest;
+}) {
+
+  return (
+    <section className="code26-print-copy">
+      <h2>HOSPITAL MUNICIPAL DE PUNTA LARA</h2>
+      <h3>CLAVE 26</h3>
+
+      <div className="code26-print-row">
+        <span>Apellido y Nombre:</span>
+        <strong>{request.full_name}</strong>
+      </div>
+
+      <div className="code26-print-row">
+        <span>Servicio:</span>
+        <strong>{request.department_name || '-'}</strong>
+      </div>
+
+      <div className="code26-print-grid">
+        <div className="code26-print-row">
+          <span>Fecha:</span>
+          <strong>{toDateInput(request.start_date)}</strong>
+        </div>
+        <div className="code26-print-row">
+          <span>Turno:</span>
+          <strong>{request.shift_label || '-'}</strong>
+        </div>
+      </div>
+
+      <div className="code26-print-signatures">
+        <div>
+          <span />
+          <p>Firma del empleado</p>
+        </div>
+        <div>
+          <span />
+          <p>Firma Jefe inmediato</p>
+        </div>
+      </div>
+    </section>
   );
 }
 
