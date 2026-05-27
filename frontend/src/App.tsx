@@ -4,6 +4,10 @@ import {
   AuthProvider
 } from './auth/AuthProvider';
 
+import {
+  SystemAlertModal
+} from './components/SystemAlertModal';
+
 function App() {
 
   return (
@@ -11,6 +15,8 @@ function App() {
     <AuthProvider>
 
       <AppRouter />
+
+      <SystemAlertModal />
 
     </AuthProvider>
   );

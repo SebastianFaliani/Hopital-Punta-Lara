@@ -2,6 +2,25 @@ const API_URL =
   import.meta.env.VITE_API_URL ||
   `${window.location.protocol}//${window.location.hostname}:4000`;
 
+function showSystemAlert(
+  message: string,
+  title = 'Aviso del sistema'
+) {
+
+  window.dispatchEvent(
+    new CustomEvent(
+      'hospital-system-alert',
+      {
+        detail: {
+          title,
+          message,
+          variant: 'error'
+        }
+      }
+    )
+  );
+}
+
 export function getApiUrl() {
   return API_URL;
 }
@@ -95,6 +114,11 @@ export async function apiFetch(
       }
     );
   } catch (error) {
+    showSystemAlert(
+      `No se pudo conectar con el servidor (${API_URL})`,
+      'Conexion con el servidor'
+    );
+
     throw new Error(
       `No se pudo conectar con el servidor (${API_URL})`
     );
@@ -123,6 +147,11 @@ export async function apiFetch(
           }
         );
       } catch (error) {
+        showSystemAlert(
+          `No se pudo conectar con el servidor (${API_URL})`,
+          'Conexion con el servidor'
+        );
+
         throw new Error(
           `No se pudo conectar con el servidor (${API_URL})`
         );
@@ -142,6 +171,9 @@ export async function apiFetch(
     await response.json();
 
   if (!response.ok) {
+    showSystemAlert(
+      data.message || 'La operacion no se pudo completar'
+    );
 
     throw new Error(
       data.message
