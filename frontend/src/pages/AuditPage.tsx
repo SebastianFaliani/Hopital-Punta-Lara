@@ -1,6 +1,5 @@
 import {
   useEffect,
-  useMemo,
   useState
 } from 'react';
 
@@ -19,6 +18,24 @@ type AuditLog = {
   created_at: string;
 };
 
+function showSystemAlert(
+  message: string,
+  title = 'Aviso del sistema'
+) {
+  window.dispatchEvent(
+    new CustomEvent(
+      'hospital-system-alert',
+      {
+        detail: {
+          title,
+          message,
+          variant: 'error'
+        }
+      }
+    )
+  );
+}
+
 export default function AuditPage() {
 
   const [logs, setLogs] =
@@ -27,42 +44,34 @@ export default function AuditPage() {
   const [loading, setLoading] =
     useState(false);
 
-  const [error, setError] =
-    useState('');
-
   const [filters, setFilters] =
     useState({
       search: '',
       module: 'todos',
       action: 'todos',
       date_from: '',
-      date_to: ''
+      date_to: '',
+      page: 1,
+      per_page: 25
     });
 
-  const modules =
-    useMemo(
-      () => Array.from(
-        new Set(
-          logs.map((log) => log.module)
-        )
-      ),
-      [logs]
-    );
+  const [pagination, setPagination] =
+    useState({
+      page: 1,
+      per_page: 25,
+      total: 0,
+      total_pages: 1
+    });
 
-  const actions =
-    useMemo(
-      () => Array.from(
-        new Set(
-          logs.map((log) => log.action)
-        )
-      ),
-      [logs]
-    );
+  const [options, setOptions] =
+    useState({
+      modules: [] as string[],
+      actions: [] as string[]
+    });
 
   async function loadAuditLogs() {
 
     setLoading(true);
-    setError('');
 
     try {
 
@@ -70,21 +79,40 @@ export default function AuditPage() {
         new URLSearchParams();
 
       Object.entries(filters).forEach(([key, value]) => {
-        if (value && value !== 'todos') {
-          params.set(key, value);
+        if (
+          value !== '' &&
+          value !== null &&
+          value !== undefined &&
+          value !== 'todos'
+        ) {
+          params.set(key, String(value));
         }
       });
 
       const res =
         await apiFetch(
           `/audit?${params.toString()}`
-        );
+      );
 
       setLogs(res.data);
+      setPagination(
+        res.pagination || {
+          page: 1,
+          per_page: filters.per_page,
+          total: res.data.length,
+          total_pages: 1
+        }
+      );
+      setOptions(
+        res.options || {
+          modules: [],
+          actions: []
+        }
+      );
 
     } catch (error: any) {
 
-      setError(error.message);
+      showSystemAlert(error.message);
 
     } finally {
 
@@ -94,7 +122,10 @@ export default function AuditPage() {
 
   useEffect(() => {
     loadAuditLogs();
-  }, []);
+  }, [
+    filters.page,
+    filters.per_page
+  ]);
 
   return (
     <div>
@@ -124,7 +155,8 @@ export default function AuditPage() {
           onChange={(e) =>
             setFilters({
               ...filters,
-              search: e.target.value
+              search: e.target.value,
+              page: 1
             })
           }
         />
@@ -135,12 +167,13 @@ export default function AuditPage() {
           onChange={(e) =>
             setFilters({
               ...filters,
-              module: e.target.value
+              module: e.target.value,
+              page: 1
             })
           }
         >
           <option value="todos">Todos los modulos</option>
-          {modules.map((module) => (
+          {options.modules.map((module) => (
             <option key={module} value={module}>
               {module}
             </option>
@@ -153,12 +186,13 @@ export default function AuditPage() {
           onChange={(e) =>
             setFilters({
               ...filters,
-              action: e.target.value
+              action: e.target.value,
+              page: 1
             })
           }
         >
           <option value="todos">Todas las acciones</option>
-          {actions.map((action) => (
+          {options.actions.map((action) => (
             <option key={action} value={action}>
               {action}
             </option>
@@ -172,7 +206,8 @@ export default function AuditPage() {
           onChange={(e) =>
             setFilters({
               ...filters,
-              date_from: e.target.value
+              date_from: e.target.value,
+              page: 1
             })
           }
         />
@@ -184,7 +219,8 @@ export default function AuditPage() {
           onChange={(e) =>
             setFilters({
               ...filters,
-              date_to: e.target.value
+              date_to: e.target.value,
+              page: 1
             })
           }
         />
@@ -198,17 +234,64 @@ export default function AuditPage() {
         </button>
       </div>
 
-      {error && (
-        <p className="form-error">
-          {error}
-        </p>
-      )}
-
       <p className="results-summary">
         {loading
           ? 'Cargando auditoria...'
-          : `Mostrando ${logs.length} movimientos`}
+          : `Mostrando ${logs.length} de ${pagination.total} movimientos`}
       </p>
+
+      <div className="pagination-bar">
+        <span>
+          Pagina {pagination.page} de {pagination.total_pages}
+        </span>
+
+        <div className="table-actions">
+          <select
+            className="form-input"
+            value={filters.per_page}
+            onChange={(e) =>
+              setFilters({
+                ...filters,
+                per_page: Number(e.target.value),
+                page: 1
+              })
+            }
+          >
+            <option value={25}>25 por pagina</option>
+            <option value={50}>50 por pagina</option>
+            <option value={100}>100 por pagina</option>
+          </select>
+
+          <button
+            className="btn-secondary"
+            disabled={pagination.page <= 1}
+            onClick={() =>
+              setFilters({
+                ...filters,
+                page: Math.max(1, pagination.page - 1)
+              })
+            }
+          >
+            Anterior
+          </button>
+
+          <button
+            className="btn-secondary"
+            disabled={pagination.page >= pagination.total_pages}
+            onClick={() =>
+              setFilters({
+                ...filters,
+                page: Math.min(
+                  pagination.total_pages,
+                  pagination.page + 1
+                )
+              })
+            }
+          >
+            Siguiente
+          </button>
+        </div>
+      </div>
 
       <div className="table-container">
         <table className="data-table">

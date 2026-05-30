@@ -8,9 +8,14 @@ export async function handleGetAuditLogs(
 ) {
 
   try {
+    const result =
+      await getAuditLogs(req.query);
+
     return res.json({
       success: true,
-      data: await getAuditLogs(req.query)
+      data: result.logs,
+      pagination: result.pagination,
+      options: result.options
     });
   } catch (error: any) {
     return res.status(500).json({
