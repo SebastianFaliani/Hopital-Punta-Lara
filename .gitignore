@@ -26,7 +26,6 @@ npm-debug.log*
 # Local temp
 .tmp_*/
 .tmp_clave26_xlsx/
-scripts/import-laboratory-excel.js
 
 # OS
 .DS_Store
