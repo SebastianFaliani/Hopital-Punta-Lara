@@ -3230,7 +3230,90 @@ export async function completeLeaveReturn(
   );
 }
 
-export async function getEmployees() {
+export async function getEmployees(
+  filters: any = {}
+) {
+  const where: string[] = [];
+  const params: any[] = [];
+
+  if (filters.search) {
+    const search =
+      `%${String(filters.search).trim()}%`;
+
+    where.push(
+      `(
+        e.full_name LIKE ?
+        OR e.dni LIKE ?
+        OR e.cuil LIKE ?
+        OR e.file_number LIKE ?
+        OR d.name LIKE ?
+      )`
+    );
+
+    params.push(
+      search,
+      search,
+      search,
+      search,
+      search
+    );
+  }
+
+  if (
+    filters.department &&
+    filters.department !== 'todos'
+  ) {
+    where.push('e.department_id = ?');
+    params.push(Number(filters.department));
+  }
+
+  if (filters.status === 'activo') {
+    where.push('e.is_active = TRUE');
+  }
+
+  if (filters.status === 'inactivo') {
+    where.push('e.is_active = FALSE');
+  }
+
+  const whereSql =
+    where.length
+      ? `WHERE ${where.join(' AND ')}`
+      : '';
+
+  const shouldPaginate =
+    filters.page || filters.per_page;
+
+  const page =
+    Math.max(
+      1,
+      Number(filters.page || 1)
+    );
+
+  const perPage =
+    Math.min(
+      100,
+      Math.max(
+        10,
+        Number(filters.per_page || 25)
+      )
+    );
+
+  const offset =
+    (page - 1) * perPage;
+
+  const [countRows]: any =
+    shouldPaginate
+      ? await pool.query(
+        `
+          SELECT COUNT(*) AS total
+          FROM employees e
+          LEFT JOIN employee_departments d
+            ON d.id = e.department_id
+          ${whereSql}
+        `,
+        params
+      )
+      : [[{ total: 0 }]];
 
   const [rows]: any =
     await pool.query(
@@ -3256,9 +3339,37 @@ export async function getEmployees() {
         FROM employees e
         LEFT JOIN employee_departments d
           ON d.id = e.department_id
+        ${whereSql}
         ORDER BY e.full_name ASC
-      `
+        ${shouldPaginate ? 'LIMIT ? OFFSET ?' : ''}
+      `,
+      shouldPaginate
+        ? [
+            ...params,
+            perPage,
+            offset
+          ]
+        : params
     );
+
+  if (shouldPaginate) {
+    const total =
+      Number(countRows[0]?.total || 0);
+
+    return {
+      employees: rows,
+      pagination: {
+        page,
+        per_page: perPage,
+        total,
+        total_pages:
+          Math.max(
+            1,
+            Math.ceil(total / perPage)
+          )
+      }
+    };
+  }
 
   return rows;
 }

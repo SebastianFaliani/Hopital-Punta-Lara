@@ -704,9 +704,20 @@ export async function handleGetEmployees(
 ) {
 
   try {
+    const result =
+      await getEmployees(req.query);
+
+    if (!Array.isArray(result)) {
+      return res.json({
+        success: true,
+        data: result.employees,
+        pagination: result.pagination
+      });
+    }
+
     return res.json({
       success: true,
-      data: await getEmployees()
+      data: result
     });
   } catch (error: any) {
     return res.status(500).json({

@@ -560,6 +560,17 @@ export default function PersonnelPage() {
   const [employees, setEmployees] =
     useState<Employee[]>([]);
 
+  const [employeeList, setEmployeeList] =
+    useState<Employee[]>([]);
+
+  const [employeePagination, setEmployeePagination] =
+    useState({
+      page: 1,
+      per_page: 25,
+      total: 0,
+      total_pages: 1
+    });
+
   const [departments, setDepartments] =
     useState<Department[]>([]);
 
@@ -676,7 +687,9 @@ export default function PersonnelPage() {
     useState({
       search: '',
       department: 'todos',
-      status: 'todos'
+      status: 'todos',
+      page: 1,
+      per_page: 25
     });
 
   const [error, setError] =
@@ -708,6 +721,42 @@ export default function PersonnelPage() {
 
     } catch (error: any) {
 
+      setError(error.message);
+    }
+  }
+
+  async function loadEmployeeList() {
+
+    try {
+      const params =
+        new URLSearchParams();
+
+      Object.entries(filters).forEach(([key, value]) => {
+        if (
+          value !== '' &&
+          value !== null &&
+          value !== undefined &&
+          value !== 'todos'
+        ) {
+          params.set(key, String(value));
+        }
+      });
+
+      const res =
+        await apiFetch(
+          `/personnel/employees?${params.toString()}`
+        );
+
+      setEmployeeList(res.data);
+      setEmployeePagination(
+        res.pagination || {
+          page: 1,
+          per_page: filters.per_page,
+          total: res.data.length,
+          total_pages: 1
+        }
+      );
+    } catch (error: any) {
       setError(error.message);
     }
   }
@@ -879,7 +928,10 @@ export default function PersonnelPage() {
       );
 
       resetEmployeeForm();
-      loadData();
+      await Promise.all([
+        loadData(),
+        loadEmployeeList()
+      ]);
 
     } catch (error: any) {
 
@@ -898,7 +950,10 @@ export default function PersonnelPage() {
       }
     );
 
-    loadData();
+    await Promise.all([
+      loadData(),
+      loadEmployeeList()
+    ]);
   }
 
   async function handleDepartmentSubmit(
@@ -1856,46 +1911,21 @@ export default function PersonnelPage() {
     vacationYear
   ]);
 
+  useEffect(() => {
+    if (activeTab === 'employees') {
+      loadEmployeeList();
+    }
+  }, [
+    activeTab,
+    filters.search,
+    filters.department,
+    filters.status,
+    filters.page,
+    filters.per_page
+  ]);
+
   const filteredEmployees =
-    employees.filter((employee) => {
-
-      const search =
-        normalizeSearchText(filters.search);
-
-      const matchesSearch =
-        matchesNameSearch(employee.full_name, search) ||
-        (employee.dni || '')
-          .toLowerCase()
-          .includes(search) ||
-        (employee.cuil || '')
-          .toLowerCase()
-          .includes(search) ||
-        (employee.file_number || '')
-          .toLowerCase()
-          .includes(search);
-
-      const matchesDepartment =
-        filters.department === 'todos' ||
-        String(employee.department_id || '') ===
-          filters.department;
-
-      const matchesStatus =
-        filters.status === 'todos' ||
-        (
-          filters.status === 'activo' &&
-          employee.is_active
-        ) ||
-        (
-          filters.status === 'inactivo' &&
-          !employee.is_active
-        );
-
-      return (
-        matchesSearch &&
-        matchesDepartment &&
-        matchesStatus
-      );
-    });
+    employeeList;
 
   const dayNumbers =
     Array.from(
@@ -2382,7 +2412,8 @@ export default function PersonnelPage() {
                 onChange={(e) =>
                   setFilters({
                     ...filters,
-                    search: e.target.value
+                    search: e.target.value,
+                    page: 1
                   })
                 }
               />
@@ -2393,7 +2424,8 @@ export default function PersonnelPage() {
                 onChange={(e) =>
                   setFilters({
                     ...filters,
-                    department: e.target.value
+                    department: e.target.value,
+                    page: 1
                   })
                 }
               >
@@ -2416,7 +2448,8 @@ export default function PersonnelPage() {
                 onChange={(e) =>
                   setFilters({
                     ...filters,
-                    status: e.target.value
+                    status: e.target.value,
+                    page: 1
                   })
                 }
               >
@@ -2433,8 +2466,69 @@ export default function PersonnelPage() {
             </div>
 
             <p className="results-summary">
-              Mostrando {filteredEmployees.length} de {employees.length} empleados
+              Mostrando {filteredEmployees.length} de {employeePagination.total} empleados
             </p>
+
+            <div className="pagination-bar">
+              <span>
+                Pagina {employeePagination.page} de {employeePagination.total_pages}
+              </span>
+
+              <div className="table-actions">
+                <select
+                  className="form-input"
+                  value={filters.per_page}
+                  onChange={(e) =>
+                    setFilters({
+                      ...filters,
+                      per_page: Number(e.target.value),
+                      page: 1
+                    })
+                  }
+                >
+                  <option value={25}>25 por pagina</option>
+                  <option value={50}>50 por pagina</option>
+                  <option value={100}>100 por pagina</option>
+                </select>
+
+                <button
+                  className="btn-secondary"
+                  disabled={employeePagination.page <= 1}
+                  onClick={() =>
+                    setFilters({
+                      ...filters,
+                      page:
+                        Math.max(
+                          1,
+                          employeePagination.page - 1
+                        )
+                    })
+                  }
+                >
+                  Anterior
+                </button>
+
+                <button
+                  className="btn-secondary"
+                  disabled={
+                    employeePagination.page >=
+                    employeePagination.total_pages
+                  }
+                  onClick={() =>
+                    setFilters({
+                      ...filters,
+                      page:
+                        Math.min(
+                          employeePagination.total_pages,
+                          employeePagination.page + 1
+                        )
+                    })
+                  }
+                >
+                  Siguiente
+                </button>
+              </div>
+            </div>
 
             <div className="table-container">
               <table className="data-table">
