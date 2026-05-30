@@ -182,14 +182,11 @@ export async function createLaboratoryRecord(
           patient_document,
           has_blood_extraction,
           has_urine_sample,
-          pickup_date,
-          picked_up_by,
-          pickup_document,
           notes,
           created_by,
           updated_by
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
       [
         data.study_date,
@@ -198,9 +195,6 @@ export async function createLaboratoryRecord(
         data.patient_document || null,
         Boolean(data.has_blood_extraction),
         Boolean(data.has_urine_sample),
-        data.pickup_date || null,
-        data.picked_up_by || null,
-        data.pickup_document || null,
         data.notes || null,
         userId || null,
         userId || null
@@ -225,9 +219,6 @@ export async function updateLaboratoryRecord(
         patient_document = ?,
         has_blood_extraction = ?,
         has_urine_sample = ?,
-        pickup_date = ?,
-        picked_up_by = ?,
-        pickup_document = ?,
         notes = ?,
         updated_by = ?
       WHERE id = ?
@@ -239,9 +230,6 @@ export async function updateLaboratoryRecord(
       data.patient_document || null,
       Boolean(data.has_blood_extraction),
       Boolean(data.has_urine_sample),
-      data.pickup_date || null,
-      data.picked_up_by || null,
-      data.pickup_document || null,
       data.notes || null,
       userId || null,
       id
@@ -251,3 +239,31 @@ export async function updateLaboratoryRecord(
   return true;
 }
 
+export async function registerLaboratoryPickup(
+  id: number,
+  data: any,
+  userId?: number
+) {
+  await pool.query(
+    `
+      UPDATE laboratory_records
+      SET
+        pickup_date = ?,
+        picked_up_by = ?,
+        pickup_document = ?,
+        notes = ?,
+        updated_by = ?
+      WHERE id = ?
+    `,
+    [
+      data.pickup_date,
+      data.picked_up_by,
+      data.pickup_document || null,
+      data.notes || null,
+      userId || null,
+      id
+    ]
+  );
+
+  return true;
+}

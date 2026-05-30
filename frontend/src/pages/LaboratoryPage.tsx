@@ -113,6 +113,17 @@ export default function LaboratoryPage() {
   const [editing, setEditing] =
     useState<LaboratoryRecord | null>(null);
 
+  const [pickupRecord, setPickupRecord] =
+    useState<LaboratoryRecord | null>(null);
+
+  const [pickupForm, setPickupForm] =
+    useState({
+      pickup_date: new Date().toISOString().slice(0, 10),
+      picked_up_by: '',
+      pickup_document: '',
+      notes: ''
+    });
+
   const [showForm, setShowForm] =
     useState(false);
 
@@ -124,10 +135,16 @@ export default function LaboratoryPage() {
 
   const canEdit =
     user?.role === 'admin' ||
+    user?.role === 'lab';
+
+  const canPickup =
+    canEdit ||
     user?.role === 'user';
 
   const canView =
+    user?.role === 'lab' ||
     canEdit ||
+    canPickup ||
     user?.role === 'dir';
 
   const queryString =
@@ -195,13 +212,28 @@ export default function LaboratoryPage() {
       patient_document: record.patient_document || '',
       has_blood_extraction: yesNo(record.has_blood_extraction),
       has_urine_sample: yesNo(record.has_urine_sample),
-      pickup_date: toDateInput(record.pickup_date),
+      pickup_date: '',
+      picked_up_by: '',
+      pickup_document: '',
+      notes: record.notes || ''
+    });
+    setError('');
+    setShowForm(true);
+  }
+
+  function openPickup(
+    record: LaboratoryRecord
+  ) {
+    setPickupRecord(record);
+    setPickupForm({
+      pickup_date:
+        toDateInput(record.pickup_date) ||
+        new Date().toISOString().slice(0, 10),
       picked_up_by: record.picked_up_by || '',
       pickup_document: record.pickup_document || '',
       notes: record.notes || ''
     });
     setError('');
-    setShowForm(true);
   }
 
   async function handleSubmit(
@@ -239,6 +271,41 @@ export default function LaboratoryPage() {
       setShowForm(false);
       setEditing(null);
       setForm(emptyForm);
+      await loadLaboratory();
+    } catch (error: any) {
+      setError(error.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handlePickupSubmit(
+    e: FormEvent
+  ) {
+    e.preventDefault();
+    setError('');
+
+    if (!pickupRecord) {
+      return;
+    }
+
+    if (!pickupForm.pickup_date || !pickupForm.picked_up_by) {
+      setError('Debe cargar fecha de retiro y quien retiro');
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      await apiFetch(
+        `/laboratory/${pickupRecord.id}/pickup`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify(pickupForm)
+        }
+      );
+
+      setPickupRecord(null);
       await loadLaboratory();
     } catch (error: any) {
       setError(error.message);
@@ -464,18 +531,29 @@ export default function LaboratoryPage() {
                 <td>{record.picked_up_by || '-'}</td>
                 <td>{record.notes || '-'}</td>
                 <td>
-                  {canEdit ? (
-                    <button
-                      className="btn-primary"
-                      onClick={() =>
-                        openEdit(record)
-                      }
-                    >
-                      Editar
-                    </button>
-                  ) : (
-                    '-'
-                  )}
+                  <div className="table-actions">
+                    {canEdit && (
+                      <button
+                        className="btn-primary"
+                        onClick={() =>
+                          openEdit(record)
+                        }
+                      >
+                        Editar
+                      </button>
+                    )}
+
+                    {canPickup && (
+                      <button
+                        className="btn-secondary"
+                        onClick={() =>
+                          openPickup(record)
+                        }
+                      >
+                        Registrar retiro
+                      </button>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}
@@ -586,45 +664,6 @@ export default function LaboratoryPage() {
                 </label>
               </div>
 
-              <label className="form-label">
-                Fecha de retiro
-              </label>
-              <input
-                className="form-input"
-                type="date"
-                value={form.pickup_date}
-                onChange={(e) =>
-                  setForm({
-                    ...form,
-                    pickup_date: e.target.value
-                  })
-                }
-              />
-
-              <input
-                className="form-input"
-                placeholder="Quien retiro"
-                value={form.picked_up_by}
-                onChange={(e) =>
-                  setForm({
-                    ...form,
-                    picked_up_by: e.target.value
-                  })
-                }
-              />
-
-              <input
-                className="form-input"
-                placeholder="DNI de quien retiro (opcional)"
-                value={form.pickup_document}
-                onChange={(e) =>
-                  setForm({
-                    ...form,
-                    pickup_document: e.target.value
-                  })
-                }
-              />
-
               <textarea
                 className="form-input"
                 placeholder="Observaciones"
@@ -655,6 +694,97 @@ export default function LaboratoryPage() {
                   disabled={loading}
                 >
                   {loading ? 'Guardando...' : 'Guardar'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {pickupRecord && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <h2 className="modal-title">
+              Registrar retiro
+            </h2>
+
+            <p className="page-subtitle">
+              {pickupRecord.patient_last_name}, {pickupRecord.patient_first_name}
+            </p>
+
+            <form
+              className="auth-form"
+              onSubmit={handlePickupSubmit}
+            >
+              <label className="form-label">
+                Fecha de retiro
+              </label>
+              <input
+                className="form-input"
+                type="date"
+                value={pickupForm.pickup_date}
+                onChange={(e) =>
+                  setPickupForm({
+                    ...pickupForm,
+                    pickup_date: e.target.value
+                  })
+                }
+              />
+
+              <input
+                className="form-input"
+                placeholder="Quien retiro"
+                value={pickupForm.picked_up_by}
+                onChange={(e) =>
+                  setPickupForm({
+                    ...pickupForm,
+                    picked_up_by: e.target.value
+                  })
+                }
+              />
+
+              <input
+                className="form-input"
+                placeholder="DNI de quien retiro (opcional)"
+                value={pickupForm.pickup_document}
+                onChange={(e) =>
+                  setPickupForm({
+                    ...pickupForm,
+                    pickup_document: e.target.value
+                  })
+                }
+              />
+
+              <textarea
+                className="form-input"
+                placeholder="Observaciones"
+                rows={3}
+                value={pickupForm.notes}
+                onChange={(e) =>
+                  setPickupForm({
+                    ...pickupForm,
+                    notes: e.target.value
+                  })
+                }
+              />
+
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() =>
+                    setPickupRecord(null)
+                  }
+                >
+                  Cancelar
+                </button>
+
+                <button
+                  type="submit"
+                  className="btn-success"
+                  disabled={loading}
+                >
+                  {loading ? 'Guardando...' : 'Guardar retiro'}
                 </button>
               </div>
             </form>

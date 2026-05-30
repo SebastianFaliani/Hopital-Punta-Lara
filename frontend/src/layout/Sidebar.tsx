@@ -60,7 +60,7 @@ export default function Sidebar() {
         </NavLink>
       )}
 
-      {(user?.role === 'admin' || user?.role === 'user' || user?.role === 'dir') && (
+      {(user?.role === 'admin' || user?.role === 'user' || user?.role === 'dir' || user?.role === 'lab') && (
         <NavLink to="/laboratory" className="app-nav-link">
           Laboratorio
         </NavLink>

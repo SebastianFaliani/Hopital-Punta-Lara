@@ -11,6 +11,7 @@ import {
   getLaboratoryRecordById,
   getLaboratoryRecords,
   getLaboratoryStats,
+  registerLaboratoryPickup,
   updateLaboratoryRecord
 } from './laboratory.service';
 
@@ -36,10 +37,17 @@ function validateLaboratoryBody(
     return 'Debe seleccionar al menos sangre u orina';
   }
 
-  if (
-    body.pickup_date &&
-    !body.picked_up_by
-  ) {
+  return null;
+}
+
+function validatePickupBody(
+  body: any
+) {
+  if (!body.pickup_date) {
+    return 'La fecha de retiro es obligatoria';
+  }
+
+  if (!body.picked_up_by) {
     return 'Debe indicar quien retiro el estudio';
   }
 
@@ -64,6 +72,66 @@ export async function handleGetLaboratoryRecords(
     return res.status(500).json({
       success: false,
       message: 'Error al obtener estudios de laboratorio'
+    });
+  }
+}
+
+export async function handleRegisterLaboratoryPickup(
+  req: AuthRequest,
+  res: Response
+) {
+  try {
+    const validationError =
+      validatePickupBody(req.body);
+
+    if (validationError) {
+      return res.status(400).json({
+        success: false,
+        message: validationError
+      });
+    }
+
+    const previous =
+      await getLaboratoryRecordById(
+        Number(req.params.id)
+      );
+
+    if (!previous) {
+      return res.status(404).json({
+        success: false,
+        message: 'Estudio de laboratorio no encontrado'
+      });
+    }
+
+    await registerLaboratoryPickup(
+      Number(req.params.id),
+      req.body,
+      req.user?.userId || req.user?.id
+    );
+
+    await logAudit({
+      user: req.user,
+      module: 'laboratorio',
+      action: 'registrar_retiro',
+      entityType: 'laboratory_record',
+      entityId: Number(req.params.id),
+      description: `Registro retiro de estudio ${req.params.id}`,
+      oldData: previous,
+      newData: req.body,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'] || null
+    });
+
+    return res.json({
+      success: true,
+      message: 'Retiro registrado'
+    });
+  } catch (error: any) {
+    console.error(error);
+
+    return res.status(400).json({
+      success: false,
+      message: error.message || 'Error al registrar retiro'
     });
   }
 }

@@ -4,6 +4,7 @@ import {
   handleCreateLaboratoryRecord,
   handleGetLaboratoryRecords,
   handleGetLaboratoryStats,
+  handleRegisterLaboratoryPickup,
   handleUpdateLaboratoryRecord
 } from './laboratory.controller';
 
@@ -17,11 +18,18 @@ const router = Router();
 const laboratoryReadRoles = [
   'admin',
   'user',
-  'dir'
+  'dir',
+  'lab'
 ];
 
 const laboratoryWriteRoles = [
   'admin',
+  'lab'
+];
+
+const laboratoryPickupRoles = [
+  'admin',
+  'lab',
   'user'
 ];
 
@@ -51,6 +59,13 @@ router.put(
   authenticateToken,
   authorizeRoles(...laboratoryWriteRoles),
   handleUpdateLaboratoryRecord
+);
+
+router.patch(
+  '/:id/pickup',
+  authenticateToken,
+  authorizeRoles(...laboratoryPickupRoles),
+  handleRegisterLaboratoryPickup
 );
 
 export default router;
