@@ -137,6 +137,43 @@ type LeaveBalanceAdjustment = {
   notes: string | null;
 };
 
+function normalizeSearchText(
+  value?: string | null
+) {
+  return (value || '')
+    .toLowerCase()
+    .replace(/,/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function matchesNameSearch(
+  fullName: string,
+  search: string
+) {
+  const normalizedName =
+    normalizeSearchText(fullName);
+
+  const normalizedSearch =
+    normalizeSearchText(search);
+
+  if (!normalizedSearch) {
+    return true;
+  }
+
+  const invertedName =
+    normalizedName
+      .split(' ')
+      .filter(Boolean)
+      .reverse()
+      .join(' ');
+
+  return (
+    normalizedName.includes(normalizedSearch) ||
+    invertedName.includes(normalizedSearch)
+  );
+}
+
 type DirectiveSummary = {
   employee: Employee & {
     seniority_years: number;
@@ -1823,12 +1860,10 @@ export default function PersonnelPage() {
     employees.filter((employee) => {
 
       const search =
-        filters.search.toLowerCase();
+        normalizeSearchText(filters.search);
 
       const matchesSearch =
-        employee.full_name
-          .toLowerCase()
-          .includes(search) ||
+        matchesNameSearch(employee.full_name, search) ||
         (employee.dni || '')
           .toLowerCase()
           .includes(search) ||
@@ -1899,10 +1934,8 @@ export default function PersonnelPage() {
 
       return (
         matchesDepartment &&
-        (
-          employee.full_name
-            .toLowerCase()
-            .includes(search) ||
+          (
+          matchesNameSearch(employee.full_name, search) ||
           (employee.dni || '')
             .toLowerCase()
             .includes(search) ||
@@ -1941,9 +1974,7 @@ export default function PersonnelPage() {
         }
 
         return (
-          employee.full_name
-            .toLowerCase()
-            .includes(search) ||
+          matchesNameSearch(employee.full_name, search) ||
           (employee.dni || '')
             .toLowerCase()
             .includes(search) ||
@@ -1973,9 +2004,7 @@ export default function PersonnelPage() {
 
       const matchesSearch =
         !search ||
-        request.full_name
-          .toLowerCase()
-          .includes(search) ||
+        matchesNameSearch(request.full_name, search) ||
         (request.file_number || '')
           .toLowerCase()
           .includes(search) ||
