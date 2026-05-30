@@ -47,10 +47,6 @@ function validatePickupBody(
     return 'La fecha de retiro es obligatoria';
   }
 
-  if (!body.picked_up_by) {
-    return 'Debe indicar quien retiro el estudio';
-  }
-
   return null;
 }
 
@@ -105,7 +101,12 @@ export async function handleRegisterLaboratoryPickup(
 
     await registerLaboratoryPickup(
       Number(req.params.id),
-      req.body,
+      {
+        ...req.body,
+        picked_up_by:
+          req.body.picked_up_by?.trim() ||
+          'Titular'
+      },
       req.user?.userId || req.user?.id
     );
 
@@ -117,7 +118,12 @@ export async function handleRegisterLaboratoryPickup(
       entityId: Number(req.params.id),
       description: `Registro retiro de estudio ${req.params.id}`,
       oldData: previous,
-      newData: req.body,
+      newData: {
+        ...req.body,
+        picked_up_by:
+          req.body.picked_up_by?.trim() ||
+          'Titular'
+      },
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'] || null
     });

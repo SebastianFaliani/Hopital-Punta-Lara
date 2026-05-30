@@ -88,6 +88,24 @@ function yesNo(
   return Boolean(value);
 }
 
+function showSystemAlert(
+  message: string,
+  title = 'Aviso del sistema'
+) {
+  window.dispatchEvent(
+    new CustomEvent(
+      'hospital-system-alert',
+      {
+        detail: {
+          title,
+          message,
+          variant: 'error'
+        }
+      }
+    )
+  );
+}
+
 export default function LaboratoryPage() {
 
   const { user } = useAuth();
@@ -129,9 +147,6 @@ export default function LaboratoryPage() {
 
   const [loading, setLoading] =
     useState(false);
-
-  const [error, setError] =
-    useState('');
 
   const canEdit =
     user?.role === 'admin' ||
@@ -186,7 +201,7 @@ export default function LaboratoryPage() {
         ...statsRes.data
       });
     } catch (error: any) {
-      setError(error.message);
+      showSystemAlert(error.message);
     }
   }
 
@@ -197,7 +212,6 @@ export default function LaboratoryPage() {
   function openCreate() {
     setEditing(null);
     setForm(emptyForm);
-    setError('');
     setShowForm(true);
   }
 
@@ -217,7 +231,6 @@ export default function LaboratoryPage() {
       pickup_document: '',
       notes: record.notes || ''
     });
-    setError('');
     setShowForm(true);
   }
 
@@ -233,17 +246,15 @@ export default function LaboratoryPage() {
       pickup_document: record.pickup_document || '',
       notes: record.notes || ''
     });
-    setError('');
   }
 
   async function handleSubmit(
     e: FormEvent
   ) {
     e.preventDefault();
-    setError('');
 
     if (!form.patient_last_name || !form.patient_first_name) {
-      setError('Debe cargar apellido y nombre del paciente');
+      showSystemAlert('Debe cargar apellido y nombre del paciente');
       return;
     }
 
@@ -251,7 +262,7 @@ export default function LaboratoryPage() {
       !form.has_blood_extraction &&
       !form.has_urine_sample
     ) {
-      setError('Debe seleccionar al menos sangre u orina');
+      showSystemAlert('Debe seleccionar al menos sangre u orina');
       return;
     }
 
@@ -273,7 +284,7 @@ export default function LaboratoryPage() {
       setForm(emptyForm);
       await loadLaboratory();
     } catch (error: any) {
-      setError(error.message);
+      showSystemAlert(error.message);
     } finally {
       setLoading(false);
     }
@@ -283,14 +294,13 @@ export default function LaboratoryPage() {
     e: FormEvent
   ) {
     e.preventDefault();
-    setError('');
 
     if (!pickupRecord) {
       return;
     }
 
-    if (!pickupForm.pickup_date || !pickupForm.picked_up_by) {
-      setError('Debe cargar fecha de retiro y quien retiro');
+    if (!pickupForm.pickup_date) {
+      showSystemAlert('Debe cargar la fecha de retiro');
       return;
     }
 
@@ -301,14 +311,19 @@ export default function LaboratoryPage() {
         `/laboratory/${pickupRecord.id}/pickup`,
         {
           method: 'PATCH',
-          body: JSON.stringify(pickupForm)
+          body: JSON.stringify({
+            ...pickupForm,
+            picked_up_by:
+              pickupForm.picked_up_by.trim() ||
+              'Titular'
+          })
         }
       );
 
       setPickupRecord(null);
       await loadLaboratory();
     } catch (error: any) {
-      setError(error.message);
+      showSystemAlert(error.message);
     } finally {
       setLoading(false);
     }
@@ -457,12 +472,6 @@ export default function LaboratoryPage() {
         </button>
 
       </div>
-
-      {error && (
-        <p className="auth-error">
-          {error}
-        </p>
-      )}
 
       <p className="results-summary">
         Mostrando {records.length} estudios
@@ -733,7 +742,7 @@ export default function LaboratoryPage() {
 
               <input
                 className="form-input"
-                placeholder="Quien retiro"
+                placeholder="Quien retiro (si queda vacio: Titular)"
                 value={pickupForm.picked_up_by}
                 onChange={(e) =>
                   setPickupForm({
