@@ -17,6 +17,7 @@ import personnelRoutes from './modules/personnel/personnel.routes';
 import vaccinesRoutes from './modules/vaccines/vaccines.routes';
 import vaccineBatchesRoutes from './modules/vaccine-batches/vaccine-batches.routes';
 import auditRoutes from './modules/audit/audit.routes';
+import laboratoryRoutes from './modules/laboratory/laboratory.routes';
 
 dotenv.config();
 
@@ -78,5 +79,6 @@ app.use('/personnel', personnelRoutes);
 app.use('/vaccines', vaccinesRoutes);
 app.use('/vaccine-batches', vaccineBatchesRoutes);
 app.use('/audit', auditRoutes);
+app.use('/laboratory', laboratoryRoutes);
 
 export default app;

@@ -60,6 +60,12 @@ export default function Sidebar() {
         </NavLink>
       )}
 
+      {(user?.role === 'admin' || user?.role === 'user' || user?.role === 'dir') && (
+        <NavLink to="/laboratory" className="app-nav-link">
+          Laboratorio
+        </NavLink>
+      )}
+
       {(user?.role === 'admin' || user?.role === 'user') && (
         <NavLink to="/whatsapp" className="app-nav-link">
           WhatsApp

@@ -1,0 +1,667 @@
+import {
+  useEffect,
+  useMemo,
+  useState
+} from 'react';
+
+import type {
+  FormEvent
+} from 'react';
+
+import { apiFetch } from '../api/api';
+import { useAuth } from '../auth/useAuth';
+
+type LaboratoryRecord = {
+  id: number;
+  study_date: string;
+  patient_last_name: string;
+  patient_first_name: string;
+  patient_document: string | null;
+  has_blood_extraction: boolean | number;
+  has_urine_sample: boolean | number;
+  pickup_date: string | null;
+  picked_up_by: string | null;
+  pickup_document: string | null;
+  notes: string | null;
+  created_by_username?: string | null;
+};
+
+type LaboratoryStats = {
+  total_records: number;
+  blood_extractions: number;
+  urine_samples: number;
+  both_samples: number;
+  pending_pickups: number;
+  delivered_results: number;
+};
+
+const emptyForm = {
+  study_date: new Date().toISOString().slice(0, 10),
+  patient_last_name: '',
+  patient_first_name: '',
+  patient_document: '',
+  has_blood_extraction: true,
+  has_urine_sample: false,
+  pickup_date: '',
+  picked_up_by: '',
+  pickup_document: '',
+  notes: ''
+};
+
+const initialStats = {
+  total_records: 0,
+  blood_extractions: 0,
+  urine_samples: 0,
+  both_samples: 0,
+  pending_pickups: 0,
+  delivered_results: 0
+};
+
+function toDateInput(
+  value?: string | null
+) {
+  if (!value) {
+    return '';
+  }
+
+  return String(value).slice(0, 10);
+}
+
+function formatDate(
+  value?: string | null
+) {
+  if (!value) {
+    return '-';
+  }
+
+  return new Date(value).toLocaleDateString(
+    'es-AR',
+    {
+      timeZone: 'UTC'
+    }
+  );
+}
+
+function yesNo(
+  value: boolean | number
+) {
+  return Boolean(value);
+}
+
+export default function LaboratoryPage() {
+
+  const { user } = useAuth();
+
+  const [records, setRecords] =
+    useState<LaboratoryRecord[]>([]);
+
+  const [stats, setStats] =
+    useState<LaboratoryStats>(initialStats);
+
+  const [filters, setFilters] =
+    useState({
+      search: '',
+      date_from: '',
+      date_to: '',
+      sample_type: 'todas',
+      pickup_status: 'todos'
+    });
+
+  const [form, setForm] =
+    useState(emptyForm);
+
+  const [editing, setEditing] =
+    useState<LaboratoryRecord | null>(null);
+
+  const [showForm, setShowForm] =
+    useState(false);
+
+  const [loading, setLoading] =
+    useState(false);
+
+  const [error, setError] =
+    useState('');
+
+  const canEdit =
+    user?.role === 'admin' ||
+    user?.role === 'user';
+
+  const canView =
+    canEdit ||
+    user?.role === 'dir';
+
+  const queryString =
+    useMemo(() => {
+      const params =
+        new URLSearchParams();
+
+      Object.entries(filters).forEach(
+        ([key, value]) => {
+          if (
+            value &&
+            value !== 'todas' &&
+            value !== 'todos'
+          ) {
+            params.set(key, value);
+          }
+        }
+      );
+
+      const query =
+        params.toString();
+
+      return query
+        ? `?${query}`
+        : '';
+    }, [filters]);
+
+  async function loadLaboratory() {
+    try {
+      const [recordsRes, statsRes] =
+        await Promise.all([
+          apiFetch(`/laboratory${queryString}`),
+          apiFetch(`/laboratory/stats${queryString}`)
+        ]);
+
+      setRecords(recordsRes.data);
+      setStats({
+        ...initialStats,
+        ...statsRes.data
+      });
+    } catch (error: any) {
+      setError(error.message);
+    }
+  }
+
+  useEffect(() => {
+    loadLaboratory();
+  }, [queryString]);
+
+  function openCreate() {
+    setEditing(null);
+    setForm(emptyForm);
+    setError('');
+    setShowForm(true);
+  }
+
+  function openEdit(
+    record: LaboratoryRecord
+  ) {
+    setEditing(record);
+    setForm({
+      study_date: toDateInput(record.study_date),
+      patient_last_name: record.patient_last_name || '',
+      patient_first_name: record.patient_first_name || '',
+      patient_document: record.patient_document || '',
+      has_blood_extraction: yesNo(record.has_blood_extraction),
+      has_urine_sample: yesNo(record.has_urine_sample),
+      pickup_date: toDateInput(record.pickup_date),
+      picked_up_by: record.picked_up_by || '',
+      pickup_document: record.pickup_document || '',
+      notes: record.notes || ''
+    });
+    setError('');
+    setShowForm(true);
+  }
+
+  async function handleSubmit(
+    e: FormEvent
+  ) {
+    e.preventDefault();
+    setError('');
+
+    if (!form.patient_last_name || !form.patient_first_name) {
+      setError('Debe cargar apellido y nombre del paciente');
+      return;
+    }
+
+    if (
+      !form.has_blood_extraction &&
+      !form.has_urine_sample
+    ) {
+      setError('Debe seleccionar al menos sangre u orina');
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      await apiFetch(
+        editing
+          ? `/laboratory/${editing.id}`
+          : '/laboratory',
+        {
+          method: editing ? 'PUT' : 'POST',
+          body: JSON.stringify(form)
+        }
+      );
+
+      setShowForm(false);
+      setEditing(null);
+      setForm(emptyForm);
+      await loadLaboratory();
+    } catch (error: any) {
+      setError(error.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  if (!canView) {
+    return <h2>No autorizado</h2>;
+  }
+
+  return (
+
+    <div>
+
+      <div className="page-header">
+
+        <div>
+          <h1 className="page-title">
+            Laboratorio
+          </h1>
+          <p className="page-subtitle">
+            Estudios, muestras y retiros de resultados.
+          </p>
+        </div>
+
+        {canEdit && (
+          <button
+            className="btn-primary"
+            onClick={openCreate}
+          >
+            + Nuevo estudio
+          </button>
+        )}
+
+      </div>
+
+      <div className="dashboard-grid">
+
+        <div className="dashboard-card">
+          <h3>Total</h3>
+          <p>{Number(stats.total_records || 0)}</p>
+          <span>Estudios en el periodo</span>
+        </div>
+
+        <div className="dashboard-card">
+          <h3>Extracciones</h3>
+          <p>{Number(stats.blood_extractions || 0)}</p>
+          <span>Muestras de sangre</span>
+        </div>
+
+        <div className="dashboard-card">
+          <h3>Orinas</h3>
+          <p>{Number(stats.urine_samples || 0)}</p>
+          <span>Muestras de orina</span>
+        </div>
+
+        <div className="dashboard-card">
+          <h3>Pendientes</h3>
+          <p>{Number(stats.pending_pickups || 0)}</p>
+          <span>Resultados sin retiro cargado</span>
+        </div>
+
+      </div>
+
+      <div className="filter-bar">
+
+        <input
+          className="form-input"
+          placeholder="Buscar paciente, DNI o quien retiro"
+          value={filters.search}
+          onChange={(e) =>
+            setFilters({
+              ...filters,
+              search: e.target.value
+            })
+          }
+        />
+
+        <input
+          className="form-input"
+          type="date"
+          value={filters.date_from}
+          onChange={(e) =>
+            setFilters({
+              ...filters,
+              date_from: e.target.value
+            })
+          }
+        />
+
+        <input
+          className="form-input"
+          type="date"
+          value={filters.date_to}
+          onChange={(e) =>
+            setFilters({
+              ...filters,
+              date_to: e.target.value
+            })
+          }
+        />
+
+        <select
+          className="form-input"
+          value={filters.sample_type}
+          onChange={(e) =>
+            setFilters({
+              ...filters,
+              sample_type: e.target.value
+            })
+          }
+        >
+          <option value="todas">Todas las muestras</option>
+          <option value="sangre">Solo sangre</option>
+          <option value="orina">Solo orina</option>
+          <option value="ambas">Sangre y orina</option>
+        </select>
+
+        <select
+          className="form-input"
+          value={filters.pickup_status}
+          onChange={(e) =>
+            setFilters({
+              ...filters,
+              pickup_status: e.target.value
+            })
+          }
+        >
+          <option value="todos">Todos los retiros</option>
+          <option value="pendiente">Pendientes</option>
+          <option value="retirado">Retirados</option>
+        </select>
+
+        <button
+          className="btn-secondary"
+          onClick={() =>
+            setFilters({
+              search: '',
+              date_from: '',
+              date_to: '',
+              sample_type: 'todas',
+              pickup_status: 'todos'
+            })
+          }
+        >
+          Limpiar
+        </button>
+
+      </div>
+
+      {error && (
+        <p className="auth-error">
+          {error}
+        </p>
+      )}
+
+      <p className="results-summary">
+        Mostrando {records.length} estudios
+      </p>
+
+      <div className="table-container">
+
+        <table className="data-table">
+
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>Paciente</th>
+              <th>DNI</th>
+              <th>Sangre</th>
+              <th>Orina</th>
+              <th>Retiro</th>
+              <th>Retiro por</th>
+              <th>Observaciones</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+
+          <tbody>
+
+            {records.map((record) => (
+              <tr key={record.id}>
+                <td>{formatDate(record.study_date)}</td>
+                <td>
+                  {record.patient_last_name}, {record.patient_first_name}
+                </td>
+                <td>{record.patient_document || '-'}</td>
+                <td>
+                  <span
+                    className={
+                      yesNo(record.has_blood_extraction)
+                        ? 'badge badge-success'
+                        : 'badge'
+                    }
+                  >
+                    {yesNo(record.has_blood_extraction) ? 'Si' : 'No'}
+                  </span>
+                </td>
+                <td>
+                  <span
+                    className={
+                      yesNo(record.has_urine_sample)
+                        ? 'badge badge-success'
+                        : 'badge'
+                    }
+                  >
+                    {yesNo(record.has_urine_sample) ? 'Si' : 'No'}
+                  </span>
+                </td>
+                <td>
+                  {record.pickup_date ? (
+                    <span className="badge badge-success">
+                      {formatDate(record.pickup_date)}
+                    </span>
+                  ) : (
+                    <span className="badge badge-warning">
+                      Pendiente
+                    </span>
+                  )}
+                </td>
+                <td>{record.picked_up_by || '-'}</td>
+                <td>{record.notes || '-'}</td>
+                <td>
+                  {canEdit ? (
+                    <button
+                      className="btn-primary"
+                      onClick={() =>
+                        openEdit(record)
+                      }
+                    >
+                      Editar
+                    </button>
+                  ) : (
+                    '-'
+                  )}
+                </td>
+              </tr>
+            ))}
+
+            {records.length === 0 && (
+              <tr>
+                <td colSpan={9}>
+                  No hay estudios para esos filtros.
+                </td>
+              </tr>
+            )}
+
+          </tbody>
+
+        </table>
+
+      </div>
+
+      {showForm && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <h2 className="modal-title">
+              {editing ? 'Editar estudio' : 'Nuevo estudio'}
+            </h2>
+
+            <form
+              className="auth-form"
+              onSubmit={handleSubmit}
+            >
+              <label className="form-label">
+                Fecha del estudio
+              </label>
+              <input
+                className="form-input"
+                type="date"
+                value={form.study_date}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    study_date: e.target.value
+                  })
+                }
+              />
+
+              <input
+                className="form-input"
+                placeholder="Apellido"
+                value={form.patient_last_name}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    patient_last_name: e.target.value.toUpperCase()
+                  })
+                }
+              />
+
+              <input
+                className="form-input"
+                placeholder="Nombre"
+                value={form.patient_first_name}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    patient_first_name: e.target.value.toUpperCase()
+                  })
+                }
+              />
+
+              <input
+                className="form-input"
+                placeholder="DNI del paciente (opcional)"
+                value={form.patient_document}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    patient_document: e.target.value
+                  })
+                }
+              />
+
+              <div className="form-check-row">
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={form.has_blood_extraction}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        has_blood_extraction: e.target.checked
+                      })
+                    }
+                  />
+                  Extraccion de sangre
+                </label>
+
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={form.has_urine_sample}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        has_urine_sample: e.target.checked
+                      })
+                    }
+                  />
+                  Orina
+                </label>
+              </div>
+
+              <label className="form-label">
+                Fecha de retiro
+              </label>
+              <input
+                className="form-input"
+                type="date"
+                value={form.pickup_date}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    pickup_date: e.target.value
+                  })
+                }
+              />
+
+              <input
+                className="form-input"
+                placeholder="Quien retiro"
+                value={form.picked_up_by}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    picked_up_by: e.target.value
+                  })
+                }
+              />
+
+              <input
+                className="form-input"
+                placeholder="DNI de quien retiro (opcional)"
+                value={form.pickup_document}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    pickup_document: e.target.value
+                  })
+                }
+              />
+
+              <textarea
+                className="form-input"
+                placeholder="Observaciones"
+                rows={3}
+                value={form.notes}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    notes: e.target.value
+                  })
+                }
+              />
+
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() =>
+                    setShowForm(false)
+                  }
+                >
+                  Cancelar
+                </button>
+
+                <button
+                  type="submit"
+                  className="btn-success"
+                  disabled={loading}
+                >
+                  {loading ? 'Guardando...' : 'Guardar'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+    </div>
+  );
+}
