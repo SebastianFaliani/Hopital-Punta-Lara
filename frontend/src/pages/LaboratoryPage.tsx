@@ -106,6 +106,17 @@ function showSystemAlert(
   );
 }
 
+function percentOf(
+  value: number,
+  total: number
+) {
+  if (!total) {
+    return '0%';
+  }
+
+  return `${Math.round((value / total) * 100)}%`;
+}
+
 export default function LaboratoryPage() {
 
   const { user } = useAuth();
@@ -333,6 +344,21 @@ export default function LaboratoryPage() {
     return <h2>No autorizado</h2>;
   }
 
+  const totalRecords =
+    Number(stats.total_records || 0);
+
+  const bloodExtractions =
+    Number(stats.blood_extractions || 0);
+
+  const urineSamples =
+    Number(stats.urine_samples || 0);
+
+  const pendingPickups =
+    Number(stats.pending_pickups || 0);
+
+  const deliveredResults =
+    Number(stats.delivered_results || 0);
+
   return (
 
     <div>
@@ -363,26 +389,32 @@ export default function LaboratoryPage() {
 
         <div className="dashboard-card">
           <h3>Total</h3>
-          <p>{Number(stats.total_records || 0)}</p>
+          <p>{totalRecords}</p>
           <span>Estudios en el periodo</span>
         </div>
 
         <div className="dashboard-card">
           <h3>Extracciones</h3>
-          <p>{Number(stats.blood_extractions || 0)}</p>
-          <span>Muestras de sangre</span>
+          <p>{bloodExtractions}</p>
+          <span>
+            {percentOf(bloodExtractions, totalRecords)} del total
+          </span>
         </div>
 
         <div className="dashboard-card">
           <h3>Orinas</h3>
-          <p>{Number(stats.urine_samples || 0)}</p>
-          <span>Muestras de orina</span>
+          <p>{urineSamples}</p>
+          <span>
+            {percentOf(urineSamples, totalRecords)} del total
+          </span>
         </div>
 
         <div className="dashboard-card">
           <h3>Pendientes</h3>
-          <p>{Number(stats.pending_pickups || 0)}</p>
-          <span>Resultados sin retiro cargado</span>
+          <p>{pendingPickups}</p>
+          <span>
+            {percentOf(pendingPickups, totalRecords)} pendientes · {percentOf(deliveredResults, totalRecords)} retirados
+          </span>
         </div>
 
       </div>
