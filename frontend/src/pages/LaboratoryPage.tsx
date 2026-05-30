@@ -133,7 +133,17 @@ export default function LaboratoryPage() {
       date_from: '',
       date_to: '',
       sample_type: 'todas',
-      pickup_status: 'todos'
+      pickup_status: 'todos',
+      page: 1,
+      per_page: 25
+    });
+
+  const [pagination, setPagination] =
+    useState({
+      page: 1,
+      per_page: 25,
+      total: 0,
+      total_pages: 1
     });
 
   const [form, setForm] =
@@ -181,11 +191,13 @@ export default function LaboratoryPage() {
       Object.entries(filters).forEach(
         ([key, value]) => {
           if (
-            value &&
+            value !== '' &&
+            value !== null &&
+            value !== undefined &&
             value !== 'todas' &&
             value !== 'todos'
           ) {
-            params.set(key, value);
+            params.set(key, String(value));
           }
         }
       );
@@ -207,6 +219,14 @@ export default function LaboratoryPage() {
         ]);
 
       setRecords(recordsRes.data);
+      setPagination(
+        recordsRes.pagination || {
+          page: 1,
+          per_page: filters.per_page,
+          total: recordsRes.data.length,
+          total_pages: 1
+        }
+      );
       setStats({
         ...initialStats,
         ...statsRes.data
@@ -428,7 +448,8 @@ export default function LaboratoryPage() {
           onChange={(e) =>
             setFilters({
               ...filters,
-              search: e.target.value
+              search: e.target.value,
+              page: 1
             })
           }
         />
@@ -440,7 +461,8 @@ export default function LaboratoryPage() {
           onChange={(e) =>
             setFilters({
               ...filters,
-              date_from: e.target.value
+              date_from: e.target.value,
+              page: 1
             })
           }
         />
@@ -452,7 +474,8 @@ export default function LaboratoryPage() {
           onChange={(e) =>
             setFilters({
               ...filters,
-              date_to: e.target.value
+              date_to: e.target.value,
+              page: 1
             })
           }
         />
@@ -463,7 +486,8 @@ export default function LaboratoryPage() {
           onChange={(e) =>
             setFilters({
               ...filters,
-              sample_type: e.target.value
+              sample_type: e.target.value,
+              page: 1
             })
           }
         >
@@ -479,7 +503,8 @@ export default function LaboratoryPage() {
           onChange={(e) =>
             setFilters({
               ...filters,
-              pickup_status: e.target.value
+              pickup_status: e.target.value,
+              page: 1
             })
           }
         >
@@ -496,7 +521,9 @@ export default function LaboratoryPage() {
               date_from: '',
               date_to: '',
               sample_type: 'todas',
-              pickup_status: 'todos'
+              pickup_status: 'todos',
+              page: 1,
+              per_page: filters.per_page
             })
           }
         >
@@ -506,8 +533,61 @@ export default function LaboratoryPage() {
       </div>
 
       <p className="results-summary">
-        Mostrando {records.length} estudios
+        Mostrando {records.length} de {pagination.total} estudios
       </p>
+
+      <div className="pagination-bar">
+        <span>
+          Pagina {pagination.page} de {pagination.total_pages}
+        </span>
+
+        <div className="table-actions">
+          <select
+            className="form-input"
+            value={filters.per_page}
+            onChange={(e) =>
+              setFilters({
+                ...filters,
+                per_page: Number(e.target.value),
+                page: 1
+              })
+            }
+          >
+            <option value={25}>25 por pagina</option>
+            <option value={50}>50 por pagina</option>
+            <option value={100}>100 por pagina</option>
+          </select>
+
+          <button
+            className="btn-secondary"
+            disabled={pagination.page <= 1}
+            onClick={() =>
+              setFilters({
+                ...filters,
+                page: Math.max(1, pagination.page - 1)
+              })
+            }
+          >
+            Anterior
+          </button>
+
+          <button
+            className="btn-secondary"
+            disabled={pagination.page >= pagination.total_pages}
+            onClick={() =>
+              setFilters({
+                ...filters,
+                page: Math.min(
+                  pagination.total_pages,
+                  pagination.page + 1
+                )
+              })
+            }
+          >
+            Siguiente
+          </button>
+        </div>
+      </div>
 
       <div className="table-container">
 

@@ -6,7 +6,35 @@ type LaboratoryFilters = {
   date_to?: string;
   sample_type?: string;
   pickup_status?: string;
+  page?: string | number;
+  per_page?: string | number;
 };
+
+function getPagination(
+  filters: LaboratoryFilters
+) {
+  const page =
+    Math.max(
+      1,
+      Number(filters.page || 1)
+    );
+
+  const perPage =
+    Math.min(
+      100,
+      Math.max(
+        10,
+        Number(filters.per_page || 25)
+      )
+    );
+
+  return {
+    page,
+    perPage,
+    offset:
+      (page - 1) * perPage
+  };
+}
 
 function buildWhereClause(
   filters: LaboratoryFilters
@@ -98,6 +126,19 @@ export async function getLaboratoryRecords(
   const where =
     buildWhereClause(filters);
 
+  const pagination =
+    getPagination(filters);
+
+  const [countRows]: any =
+    await pool.query(
+      `
+        SELECT COUNT(*) AS total
+        FROM laboratory_records
+        ${where.sql}
+      `,
+      where.values
+    );
+
   const [rows]: any =
     await pool.query(
       `
@@ -124,11 +165,31 @@ export async function getLaboratoryRecords(
           ON uu.id = lr.updated_by
         ${where.sql}
         ORDER BY lr.study_date DESC, lr.id DESC
+        LIMIT ? OFFSET ?
       `,
-      where.values
+      [
+        ...where.values,
+        pagination.perPage,
+        pagination.offset
+      ]
     );
 
-  return rows;
+  const total =
+    Number(countRows[0]?.total || 0);
+
+  return {
+    records: rows,
+    pagination: {
+      page: pagination.page,
+      per_page: pagination.perPage,
+      total,
+      total_pages:
+        Math.max(
+          1,
+          Math.ceil(total / pagination.perPage)
+        )
+    }
+  };
 }
 
 export async function getLaboratoryStats(

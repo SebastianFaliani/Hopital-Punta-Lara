@@ -60,7 +60,8 @@ export async function handleGetLaboratoryRecords(
 
     return res.json({
       success: true,
-      data: records
+      data: records.records,
+      pagination: records.pagination
     });
   } catch (error) {
     console.error(error);

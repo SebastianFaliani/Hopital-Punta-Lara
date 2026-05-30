@@ -169,6 +169,15 @@
   font-size: 14px;
 }
 
+.pagination-bar .form-input {
+
+  width: auto;
+
+  min-width: 150px;
+
+  margin-bottom: 0;
+}
+
 .leave-employee-picker tbody tr {
 
   height: 44px;
