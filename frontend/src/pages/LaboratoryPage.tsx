@@ -533,7 +533,7 @@ export default function LaboratoryPage() {
               <tr key={record.id}>
                 <td>{formatDate(record.study_date)}</td>
                 <td>
-                  {record.patient_last_name}, {record.patient_first_name}
+                  {record.patient_last_name} {record.patient_first_name}
                 </td>
                 <td>{record.patient_document || '-'}</td>
                 <td>
@@ -750,7 +750,7 @@ export default function LaboratoryPage() {
             </h2>
 
             <p className="page-subtitle">
-              {pickupRecord.patient_last_name}, {pickupRecord.patient_first_name}
+              {pickupRecord.patient_last_name} {pickupRecord.patient_first_name}
             </p>
 
             <form

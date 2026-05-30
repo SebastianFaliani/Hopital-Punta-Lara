@@ -16,18 +16,22 @@ function buildWhereClause(
 
   if (filters.search) {
     const search =
-      `%${filters.search}%`;
+      `%${filters.search.trim()}%`;
 
     where.push(
       `(
         patient_last_name LIKE ?
         OR patient_first_name LIKE ?
+        OR CONCAT(patient_last_name, ' ', patient_first_name) LIKE ?
+        OR CONCAT(patient_first_name, ' ', patient_last_name) LIKE ?
         OR patient_document LIKE ?
         OR picked_up_by LIKE ?
       )`
     );
 
     values.push(
+      search,
+      search,
       search,
       search,
       search,
