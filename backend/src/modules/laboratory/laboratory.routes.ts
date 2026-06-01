@@ -5,6 +5,7 @@ import {
   handleGetLaboratoryRecords,
   handleGetLaboratoryStats,
   handleRegisterLaboratoryPickup,
+  handleUpdateLaboratoryCompletion,
   handleUpdateLaboratoryRecord
 } from './laboratory.controller';
 
@@ -33,6 +34,11 @@ const laboratoryPickupRoles = [
   'user'
 ];
 
+const laboratoryCompletionRoles = [
+  'admin',
+  'lab'
+];
+
 router.get(
   '/',
   authenticateToken,
@@ -59,6 +65,13 @@ router.put(
   authenticateToken,
   authorizeRoles(...laboratoryWriteRoles),
   handleUpdateLaboratoryRecord
+);
+
+router.patch(
+  '/:id/completion',
+  authenticateToken,
+  authorizeRoles(...laboratoryCompletionRoles),
+  handleUpdateLaboratoryCompletion
 );
 
 router.patch(

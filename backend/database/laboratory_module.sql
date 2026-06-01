@@ -6,6 +6,10 @@ CREATE TABLE IF NOT EXISTS laboratory_records (
   patient_document VARCHAR(50) NULL,
   has_blood_extraction BOOLEAN NOT NULL DEFAULT FALSE,
   has_urine_sample BOOLEAN NOT NULL DEFAULT FALSE,
+  is_complete BOOLEAN NOT NULL DEFAULT TRUE,
+  missing_details TEXT NULL,
+  completed_at DATETIME NULL,
+  completed_by BIGINT NULL,
   pickup_date DATE NULL,
   picked_up_by VARCHAR(255) NULL,
   pickup_document VARCHAR(50) NULL,
@@ -22,8 +26,13 @@ CREATE TABLE IF NOT EXISTS laboratory_records (
     FOREIGN KEY (updated_by)
     REFERENCES users(id)
     ON DELETE SET NULL,
+  CONSTRAINT fk_laboratory_records_completed_by
+    FOREIGN KEY (completed_by)
+    REFERENCES users(id)
+    ON DELETE SET NULL,
   INDEX idx_laboratory_records_study_date (study_date),
   INDEX idx_laboratory_records_pickup_date (pickup_date),
+  INDEX idx_laboratory_records_complete (is_complete),
   INDEX idx_laboratory_records_patient (patient_last_name, patient_first_name),
   INDEX idx_laboratory_records_document (patient_document)
 );

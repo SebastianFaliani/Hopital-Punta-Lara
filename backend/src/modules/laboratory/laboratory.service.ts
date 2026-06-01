@@ -6,6 +6,7 @@ type LaboratoryFilters = {
   date_to?: string;
   sample_type?: string;
   pickup_status?: string;
+  completion_status?: string;
   page?: string | number;
   per_page?: string | number;
 };
@@ -111,6 +112,18 @@ function buildWhereClause(
     );
   }
 
+  if (filters.completion_status === 'completo') {
+    where.push(
+      'is_complete = TRUE'
+    );
+  }
+
+  if (filters.completion_status === 'incompleto') {
+    where.push(
+      'is_complete = FALSE'
+    );
+  }
+
   return {
     sql:
       where.length > 0
@@ -150,6 +163,9 @@ export async function getLaboratoryRecords(
           lr.patient_document,
           lr.has_blood_extraction,
           lr.has_urine_sample,
+          lr.is_complete,
+          lr.missing_details,
+          lr.completed_at,
           lr.pickup_date,
           lr.picked_up_by,
           lr.pickup_document,
@@ -207,7 +223,9 @@ export async function getLaboratoryStats(
           SUM(CASE WHEN has_urine_sample = TRUE THEN 1 ELSE 0 END) AS urine_samples,
           SUM(CASE WHEN has_blood_extraction = TRUE AND has_urine_sample = TRUE THEN 1 ELSE 0 END) AS both_samples,
           SUM(CASE WHEN pickup_date IS NULL THEN 1 ELSE 0 END) AS pending_pickups,
-          SUM(CASE WHEN pickup_date IS NOT NULL THEN 1 ELSE 0 END) AS delivered_results
+          SUM(CASE WHEN pickup_date IS NOT NULL THEN 1 ELSE 0 END) AS delivered_results,
+          SUM(CASE WHEN is_complete = FALSE THEN 1 ELSE 0 END) AS incomplete_records,
+          SUM(CASE WHEN is_complete = TRUE THEN 1 ELSE 0 END) AS complete_records
         FROM laboratory_records
         ${where.sql}
       `,
@@ -247,11 +265,15 @@ export async function createLaboratoryRecord(
           patient_document,
           has_blood_extraction,
           has_urine_sample,
+          is_complete,
+          missing_details,
+          completed_at,
+          completed_by,
           notes,
           created_by,
           updated_by
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
       [
         data.study_date,
@@ -260,6 +282,16 @@ export async function createLaboratoryRecord(
         data.patient_document || null,
         Boolean(data.has_blood_extraction),
         Boolean(data.has_urine_sample),
+        data.is_complete !== false,
+        data.is_complete === false
+          ? data.missing_details || null
+          : null,
+        data.is_complete === false
+          ? null
+          : new Date(),
+        data.is_complete === false
+          ? null
+          : userId || null,
         data.notes || null,
         userId || null,
         userId || null
@@ -296,6 +328,44 @@ export async function updateLaboratoryRecord(
       Boolean(data.has_blood_extraction),
       Boolean(data.has_urine_sample),
       data.notes || null,
+      userId || null,
+      id
+    ]
+  );
+
+  return true;
+}
+
+export async function updateLaboratoryCompletion(
+  id: number,
+  data: any,
+  userId?: number
+) {
+  const isComplete =
+    Boolean(data.is_complete);
+
+  await pool.query(
+    `
+      UPDATE laboratory_records
+      SET
+        is_complete = ?,
+        missing_details = ?,
+        completed_at = ?,
+        completed_by = ?,
+        updated_by = ?
+      WHERE id = ?
+    `,
+    [
+      isComplete,
+      isComplete
+        ? null
+        : data.missing_details || null,
+      isComplete
+        ? new Date()
+        : null,
+      isComplete
+        ? userId || null
+        : null,
       userId || null,
       id
     ]

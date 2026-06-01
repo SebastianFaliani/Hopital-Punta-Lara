@@ -19,6 +19,9 @@ type LaboratoryRecord = {
   patient_document: string | null;
   has_blood_extraction: boolean | number;
   has_urine_sample: boolean | number;
+  is_complete: boolean | number;
+  missing_details: string | null;
+  completed_at: string | null;
   pickup_date: string | null;
   picked_up_by: string | null;
   pickup_document: string | null;
@@ -33,6 +36,8 @@ type LaboratoryStats = {
   both_samples: number;
   pending_pickups: number;
   delivered_results: number;
+  incomplete_records: number;
+  complete_records: number;
 };
 
 const emptyForm = {
@@ -42,6 +47,8 @@ const emptyForm = {
   patient_document: '',
   has_blood_extraction: true,
   has_urine_sample: false,
+  is_complete: true,
+  missing_details: '',
   pickup_date: '',
   picked_up_by: '',
   pickup_document: '',
@@ -54,7 +61,9 @@ const initialStats = {
   urine_samples: 0,
   both_samples: 0,
   pending_pickups: 0,
-  delivered_results: 0
+  delivered_results: 0,
+  incomplete_records: 0,
+  complete_records: 0
 };
 
 function toDateInput(
@@ -134,6 +143,7 @@ export default function LaboratoryPage() {
       date_to: '',
       sample_type: 'todas',
       pickup_status: 'todos',
+      completion_status: 'todos',
       page: 1,
       per_page: 25
     });
@@ -155,6 +165,18 @@ export default function LaboratoryPage() {
   const [pickupRecord, setPickupRecord] =
     useState<LaboratoryRecord | null>(null);
 
+  const [showIncompletePickupWarning, setShowIncompletePickupWarning] =
+    useState(false);
+
+  const [completionRecord, setCompletionRecord] =
+    useState<LaboratoryRecord | null>(null);
+
+  const [completionForm, setCompletionForm] =
+    useState({
+      is_complete: true,
+      missing_details: ''
+    });
+
   const [pickupForm, setPickupForm] =
     useState({
       pickup_date: new Date().toISOString().slice(0, 10),
@@ -170,6 +192,10 @@ export default function LaboratoryPage() {
     useState(false);
 
   const canEdit =
+    user?.role === 'admin' ||
+    user?.role === 'lab';
+
+  const canChangeCompletion =
     user?.role === 'admin' ||
     user?.role === 'lab';
 
@@ -257,6 +283,8 @@ export default function LaboratoryPage() {
       patient_document: record.patient_document || '',
       has_blood_extraction: yesNo(record.has_blood_extraction),
       has_urine_sample: yesNo(record.has_urine_sample),
+      is_complete: yesNo(record.is_complete),
+      missing_details: record.missing_details || '',
       pickup_date: '',
       picked_up_by: '',
       pickup_document: '',
@@ -269,6 +297,7 @@ export default function LaboratoryPage() {
     record: LaboratoryRecord
   ) {
     setPickupRecord(record);
+    setShowIncompletePickupWarning(false);
     setPickupForm({
       pickup_date:
         toDateInput(record.pickup_date) ||
@@ -279,6 +308,16 @@ export default function LaboratoryPage() {
     });
   }
 
+  function openCompletion(
+    record: LaboratoryRecord
+  ) {
+    setCompletionRecord(record);
+    setCompletionForm({
+      is_complete: yesNo(record.is_complete),
+      missing_details: record.missing_details || ''
+    });
+  }
+
   async function handleSubmit(
     e: FormEvent
   ) {
@@ -286,6 +325,15 @@ export default function LaboratoryPage() {
 
     if (!form.patient_last_name || !form.patient_first_name) {
       showSystemAlert('Debe cargar apellido y nombre del paciente');
+      return;
+    }
+
+    if (
+      user?.role === 'lab' &&
+      !form.is_complete &&
+      !form.missing_details
+    ) {
+      showSystemAlert('Indica que estudio o resultado esta pendiente');
       return;
     }
 
@@ -321,17 +369,23 @@ export default function LaboratoryPage() {
     }
   }
 
-  async function handlePickupSubmit(
-    e: FormEvent
+  async function savePickup(
+    allowIncompleteDelivery = false
   ) {
-    e.preventDefault();
-
     if (!pickupRecord) {
       return;
     }
 
     if (!pickupForm.pickup_date) {
       showSystemAlert('Debe cargar la fecha de retiro');
+      return;
+    }
+
+    if (
+      !yesNo(pickupRecord.is_complete) &&
+      !allowIncompleteDelivery
+    ) {
+      setShowIncompletePickupWarning(true);
       return;
     }
 
@@ -352,12 +406,57 @@ export default function LaboratoryPage() {
       );
 
       setPickupRecord(null);
+      setShowIncompletePickupWarning(false);
       await loadLaboratory();
     } catch (error: any) {
       showSystemAlert(error.message);
     } finally {
       setLoading(false);
     }
+  }
+
+  async function handleCompletionSubmit(
+    e: FormEvent
+  ) {
+    e.preventDefault();
+
+    if (!completionRecord) {
+      return;
+    }
+
+    if (
+      !completionForm.is_complete &&
+      !completionForm.missing_details
+    ) {
+      showSystemAlert('Indica que estudio o resultado esta pendiente');
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      await apiFetch(
+        `/laboratory/${completionRecord.id}/completion`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify(completionForm)
+        }
+      );
+
+      setCompletionRecord(null);
+      await loadLaboratory();
+    } catch (error: any) {
+      showSystemAlert(error.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handlePickupSubmit(
+    e: FormEvent
+  ) {
+    e.preventDefault();
+    await savePickup(false);
   }
 
   if (!canView) {
@@ -378,6 +477,9 @@ export default function LaboratoryPage() {
 
   const deliveredResults =
     Number(stats.delivered_results || 0);
+
+  const incompleteRecords =
+    Number(stats.incomplete_records || 0);
 
   return (
 
@@ -434,6 +536,14 @@ export default function LaboratoryPage() {
           <p>{pendingPickups}</p>
           <span>
             {percentOf(pendingPickups, totalRecords)} pendientes · {percentOf(deliveredResults, totalRecords)} retirados
+          </span>
+        </div>
+
+        <div className="dashboard-card">
+          <h3>Incompletos</h3>
+          <p>{incompleteRecords}</p>
+          <span>
+            {percentOf(incompleteRecords, totalRecords)} con resultados pendientes
           </span>
         </div>
 
@@ -513,6 +623,22 @@ export default function LaboratoryPage() {
           <option value="retirado">Retirados</option>
         </select>
 
+        <select
+          className="form-input"
+          value={filters.completion_status}
+          onChange={(e) =>
+            setFilters({
+              ...filters,
+              completion_status: e.target.value,
+              page: 1
+            })
+          }
+        >
+          <option value="todos">Todos los estados</option>
+          <option value="completo">Completos</option>
+          <option value="incompleto">Incompletos</option>
+        </select>
+
         <button
           className="btn-secondary"
           onClick={() =>
@@ -522,6 +648,7 @@ export default function LaboratoryPage() {
               date_to: '',
               sample_type: 'todas',
               pickup_status: 'todos',
+              completion_status: 'todos',
               page: 1,
               per_page: filters.per_page
             })
@@ -600,6 +727,7 @@ export default function LaboratoryPage() {
               <th>DNI</th>
               <th>Sangre</th>
               <th>Orina</th>
+              <th>Estado</th>
               <th>Retiro</th>
               <th>Retiro por</th>
               <th>Observaciones</th>
@@ -639,6 +767,18 @@ export default function LaboratoryPage() {
                   </span>
                 </td>
                 <td>
+                  {yesNo(record.is_complete) ? (
+                    '-'
+                  ) : (
+                    <span
+                      className="badge badge-warning"
+                      title={record.missing_details || 'Sin detalle cargado'}
+                    >
+                      Incompleto
+                    </span>
+                  )}
+                </td>
+                <td>
                   {record.pickup_date ? (
                     <span className="badge badge-success">
                       {formatDate(record.pickup_date)}
@@ -674,6 +814,16 @@ export default function LaboratoryPage() {
                         Registrar retiro
                       </button>
                     )}
+                    {canChangeCompletion && (
+                      <button
+                        className="btn-secondary"
+                        onClick={() =>
+                          openCompletion(record)
+                        }
+                      >
+                        Estado
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>
@@ -681,7 +831,7 @@ export default function LaboratoryPage() {
 
             {records.length === 0 && (
               <tr>
-                <td colSpan={9}>
+                <td colSpan={10}>
                   No hay estudios para esos filtros.
                 </td>
               </tr>
@@ -785,6 +935,39 @@ export default function LaboratoryPage() {
                 </label>
               </div>
 
+              {user?.role === 'lab' && (
+                <>
+                  <label className="checkbox-row">
+                    <input
+                      type="checkbox"
+                      checked={!form.is_complete}
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          is_complete: !e.target.checked
+                        })
+                      }
+                    />
+                    Estudio incompleto
+                  </label>
+
+                  {!form.is_complete && (
+                    <textarea
+                      className="form-input"
+                      placeholder="Que falta completar"
+                      rows={3}
+                      value={form.missing_details}
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          missing_details: e.target.value
+                        })
+                      }
+                    />
+                  )}
+                </>
+              )}
+
               <textarea
                 className="form-input"
                 placeholder="Observaciones"
@@ -822,7 +1005,126 @@ export default function LaboratoryPage() {
         </div>
       )}
 
-      {pickupRecord && (
+      {completionRecord && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <h2 className="modal-title">
+              Estado del estudio
+            </h2>
+
+            <p className="page-subtitle">
+              {completionRecord.patient_last_name} {completionRecord.patient_first_name}
+            </p>
+
+            <form
+              className="auth-form"
+              onSubmit={handleCompletionSubmit}
+            >
+              <label className="checkbox-row">
+                <input
+                  type="checkbox"
+                  checked={!completionForm.is_complete}
+                  onChange={(e) =>
+                    setCompletionForm({
+                      ...completionForm,
+                      is_complete: !e.target.checked
+                    })
+                  }
+                />
+                Estudio incompleto
+              </label>
+
+              {!completionForm.is_complete && (
+                <textarea
+                  className="form-input"
+                  placeholder="Que falta completar"
+                  rows={3}
+                  value={completionForm.missing_details}
+                  onChange={(e) =>
+                    setCompletionForm({
+                      ...completionForm,
+                      missing_details: e.target.value
+                    })
+                  }
+                />
+              )}
+
+              {completionForm.is_complete && (
+                <p className="page-subtitle">
+                  Al guardar, el estudio quedara marcado como completo.
+                </p>
+              )}
+
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() =>
+                    setCompletionRecord(null)
+                  }
+                >
+                  Cancelar
+                </button>
+
+                <button
+                  type="submit"
+                  className="btn-success"
+                  disabled={loading}
+                >
+                  {loading ? 'Guardando...' : 'Guardar estado'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showIncompletePickupWarning && pickupRecord && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <h2 className="modal-title">
+              Estudio incompleto
+            </h2>
+
+            <p className="page-subtitle">
+              {pickupRecord.patient_last_name} {pickupRecord.patient_first_name}
+            </p>
+
+            <p>
+              Este estudio figura como incompleto.
+            </p>
+
+            <p className="auth-error">
+              Falta: {pickupRecord.missing_details || 'sin detalle cargado'}
+            </p>
+
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() =>
+                  setShowIncompletePickupWarning(false)
+                }
+              >
+                No entregar
+              </button>
+
+              <button
+                type="button"
+                className="btn-danger"
+                disabled={loading}
+                onClick={() =>
+                  savePickup(true)
+                }
+              >
+                Entregar igual
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {pickupRecord && !showIncompletePickupWarning && (
         <div className="modal-overlay">
           <div className="modal-content">
             <h2 className="modal-title">

@@ -20,7 +20,8 @@ router.get(
     'user',
     'farmacia',
     'vacu',
-    'dir'
+    'dir',
+    'lab'
   ),
   getDashboard
 );

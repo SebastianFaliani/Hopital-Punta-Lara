@@ -271,6 +271,17 @@
   text-decoration: none;
 }
 
+.table-note {
+
+  margin-top: 6px;
+
+  color: #92400e;
+
+  font-size: 12px;
+
+  line-height: 1.3;
+}
+
 .dashboard-grid {
 
   display: grid;
