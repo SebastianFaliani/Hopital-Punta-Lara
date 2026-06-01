@@ -16,6 +16,25 @@ type Props = {
   onClose: () => void;
 };
 
+function showSystemAlert(
+  message: string,
+  title = 'Aviso del sistema',
+  variant: 'error' | 'success' | 'info' = 'error'
+) {
+  window.dispatchEvent(
+    new CustomEvent(
+      'hospital-system-alert',
+      {
+        detail: {
+          title,
+          message,
+          variant
+        }
+      }
+    )
+  );
+}
+
 export default function AdminResetPasswordModal({
   user,
   onClose
@@ -30,33 +49,30 @@ export default function AdminResetPasswordModal({
   const [loading, setLoading] =
     useState(false);
 
-  const [error, setError] =
-    useState('');
-
-  const [success, setSuccess] =
-    useState('');
-
   async function handleSubmit(
     e: React.FormEvent
   ) {
 
     e.preventDefault();
 
-    setError('');
-    setSuccess('');
-
     if (!form.new_password || !form.confirm_password) {
-      setError('Completá la nueva contraseña');
+      showSystemAlert(
+        'Completa la nueva contrasena'
+      );
       return;
     }
 
     if (form.new_password.length < 6) {
-      setError('La contraseña debe tener mínimo 6 caracteres');
+      showSystemAlert(
+        'La contrasena debe tener minimo 6 caracteres'
+      );
       return;
     }
 
     if (form.new_password !== form.confirm_password) {
-      setError('La confirmación no coincide');
+      showSystemAlert(
+        'La confirmacion no coincide'
+      );
       return;
     }
 
@@ -74,16 +90,22 @@ export default function AdminResetPasswordModal({
         }
       );
 
-      setSuccess('Contraseña actualizada');
-
       setForm({
         new_password: '',
         confirm_password: ''
       });
 
+      onClose();
+
+      showSystemAlert(
+        'Contrasena actualizada correctamente',
+        'Usuario actualizado',
+        'success'
+      );
+
     } catch (error: any) {
 
-      setError(error.message);
+      showSystemAlert(error.message);
 
     } finally {
 
@@ -98,7 +120,7 @@ export default function AdminResetPasswordModal({
       <div className="modal-content">
 
         <h2 className="modal-title">
-          Nueva contraseña
+          Nueva contrasena
         </h2>
 
         <p className="modal-subtitle">
@@ -113,7 +135,7 @@ export default function AdminResetPasswordModal({
           <input
             className="form-input"
             type="password"
-            placeholder="Nueva contraseña"
+            placeholder="Nueva contrasena"
             value={form.new_password}
             onChange={(e) =>
               setForm({
@@ -127,7 +149,7 @@ export default function AdminResetPasswordModal({
           <input
             className="form-input"
             type="password"
-            placeholder="Repetir nueva contraseña"
+            placeholder="Repetir nueva contrasena"
             value={form.confirm_password}
             onChange={(e) =>
               setForm({
@@ -137,18 +159,6 @@ export default function AdminResetPasswordModal({
             }
             autoComplete="new-password"
           />
-
-          {error && (
-            <p className="form-error">
-              {error}
-            </p>
-          )}
-
-          {success && (
-            <p className="form-success">
-              {success}
-            </p>
-          )}
 
           <div className="modal-actions">
 
