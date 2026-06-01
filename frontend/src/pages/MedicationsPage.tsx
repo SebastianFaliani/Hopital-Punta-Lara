@@ -284,6 +284,13 @@ export default function MedicationsPage() {
             Puntos de stock
           </Link>
 
+          <Link
+            className="btn-secondary table-link-button"
+            to="/medications/transfers"
+          >
+            Traslados
+          </Link>
+
           {canEdit && (
             <button
               className="btn-primary"

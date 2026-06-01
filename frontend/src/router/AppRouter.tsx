@@ -13,6 +13,7 @@ import UsersPage from '../pages/UsersPage';
 import MedicationsPage from '../pages/MedicationsPage';
 import MedicationBatchesPage from '../pages/MedicationBatchesPage';
 import MedicationFacilitiesPage from '../pages/MedicationFacilitiesPage';
+import MedicationTransfersPage from '../pages/MedicationTransfersPage';
 import TransfersPage from '../pages/TransfersPage';
 import AmbulancesPage from '../pages/AmbulancesPage';
 import DriversPage from '../pages/DriversPage';
@@ -73,6 +74,11 @@ export default function AppRouter() {
             <Route
               path="/medications/facilities"
               element={<MedicationFacilitiesPage />}
+            />
+
+            <Route
+              path="/medications/transfers"
+              element={<MedicationTransfersPage />}
             />
 
             <Route
