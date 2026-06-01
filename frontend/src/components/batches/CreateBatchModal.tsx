@@ -1,4 +1,5 @@
 import {
+  useEffect,
   useState
 } from 'react';
 
@@ -9,6 +10,12 @@ type Props = {
   medicationId: number;
   onClose: () => void;
   onCreated: () => void;
+};
+
+type Facility = {
+  id: number;
+  name: string;
+  facility_type: string;
 };
 
 export default function CreateBatchModal({
@@ -22,8 +29,12 @@ export default function CreateBatchModal({
       batch_number: '',
       expiration_date: '',
       current_stock: 0,
-      purchase_price: ''
+      purchase_price: '',
+      facility_id: ''
     });
+
+  const [facilities, setFacilities] =
+    useState<Facility[]>([]);
 
   const [loading, setLoading] =
     useState(false);
@@ -32,7 +43,10 @@ export default function CreateBatchModal({
     useState('');
 
   function handleChange(
-    e: React.ChangeEvent<HTMLInputElement>
+    e: React.ChangeEvent<
+      HTMLInputElement |
+      HTMLSelectElement
+    >
   ) {
 
     setForm({
@@ -42,6 +56,33 @@ export default function CreateBatchModal({
           ? Number(e.target.value)
           : e.target.value
     });
+  }
+
+  async function loadFacilities() {
+
+    try {
+
+      const res =
+        await apiFetch('/health-facilities');
+
+      setFacilities(res.data);
+
+      const hospital =
+        res.data.find((facility: Facility) =>
+          facility.facility_type === 'hospital'
+        );
+
+      setForm((current) => ({
+        ...current,
+        facility_id:
+          current.facility_id ||
+          String(hospital?.id || res.data[0]?.id || '')
+      }));
+
+    } catch (error: any) {
+
+      setError(error.message);
+    }
   }
 
   async function handleSubmit(
@@ -63,6 +104,18 @@ export default function CreateBatchModal({
       return;
     }
 
+    if (
+      Number(form.current_stock) > 0 &&
+      !form.facility_id
+    ) {
+
+      setError(
+        'Debe seleccionar donde ingresa el stock'
+      );
+
+      return;
+    }
+
     try {
 
       setLoading(true);
@@ -71,7 +124,13 @@ export default function CreateBatchModal({
         `/medications/${medicationId}/batches`,
         {
           method: 'POST',
-          body: JSON.stringify(form)
+          body: JSON.stringify({
+            ...form,
+            facility_id:
+              form.facility_id
+                ? Number(form.facility_id)
+                : null
+          })
         }
       );
 
@@ -87,6 +146,12 @@ export default function CreateBatchModal({
       setLoading(false);
     }
   }
+
+  useEffect(() => {
+
+    loadFacilities();
+
+  }, []);
 
   return (
 
@@ -130,6 +195,26 @@ export default function CreateBatchModal({
             value={form.current_stock}
             onChange={handleChange}
           />
+
+          <select
+            className="form-input"
+            name="facility_id"
+            value={form.facility_id}
+            onChange={handleChange}
+          >
+            <option value="">
+              Punto donde ingresa el stock
+            </option>
+
+            {facilities.map((facility) => (
+              <option
+                key={facility.id}
+                value={facility.id}
+              >
+                {facility.name}
+              </option>
+            ))}
+          </select>
 
           <input
             className="form-input"

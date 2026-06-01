@@ -275,16 +275,27 @@ export default function MedicationsPage() {
           Medicamentos
         </h1>
 
-        {canEdit && (
-          <button
-            className="btn-primary"
-            onClick={() =>
-              setOpenCreateModal(true)
-            }
+        <div className="table-actions">
+
+          <Link
+            className="btn-secondary table-link-button"
+            to="/medications/facilities"
           >
-            + Nuevo medicamento
-          </button>
-        )}
+            Puntos de stock
+          </Link>
+
+          {canEdit && (
+            <button
+              className="btn-primary"
+              onClick={() =>
+                setOpenCreateModal(true)
+              }
+            >
+              + Nuevo medicamento
+            </button>
+          )}
+
+        </div>
 
       </div>
 

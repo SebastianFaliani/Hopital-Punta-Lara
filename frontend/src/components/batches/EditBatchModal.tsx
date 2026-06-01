@@ -41,8 +41,6 @@ export default function EditBatchModal({
         toDateInputValue(
           batch.expiration_date
         ),
-      current_stock:
-        Number(batch.current_stock),
       purchase_price:
         batch.purchase_price === null
           ? ''
@@ -62,9 +60,7 @@ export default function EditBatchModal({
     setForm({
       ...form,
       [e.target.name]:
-        e.target.name === 'current_stock'
-          ? Number(e.target.value)
-          : e.target.value
+        e.target.value
     });
   }
 
@@ -144,16 +140,9 @@ export default function EditBatchModal({
             onChange={handleChange}
           />
 
-          <input
-            className="form-input"
-            type="number"
-            min="0"
-            step="0.01"
-            name="current_stock"
-            placeholder="Stock actual"
-            value={form.current_stock}
-            onChange={handleChange}
-          />
+          <p className="page-subtitle">
+            Stock actual: {Number(batch.current_stock)}. Para corregir stock usá Movimientos.
+          </p>
 
           <input
             className="form-input"

@@ -10,15 +10,32 @@ type Batch = {
   id: number;
   batch_number: string;
   current_stock: number;
+  stock_by_facility?: BatchStock[];
+};
+
+type BatchStock = {
+  facility_id: number;
+  facility_name: string;
+  facility_type: string;
+  current_stock: number;
 };
 
 type Movement = {
   id: number;
+  facility_id: number | null;
+  facility_name: string | null;
   movement_type: string;
   quantity: number;
+  donor_name: string | null;
   notes: string | null;
   created_at: string;
   created_by_name: string | null;
+};
+
+type Facility = {
+  id: number;
+  name: string;
+  facility_type: string;
 };
 
 type Props = {
@@ -29,6 +46,7 @@ type Props = {
 
 const movementLabels: Record<string, string> = {
   compra: 'Compra',
+  donacion: 'Donacion',
   ajuste: 'Ajuste',
   perdida: 'Perdida',
   devolucion: 'Devolucion'
@@ -67,9 +85,14 @@ export default function BatchMovementsModal({
     useState({
       movement_type: 'compra',
       movement_direction: 'entrada',
+      facility_id: '',
       quantity: 0,
+      donor_name: '',
       notes: ''
     });
+
+  const [facilities, setFacilities] =
+    useState<Facility[]>([]);
 
   const [loading, setLoading] =
     useState(false);
@@ -94,6 +117,43 @@ export default function BatchMovementsModal({
     }
   }
 
+  async function loadFacilities() {
+
+    try {
+
+      const res =
+        await apiFetch('/health-facilities');
+
+      setFacilities(res.data);
+
+      const firstWithStock =
+        batch.stock_by_facility?.find((stock) =>
+          Number(stock.current_stock) > 0
+        );
+
+      const hospital =
+        res.data.find((facility: Facility) =>
+          facility.facility_type === 'hospital'
+        );
+
+      setForm((current) => ({
+        ...current,
+        facility_id:
+          current.facility_id ||
+          String(
+            firstWithStock?.facility_id ||
+            hospital?.id ||
+            res.data[0]?.id ||
+            ''
+          )
+      }));
+
+    } catch (error: any) {
+
+      setError(error.message);
+    }
+  }
+
   function handleChange(
     e: React.ChangeEvent<
       HTMLInputElement |
@@ -102,9 +162,9 @@ export default function BatchMovementsModal({
     >
   ) {
 
-    setForm({
-      ...form,
-      [e.target.name]:
+      setForm({
+        ...form,
+        [e.target.name]:
         e.target.name === 'quantity'
           ? Number(e.target.value)
           : e.target.value
@@ -127,6 +187,15 @@ export default function BatchMovementsModal({
       return;
     }
 
+    if (!form.facility_id) {
+
+      setError(
+        'Debe seleccionar el punto de stock'
+      );
+
+      return;
+    }
+
     try {
 
       setLoading(true);
@@ -135,14 +204,20 @@ export default function BatchMovementsModal({
         `/batches/${batch.id}/movements`,
         {
           method: 'POST',
-          body: JSON.stringify(form)
+          body: JSON.stringify({
+            ...form,
+            facility_id:
+              Number(form.facility_id)
+          })
         }
       );
 
       setForm({
         movement_type: 'compra',
         movement_direction: 'entrada',
+        facility_id: form.facility_id,
         quantity: 0,
+        donor_name: '',
         notes: ''
       });
 
@@ -163,6 +238,7 @@ export default function BatchMovementsModal({
   useEffect(() => {
 
     loadMovements();
+    loadFacilities();
 
   }, [batch.id]);
 
@@ -195,6 +271,10 @@ export default function BatchMovementsModal({
               Compra
             </option>
 
+            <option value="donacion">
+              Donacion
+            </option>
+
             <option value="ajuste">
               Ajuste
             </option>
@@ -206,6 +286,26 @@ export default function BatchMovementsModal({
             <option value="devolucion">
               Devolucion
             </option>
+          </select>
+
+          <select
+            className="form-input"
+            name="facility_id"
+            value={form.facility_id}
+            onChange={handleChange}
+          >
+            <option value="">
+              Punto de stock
+            </option>
+
+            {facilities.map((facility) => (
+              <option
+                key={facility.id}
+                value={facility.id}
+              >
+                {facility.name}
+              </option>
+            ))}
           </select>
 
           {
@@ -238,6 +338,20 @@ export default function BatchMovementsModal({
             value={form.quantity}
             onChange={handleChange}
           />
+
+          {
+            form.movement_type === 'donacion' && (
+
+              <input
+                className="form-input"
+                type="text"
+                name="donor_name"
+                placeholder="Quien dona"
+                value={form.donor_name}
+                onChange={handleChange}
+              />
+            )
+          }
 
           <textarea
             className="form-input"
@@ -285,6 +399,24 @@ export default function BatchMovementsModal({
 
         <div className="table-container movement-history">
 
+          {
+            batch.stock_by_facility &&
+            batch.stock_by_facility.length > 0 && (
+
+              <div className="dashboard-list">
+                {batch.stock_by_facility.map((stock) => (
+                  <div
+                    className="dashboard-list-item"
+                    key={stock.facility_id}
+                  >
+                    <strong>{stock.facility_name}</strong>
+                    <span>Stock: {Number(stock.current_stock)}</span>
+                  </div>
+                ))}
+              </div>
+            )
+          }
+
           <table className="data-table">
 
             <thead>
@@ -295,7 +427,11 @@ export default function BatchMovementsModal({
 
                 <th>Tipo</th>
 
+                <th>Punto</th>
+
                 <th>Cantidad</th>
+
+                <th>Donante</th>
 
                 <th>Usuario</th>
 
@@ -326,9 +462,17 @@ export default function BatchMovementsModal({
                   </td>
 
                   <td>
+                    {movement.facility_name || '-'}
+                  </td>
+
+                  <td>
                     {formatQuantity(
                       movement.quantity
                     )}
+                  </td>
+
+                  <td>
+                    {movement.donor_name || '-'}
                   </td>
 
                   <td>
@@ -350,7 +494,7 @@ export default function BatchMovementsModal({
 
                   <tr>
 
-                    <td colSpan={5}>
+                    <td colSpan={7}>
                       No hay movimientos registrados.
                     </td>
 

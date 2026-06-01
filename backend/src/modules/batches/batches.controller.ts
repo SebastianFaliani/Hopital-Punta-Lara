@@ -17,7 +17,8 @@ import {
 } from '../medications/medications.service';
 
 function validateBatchBody(
-  body: any
+  body: any,
+  requireStock = true
 ) {
 
   if (!body.batch_number) {
@@ -29,8 +30,11 @@ function validateBatchBody(
   }
 
   if (
-    body.current_stock === undefined ||
-    Number(body.current_stock) < 0
+    requireStock &&
+    (
+      body.current_stock === undefined ||
+      Number(body.current_stock) < 0
+    )
   ) {
     return 'El stock debe ser mayor o igual a cero';
   }
@@ -146,7 +150,11 @@ export async function handleCreateBatch(
               : req.body.purchase_price
           === undefined
                 ? null
-                : Number(req.body.purchase_price)
+                : Number(req.body.purchase_price),
+          facility_id:
+            req.body.facility_id
+              ? Number(req.body.facility_id)
+              : null
         }
       );
 
@@ -191,7 +199,7 @@ export async function handleUpdateBatch(
   try {
 
     const validationError =
-      validateBatchBody(req.body);
+      validateBatchBody(req.body, false);
 
     if (validationError) {
 
@@ -208,8 +216,7 @@ export async function handleUpdateBatch(
           req.body.batch_number,
         expiration_date:
           req.body.expiration_date,
-        current_stock:
-          Number(req.body.current_stock),
+        current_stock: 0,
         purchase_price:
           req.body.purchase_price === ''
             ? null

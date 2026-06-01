@@ -35,8 +35,16 @@ type Batch = {
   batch_number: string;
   expiration_date: string;
   current_stock: number;
+  stock_by_facility?: BatchStock[];
   purchase_price: number | null;
   is_active: boolean;
+};
+
+type BatchStock = {
+  facility_id: number;
+  facility_name: string;
+  facility_type: string;
+  current_stock: number;
 };
 
 function formatDate(
@@ -234,6 +242,8 @@ export default function MedicationBatchesPage() {
 
               <th>Stock</th>
 
+              <th>Por punto</th>
+
               <th>Costo</th>
 
               <th>Estado</th>
@@ -262,6 +272,19 @@ export default function MedicationBatchesPage() {
 
                 <td>
                   {Number(batch.current_stock)}
+                </td>
+
+                <td>
+                  {
+                    batch.stock_by_facility &&
+                    batch.stock_by_facility.length > 0
+                      ? batch.stock_by_facility
+                        .map((stock) =>
+                          `${stock.facility_name}: ${Number(stock.current_stock)}`
+                        )
+                        .join(' | ')
+                      : '-'
+                  }
                 </td>
 
                 <td>
@@ -346,7 +369,7 @@ export default function MedicationBatchesPage() {
 
                 <tr>
 
-                  <td colSpan={6}>
+                  <td colSpan={7}>
                     No hay lotes cargados.
                   </td>
 

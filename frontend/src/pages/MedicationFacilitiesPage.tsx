@@ -1,0 +1,409 @@
+import {
+  useEffect,
+  useState
+} from 'react';
+
+import {
+  Link
+} from 'react-router-dom';
+
+import {
+  apiFetch
+} from '../api/api';
+
+import {
+  useAuth
+} from '../auth/useAuth';
+
+type Facility = {
+  id: number;
+  name: string;
+  facility_type: string;
+  address: string | null;
+  phone: string | null;
+  notes: string | null;
+  is_active: boolean;
+};
+
+const typeLabels: Record<string, string> = {
+  secretaria: 'Secretaria',
+  hospital: 'Hospital',
+  unidad_sanitaria: 'Unidad sanitaria',
+  otro: 'Otro'
+};
+
+const emptyForm = {
+  name: '',
+  facility_type: 'unidad_sanitaria',
+  address: '',
+  phone: '',
+  notes: ''
+};
+
+export default function MedicationFacilitiesPage() {
+
+  const { user } =
+    useAuth();
+
+  const [facilities, setFacilities] =
+    useState<Facility[]>([]);
+
+  const [form, setForm] =
+    useState(emptyForm);
+
+  const [selectedFacility, setSelectedFacility] =
+    useState<Facility | null>(null);
+
+  const [loading, setLoading] =
+    useState(false);
+
+  const [error, setError] =
+    useState('');
+
+  const canEdit =
+    user?.role === 'admin' ||
+    user?.role === 'farmacia';
+
+  async function loadFacilities() {
+
+    try {
+
+      setError('');
+
+      const res =
+        await apiFetch(
+          '/health-facilities?includeInactive=true'
+        );
+
+      setFacilities(res.data);
+
+    } catch (error: any) {
+
+      setError(error.message);
+    }
+  }
+
+  function startEdit(
+    facility: Facility
+  ) {
+
+    setSelectedFacility(facility);
+
+    setForm({
+      name: facility.name,
+      facility_type: facility.facility_type,
+      address: facility.address || '',
+      phone: facility.phone || '',
+      notes: facility.notes || ''
+    });
+  }
+
+  function clearForm() {
+
+    setSelectedFacility(null);
+    setForm(emptyForm);
+  }
+
+  async function handleSubmit(
+    e: React.FormEvent
+  ) {
+
+    e.preventDefault();
+
+    try {
+
+      setLoading(true);
+      setError('');
+
+      await apiFetch(
+        selectedFacility
+          ? `/health-facilities/${selectedFacility.id}`
+          : '/health-facilities',
+        {
+          method: selectedFacility
+            ? 'PUT'
+            : 'POST',
+          body: JSON.stringify(form)
+        }
+      );
+
+      clearForm();
+      await loadFacilities();
+
+    } catch (error: any) {
+
+      setError(error.message);
+
+    } finally {
+
+      setLoading(false);
+    }
+  }
+
+  async function handleToggle(
+    id: number
+  ) {
+
+    try {
+
+      await apiFetch(
+        `/health-facilities/${id}/toggle`,
+        {
+          method: 'PATCH'
+        }
+      );
+
+      await loadFacilities();
+
+    } catch (error: any) {
+
+      setError(error.message);
+    }
+  }
+
+  useEffect(() => {
+
+    loadFacilities();
+
+  }, []);
+
+  return (
+
+    <div>
+
+      <div className="page-header">
+
+        <div>
+
+          <Link
+            to="/medications"
+            className="page-back-link"
+          >
+            Volver a medicamentos
+          </Link>
+
+          <h1 className="page-title">
+            Puntos de stock
+          </h1>
+
+          <p className="page-subtitle">
+            Secretaria, hospital y unidades sanitarias donde puede vivir medicacion.
+          </p>
+
+        </div>
+
+      </div>
+
+      {error && (
+        <p className="auth-error">
+          {error}
+        </p>
+      )}
+
+      {canEdit && (
+
+        <form
+          className="dashboard-panel auth-form"
+          onSubmit={handleSubmit}
+        >
+
+          <h2>
+            {
+              selectedFacility
+                ? 'Editar punto'
+                : 'Nuevo punto'
+            }
+          </h2>
+
+          <input
+            className="form-input"
+            placeholder="Nombre"
+            value={form.name}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                name: e.target.value
+              })
+            }
+          />
+
+          <select
+            className="form-input"
+            value={form.facility_type}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                facility_type: e.target.value
+              })
+            }
+          >
+            <option value="secretaria">
+              Secretaria
+            </option>
+            <option value="hospital">
+              Hospital
+            </option>
+            <option value="unidad_sanitaria">
+              Unidad sanitaria
+            </option>
+            <option value="otro">
+              Otro
+            </option>
+          </select>
+
+          <input
+            className="form-input"
+            placeholder="Direccion"
+            value={form.address}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                address: e.target.value
+              })
+            }
+          />
+
+          <input
+            className="form-input"
+            placeholder="Telefono"
+            value={form.phone}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                phone: e.target.value
+              })
+            }
+          />
+
+          <textarea
+            className="form-input"
+            placeholder="Observaciones"
+            rows={3}
+            value={form.notes}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                notes: e.target.value
+              })
+            }
+          />
+
+          <div className="modal-actions">
+
+            {selectedFacility && (
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={clearForm}
+              >
+                Cancelar
+              </button>
+            )}
+
+            <button
+              type="submit"
+              className="btn-success"
+              disabled={loading}
+            >
+              {
+                loading
+                  ? 'Guardando...'
+                  : 'Guardar'
+              }
+            </button>
+
+          </div>
+
+        </form>
+      )}
+
+      <div className="table-container">
+
+        <table className="data-table">
+
+          <thead>
+            <tr>
+              <th>Nombre</th>
+              <th>Tipo</th>
+              <th>Direccion</th>
+              <th>Telefono</th>
+              <th>Estado</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+
+          <tbody>
+
+            {facilities.map((facility) => (
+              <tr key={facility.id}>
+                <td>{facility.name}</td>
+                <td>{typeLabels[facility.facility_type]}</td>
+                <td>{facility.address || '-'}</td>
+                <td>{facility.phone || '-'}</td>
+                <td>
+                  <span
+                    className={
+                      facility.is_active
+                        ? 'badge badge-success'
+                        : 'badge badge-danger'
+                    }
+                  >
+                    {
+                      facility.is_active
+                        ? 'Activo'
+                        : 'Inactivo'
+                    }
+                  </span>
+                </td>
+                <td>
+                  <div className="table-actions">
+                    {canEdit && (
+                      <button
+                        className="btn-primary"
+                        onClick={() =>
+                          startEdit(facility)
+                        }
+                      >
+                        Editar
+                      </button>
+                    )}
+                    {canEdit && (
+                      <button
+                        className={
+                          facility.is_active
+                            ? 'btn-danger'
+                            : 'btn-success'
+                        }
+                        onClick={() =>
+                          handleToggle(facility.id)
+                        }
+                      >
+                        {
+                          facility.is_active
+                            ? 'Desactivar'
+                            : 'Activar'
+                        }
+                      </button>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            ))}
+
+            {facilities.length === 0 && (
+              <tr>
+                <td colSpan={6}>
+                  No hay puntos cargados.
+                </td>
+              </tr>
+            )}
+
+          </tbody>
+
+        </table>
+
+      </div>
+
+    </div>
+  );
+}

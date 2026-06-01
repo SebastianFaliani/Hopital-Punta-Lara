@@ -15,6 +15,7 @@ import {
 
 const allowedTypes = [
   'compra',
+  'donacion',
   'ajuste',
   'perdida',
   'devolucion'
@@ -38,6 +39,14 @@ function validateMovementBody(
     Number(body.quantity) <= 0
   ) {
     return 'La cantidad debe ser mayor a cero';
+  }
+
+  if (
+    body.facility_id === undefined ||
+    body.facility_id === null ||
+    Number(body.facility_id) <= 0
+  ) {
+    return 'Debe seleccionar el punto de stock';
   }
 
   if (
@@ -108,6 +117,10 @@ export async function handleCreateStockMovement(
             req.body.movement_direction,
           quantity:
             Number(req.body.quantity),
+          facility_id:
+            Number(req.body.facility_id),
+          donor_name:
+            req.body.donor_name || null,
           notes:
             req.body.notes,
           created_by:
