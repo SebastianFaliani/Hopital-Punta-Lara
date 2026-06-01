@@ -291,6 +291,13 @@ export default function MedicationsPage() {
             Traslados
           </Link>
 
+          <Link
+            className="btn-secondary table-link-button"
+            to="/medications/deliveries"
+          >
+            Entregas
+          </Link>
+
           {canEdit && (
             <button
               className="btn-primary"

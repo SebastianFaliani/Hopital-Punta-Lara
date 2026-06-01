@@ -20,6 +20,7 @@ import auditRoutes from './modules/audit/audit.routes';
 import laboratoryRoutes from './modules/laboratory/laboratory.routes';
 import healthFacilitiesRoutes from './modules/health-facilities/health-facilities.routes';
 import medicationTransfersRoutes from './modules/medication-transfers/medication-transfers.routes';
+import medicationDeliveriesRoutes from './modules/medication-deliveries/medication-deliveries.routes';
 
 dotenv.config();
 
@@ -84,5 +85,6 @@ app.use('/audit', auditRoutes);
 app.use('/laboratory', laboratoryRoutes);
 app.use('/health-facilities', healthFacilitiesRoutes);
 app.use('/medication-transfers', medicationTransfersRoutes);
+app.use('/medication-deliveries', medicationDeliveriesRoutes);
 
 export default app;
