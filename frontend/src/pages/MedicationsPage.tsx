@@ -11,6 +11,7 @@ import { apiFetch } from '../api/api';
 import { useAuth } from '../auth/useAuth';
 import CreateMedicationModal from '../components/medications/CreateMedicationModal';
 import EditMedicationModal from '../components/medications/EditMedicationModal';
+import MedicationModuleTabs from '../components/medications/MedicationModuleTabs';
 
 type Medication = {
   id: number;
@@ -132,6 +133,14 @@ export default function MedicationsPage() {
   const canEdit =
     user.role === 'admin' ||
     user.role === 'farmacia';
+
+  const isFacilityScoped =
+    Boolean(
+      user.facility_id &&
+      user.role !== 'admin' &&
+      user.role !== 'dir' &&
+      user.facility_type !== 'secretaria'
+    );
 
   const presentations =
     Array.from(
@@ -271,39 +280,19 @@ export default function MedicationsPage() {
 
       <div className="page-header">
 
-        <h1 className="page-title">
-          Medicamentos
-        </h1>
+        <div>
+
+          <h1 className="page-title">
+            Medicamentos
+          </h1>
+
+          <p className="page-subtitle">
+            Stock, lotes, traslados, entregas y pacientes cronicos.
+          </p>
+
+        </div>
 
         <div className="table-actions">
-
-          <Link
-            className="btn-secondary table-link-button"
-            to="/medications/facilities"
-          >
-            Puntos de stock
-          </Link>
-
-          <Link
-            className="btn-secondary table-link-button"
-            to="/medications/transfers"
-          >
-            Traslados
-          </Link>
-
-          <Link
-            className="btn-secondary table-link-button"
-            to="/medications/deliveries"
-          >
-            Entregas
-          </Link>
-
-          <Link
-            className="btn-secondary table-link-button"
-            to="/medications/chronic"
-          >
-            Cronicos
-          </Link>
 
           {canEdit && (
             <button
@@ -319,6 +308,14 @@ export default function MedicationsPage() {
         </div>
 
       </div>
+
+      <MedicationModuleTabs />
+
+      {isFacilityScoped && (
+        <p className="page-subtitle">
+          Vista limitada al stock de: {user.facility_name || 'tu punto de stock'}
+        </p>
+      )}
 
       <div className="dashboard-grid">
 

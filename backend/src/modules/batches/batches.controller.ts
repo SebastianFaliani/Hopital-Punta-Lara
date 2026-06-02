@@ -4,6 +4,9 @@ import {
 } from 'express';
 import { AuthRequest } from '../auth/auth.middleware';
 import { logAudit } from '../audit/audit.service';
+import {
+  getScopedFacilityId
+} from '../health-facilities/facility-access';
 
 import {
   createBatch,
@@ -51,7 +54,7 @@ function validateBatchBody(
 }
 
 export async function handleGetBatchesByMedication(
-  req: Request,
+  req: AuthRequest,
   res: Response
 ) {
 
@@ -76,7 +79,8 @@ export async function handleGetBatchesByMedication(
 
     const batches =
       await getBatchesByMedication(
-        medicationId
+        medicationId,
+        getScopedFacilityId(req.user)
       );
 
     return res.json({

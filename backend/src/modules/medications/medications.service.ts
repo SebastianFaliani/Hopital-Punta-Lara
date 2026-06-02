@@ -10,7 +10,24 @@ import { Medication }
 // OBTENER TODOS
 // ======================================
 
-export async function getAllMedications() {
+export async function getAllMedications(
+  facilityId?: number | null
+) {
+
+  const stockJoinCondition =
+    facilityId
+      ? 'mbs.medication_batch_id = mb.id AND mbs.facility_id = ?'
+      : 'mbs.medication_batch_id = mb.id';
+
+  const params =
+    facilityId
+      ? [facilityId]
+      : [];
+
+  const scopedHaving =
+    facilityId
+      ? 'HAVING COUNT(mbs.medication_batch_id) > 0'
+      : '';
 
   const [rows]: any =
     await pool.query(
@@ -28,7 +45,7 @@ export async function getAllMedications() {
             SUM(
               CASE
                 WHEN mb.is_active = TRUE
-                  THEN mb.current_stock
+                  THEN mbs.current_stock
                 ELSE 0
               END
             ),
@@ -39,6 +56,8 @@ export async function getAllMedications() {
         FROM medications m
         LEFT JOIN medication_batches mb
           ON mb.medication_id = m.id
+        LEFT JOIN medication_batch_stocks mbs
+          ON ${stockJoinCondition}
         GROUP BY
           m.id,
           m.name,
@@ -50,8 +69,10 @@ export async function getAllMedications() {
           m.minimum_stock,
           m.is_active,
           m.created_at
+        ${scopedHaving}
         ORDER BY m.name ASC
-      `
+      `,
+      params
     );
 
   return rows;

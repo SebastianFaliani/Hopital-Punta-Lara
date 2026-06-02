@@ -2,6 +2,9 @@ import { Request, Response }
   from 'express';
 import { AuthRequest } from '../auth/auth.middleware';
 import { logAudit } from '../audit/audit.service';
+import {
+  getScopedFacilityId
+} from '../health-facilities/facility-access';
 
 import {
   getAllMedications,
@@ -19,14 +22,16 @@ import { log } from 'node:console';
 // ======================================
 
 export async function handleGetAllMedications(
-  req: Request,
+  req: AuthRequest,
   res: Response
 ) {
 
   try {
 
     const medications =
-      await getAllMedications();
+      await getAllMedications(
+        getScopedFacilityId(req.user)
+      );
 
     return res.json({
       success: true,

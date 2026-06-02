@@ -13,6 +13,7 @@ import {
 
 import {
   assertFacilityAccess,
+  canAccessAllFacilities,
   getScopedFacilityId
 } from '../health-facilities/facility-access';
 
@@ -149,7 +150,23 @@ export async function handleGetMedicationTransfers(
         search:
           req.query.search
             ? String(req.query.search)
-            : undefined
+            : undefined,
+        date_from:
+          req.query.date_from
+            ? String(req.query.date_from)
+            : undefined,
+        date_to:
+          req.query.date_to
+            ? String(req.query.date_to)
+            : undefined,
+        page:
+          req.query.page
+            ? Number(req.query.page)
+            : 1,
+        page_size:
+          req.query.page_size
+            ? Number(req.query.page_size)
+            : 10
       });
 
     return res.json({
@@ -169,7 +186,7 @@ export async function handleGetMedicationTransfers(
 }
 
 export async function handleGetMedicationTransferById(
-  req: Request,
+  req: AuthRequest,
   res: Response
 ) {
 
@@ -184,6 +201,19 @@ export async function handleGetMedicationTransferById(
       return res.status(404).json({
         success: false,
         message: 'Traslado no encontrado'
+      });
+    }
+
+    if (
+      !canAccessAllFacilities(req.user) &&
+      Number(req.user?.facility_id) !==
+        Number(transfer.source_facility_id) &&
+      Number(req.user?.facility_id) !==
+        Number(transfer.destination_facility_id)
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: 'No tenes permiso para ver este traslado'
       });
     }
 

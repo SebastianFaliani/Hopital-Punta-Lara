@@ -5,16 +5,13 @@ import {
 } from 'react';
 
 import {
-  Link
-} from 'react-router-dom';
-
-import {
   apiFetch
 } from '../api/api';
 
 import {
   useAuth
 } from '../auth/useAuth';
+import MedicationModuleTabs from '../components/medications/MedicationModuleTabs';
 
 type Facility = {
   id: number;
@@ -140,7 +137,17 @@ export default function MedicationTransfersPage() {
     useState({
       status: 'todos',
       facility_id: 'todos',
-      search: ''
+      search: '',
+      date_from: '',
+      date_to: ''
+    });
+
+  const [pagination, setPagination] =
+    useState({
+      page: 1,
+      page_size: 10,
+      total: 0,
+      total_pages: 1
     });
 
   const [form, setForm] =
@@ -167,6 +174,19 @@ export default function MedicationTransfersPage() {
 
   const selectedSource =
     form.source_facility_id;
+
+  const canSelectSource =
+    Boolean(
+      user?.role === 'admin' ||
+      user?.role === 'dir' ||
+      user?.facility_type === 'secretaria' ||
+      !user?.facility_id
+    );
+
+  const scopedFacilityId =
+    !canSelectSource && user?.facility_id
+      ? String(user.facility_id)
+      : '';
 
   const totalPending =
     transfers.filter((transfer) =>
@@ -207,6 +227,30 @@ export default function MedicationTransfersPage() {
 
     setFacilities(res.data);
 
+    if (scopedFacilityId) {
+      const firstDestination =
+        res.data.find((facility: Facility) =>
+          String(facility.id) !== scopedFacilityId
+        );
+
+      setForm((current) => ({
+        ...current,
+        source_facility_id: scopedFacilityId,
+        destination_facility_id:
+          current.destination_facility_id &&
+          current.destination_facility_id !== scopedFacilityId
+            ? current.destination_facility_id
+            : String(firstDestination?.id || '')
+      }));
+
+      setFilters((current) => ({
+        ...current,
+        facility_id: scopedFacilityId
+      }));
+
+      return;
+    }
+
     if (!form.source_facility_id && res.data.length > 0) {
       setForm((current) => ({
         ...current,
@@ -243,12 +287,44 @@ export default function MedicationTransfersPage() {
         );
       }
 
+      if (filters.date_from) {
+        params.set(
+          'date_from',
+          filters.date_from
+        );
+      }
+
+      if (filters.date_to) {
+        params.set(
+          'date_to',
+          filters.date_to
+        );
+      }
+
+      params.set(
+        'page',
+        String(pagination.page)
+      );
+
+      params.set(
+        'page_size',
+        String(pagination.page_size)
+      );
+
       const res =
         await apiFetch(
           `/medication-transfers?${params.toString()}`
         );
 
-      setTransfers(res.data);
+      setTransfers(
+        Array.isArray(res.data)
+          ? res.data
+          : res.data.items
+      );
+
+      if (!Array.isArray(res.data)) {
+        setPagination(res.data.pagination);
+      }
 
     } catch (error: any) {
 
@@ -445,7 +521,11 @@ export default function MedicationTransfersPage() {
   }, [
     filters.status,
     filters.facility_id,
-    filters.search
+    filters.search,
+    filters.date_from,
+    filters.date_to,
+    pagination.page,
+    pagination.page_size
   ]);
 
   useEffect(() => {
@@ -464,13 +544,6 @@ export default function MedicationTransfersPage() {
 
         <div>
 
-          <Link
-            to="/medications"
-            className="page-back-link"
-          >
-            Volver a medicamentos
-          </Link>
-
           <h1 className="page-title">
             Traslados de medicamentos
           </h1>
@@ -482,6 +555,8 @@ export default function MedicationTransfersPage() {
         </div>
 
       </div>
+
+      <MedicationModuleTabs />
 
       {error && (
         <p className="auth-error">
@@ -525,6 +600,7 @@ export default function MedicationTransfersPage() {
             <select
               className="form-input"
               value={form.source_facility_id}
+              disabled={!canSelectSource}
               onChange={(e) =>
                 setForm({
                   ...form,
@@ -703,10 +779,17 @@ export default function MedicationTransfersPage() {
           placeholder="Buscar medicamento, lote o punto"
           value={filters.search}
           onChange={(e) =>
-            setFilters({
-              ...filters,
-              search: e.target.value
-            })
+            {
+              setPagination((current) => ({
+                ...current,
+                page: 1
+              }));
+
+              setFilters({
+                ...filters,
+                search: e.target.value
+              });
+            }
           }
         />
 
@@ -714,10 +797,17 @@ export default function MedicationTransfersPage() {
           className="form-input"
           value={filters.status}
           onChange={(e) =>
-            setFilters({
-              ...filters,
-              status: e.target.value
-            })
+            {
+              setPagination((current) => ({
+                ...current,
+                page: 1
+              }));
+
+              setFilters({
+                ...filters,
+                status: e.target.value
+              });
+            }
           }
         >
           <option value="todos">
@@ -737,11 +827,19 @@ export default function MedicationTransfersPage() {
         <select
           className="form-input"
           value={filters.facility_id}
+          disabled={!canSelectSource}
           onChange={(e) =>
-            setFilters({
-              ...filters,
-              facility_id: e.target.value
-            })
+            {
+              setPagination((current) => ({
+                ...current,
+                page: 1
+              }));
+
+              setFilters({
+                ...filters,
+                facility_id: e.target.value
+              });
+            }
           }
         >
           <option value="todos">
@@ -758,15 +856,57 @@ export default function MedicationTransfersPage() {
           ))}
         </select>
 
+        <input
+          className="form-input"
+          type="date"
+          value={filters.date_from}
+          onChange={(e) => {
+            setPagination((current) => ({
+              ...current,
+              page: 1
+            }));
+
+            setFilters({
+              ...filters,
+              date_from: e.target.value
+            });
+          }}
+        />
+
+        <input
+          className="form-input"
+          type="date"
+          value={filters.date_to}
+          onChange={(e) => {
+            setPagination((current) => ({
+              ...current,
+              page: 1
+            }));
+
+            setFilters({
+              ...filters,
+              date_to: e.target.value
+            });
+          }}
+        />
+
         <button
           className="btn-secondary"
-          onClick={() =>
+          onClick={() => {
+            setPagination((current) => ({
+              ...current,
+              page: 1
+            }));
+
             setFilters({
               status: 'todos',
-              facility_id: 'todos',
-              search: ''
-            })
-          }
+              facility_id:
+                scopedFacilityId || 'todos',
+              search: '',
+              date_from: '',
+              date_to: ''
+            });
+          }}
         >
           Limpiar
         </button>
@@ -870,6 +1010,45 @@ export default function MedicationTransfersPage() {
 
         </table>
 
+      </div>
+
+      <div className="modal-actions">
+        <span className="page-subtitle">
+          Pagina {pagination.page} de {pagination.total_pages} - {pagination.total} traslados
+        </span>
+
+        <div className="table-actions">
+          <button
+            className="btn-secondary"
+            disabled={pagination.page <= 1}
+            onClick={() =>
+              setPagination((current) => ({
+                ...current,
+                page:
+                  Math.max(1, current.page - 1)
+              }))
+            }
+          >
+            Anterior
+          </button>
+
+          <button
+            className="btn-secondary"
+            disabled={pagination.page >= pagination.total_pages}
+            onClick={() =>
+              setPagination((current) => ({
+                ...current,
+                page:
+                  Math.min(
+                    current.total_pages,
+                    current.page + 1
+                  )
+              }))
+            }
+          >
+            Siguiente
+          </button>
+        </div>
       </div>
 
       {selectedTransfer && (

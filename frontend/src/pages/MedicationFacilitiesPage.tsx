@@ -4,16 +4,13 @@ import {
 } from 'react';
 
 import {
-  Link
-} from 'react-router-dom';
-
-import {
   apiFetch
 } from '../api/api';
 
 import {
   useAuth
 } from '../auth/useAuth';
+import MedicationModuleTabs from '../components/medications/MedicationModuleTabs';
 
 type Facility = {
   id: number;
@@ -175,13 +172,6 @@ export default function MedicationFacilitiesPage() {
 
         <div>
 
-          <Link
-            to="/medications"
-            className="page-back-link"
-          >
-            Volver a medicamentos
-          </Link>
-
           <h1 className="page-title">
             Puntos de stock
           </h1>
@@ -193,6 +183,8 @@ export default function MedicationFacilitiesPage() {
         </div>
 
       </div>
+
+      <MedicationModuleTabs />
 
       {error && (
         <p className="auth-error">

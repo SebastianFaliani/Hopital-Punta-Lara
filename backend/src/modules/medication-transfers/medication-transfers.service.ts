@@ -9,6 +9,10 @@ type TransferFilters = {
   status?: string;
   facility_id?: number;
   search?: string;
+  date_from?: string;
+  date_to?: string;
+  page?: number;
+  page_size?: number;
 };
 
 async function updateFacilityStock(
@@ -168,6 +172,16 @@ export async function getMedicationTransfers(
     );
   }
 
+  if (filters.date_from) {
+    where.push('mt.transfer_date >= ?');
+    params.push(filters.date_from);
+  }
+
+  if (filters.date_to) {
+    where.push('mt.transfer_date <= ?');
+    params.push(filters.date_to);
+  }
+
   if (filters.search) {
     where.push(
       `(
@@ -191,6 +205,38 @@ export async function getMedicationTransfers(
     where.length
       ? `WHERE ${where.join(' AND ')}`
       : '';
+
+  const page =
+    Math.max(1, Number(filters.page || 1));
+
+  const pageSize =
+    Math.min(
+      100,
+      Math.max(5, Number(filters.page_size || 10))
+    );
+
+  const offset =
+    (page - 1) * pageSize;
+
+  const [countRows]: any =
+    await pool.query(
+      `
+        SELECT COUNT(DISTINCT mt.id) AS total
+        FROM medication_transfers mt
+        INNER JOIN health_facilities sf
+          ON sf.id = mt.source_facility_id
+        INNER JOIN health_facilities df
+          ON df.id = mt.destination_facility_id
+        LEFT JOIN medication_transfer_items mti
+          ON mti.medication_transfer_id = mt.id
+        LEFT JOIN medication_batches mb
+          ON mb.id = mti.medication_batch_id
+        LEFT JOIN medications m
+          ON m.id = mb.medication_id
+        ${whereSql}
+      `,
+      params
+    );
 
   const [rows]: any =
     await pool.query(
@@ -241,11 +287,28 @@ export async function getMedicationTransfers(
           ru.first_name,
           ru.last_name
         ORDER BY mt.created_at DESC, mt.id DESC
+        LIMIT ? OFFSET ?
       `,
-      params
+      [
+        ...params,
+        pageSize,
+        offset
+      ]
     );
 
-  return rows;
+  const total =
+    Number(countRows[0]?.total || 0);
+
+  return {
+    items: rows,
+    pagination: {
+      page,
+      page_size: pageSize,
+      total,
+      total_pages:
+        Math.max(1, Math.ceil(total / pageSize))
+    }
+  };
 }
 
 export async function getMedicationTransferById(

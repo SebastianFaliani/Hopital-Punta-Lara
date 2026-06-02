@@ -10,28 +10,75 @@ import {
 } from '../health-facilities/health-facilities.service';
 
 export async function getBatchesByMedication(
-  medicationId: number
+  medicationId: number,
+  facilityId?: number | null
 ) {
+
+  const stockJoinCondition =
+    facilityId
+      ? 'mbs.medication_batch_id = mb.id AND mbs.facility_id = ?'
+      : 'mbs.medication_batch_id = mb.id';
+
+  const stockParams =
+    facilityId
+      ? [facilityId, medicationId]
+      : [medicationId];
+
+  const scopedHaving =
+    facilityId
+      ? 'HAVING COUNT(mbs.medication_batch_id) > 0'
+      : '';
 
   const [rows]: any =
     await pool.query(
       `
         SELECT
-          id,
-          medication_id,
-          batch_number,
-          expiration_date,
-          current_stock,
-          purchase_price,
-          is_active,
-          created_at,
-          updated_at
-        FROM medication_batches
-        WHERE medication_id = ?
-        ORDER BY expiration_date ASC, batch_number ASC
+          mb.id,
+          mb.medication_id,
+          mb.batch_number,
+          mb.expiration_date,
+          COALESCE(SUM(mbs.current_stock), 0) AS current_stock,
+          mb.purchase_price,
+          mb.is_active,
+          mb.created_at,
+          mb.updated_at
+        FROM medication_batches mb
+        LEFT JOIN medication_batch_stocks mbs
+          ON ${stockJoinCondition}
+        WHERE mb.medication_id = ?
+        GROUP BY
+          mb.id,
+          mb.medication_id,
+          mb.batch_number,
+          mb.expiration_date,
+          mb.purchase_price,
+          mb.is_active,
+          mb.created_at,
+          mb.updated_at
+        ${scopedHaving}
+        ORDER BY mb.expiration_date ASC, mb.batch_number ASC
       `,
-      [medicationId]
+      stockParams
     );
+
+  if (rows.length === 0) {
+    return [];
+  }
+
+  const facilityFilter =
+    facilityId
+      ? 'AND mbs.facility_id = ?'
+      : '';
+
+  const stockByFacilityParams =
+    facilityId
+      ? [
+        rows.map((row: any) => row.id),
+        facilityId
+      ]
+      : [
+        rows.map((row: any) => row.id)
+      ];
 
   const [stockRows]: any =
     await pool.query(
@@ -46,13 +93,10 @@ export async function getBatchesByMedication(
         INNER JOIN health_facilities hf
           ON hf.id = mbs.facility_id
         WHERE mbs.medication_batch_id IN (?)
+          ${facilityFilter}
         ORDER BY hf.name ASC
       `,
-      [
-        rows.length > 0
-          ? rows.map((row: any) => row.id)
-          : [0]
-      ]
+      stockByFacilityParams
     );
 
   const stocksByBatch =

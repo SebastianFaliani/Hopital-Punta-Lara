@@ -5,20 +5,18 @@ import {
 } from 'react';
 
 import {
-  Link
-} from 'react-router-dom';
-
-import {
   apiFetch
 } from '../api/api';
 
 import {
   useAuth
 } from '../auth/useAuth';
+import MedicationModuleTabs from '../components/medications/MedicationModuleTabs';
 
 type Facility = {
   id: number;
   name: string;
+  facility_type: string;
 };
 
 type FacilityStock = {
@@ -165,6 +163,19 @@ export default function MedicationDeliveriesPage() {
   const [error, setError] =
     useState('');
 
+  const canSelectFacility =
+    Boolean(
+      user?.role === 'admin' ||
+      user?.role === 'dir' ||
+      user?.facility_type === 'secretaria' ||
+      !user?.facility_id
+    );
+
+  const scopedFacilityId =
+    !canSelectFacility && user?.facility_id
+      ? String(user.facility_id)
+      : '';
+
   const totalDelivered =
     deliveries.filter((delivery) =>
       delivery.status === 'entregado'
@@ -213,6 +224,20 @@ export default function MedicationDeliveriesPage() {
       await apiFetch('/health-facilities');
 
     setFacilities(res.data);
+
+    if (scopedFacilityId) {
+      setForm((current) => ({
+        ...current,
+        facility_id: scopedFacilityId
+      }));
+
+      setFilters((current) => ({
+        ...current,
+        facility_id: scopedFacilityId
+      }));
+
+      return;
+    }
 
     if (!form.facility_id && res.data.length > 0) {
       setForm((current) => ({
@@ -474,13 +499,6 @@ export default function MedicationDeliveriesPage() {
 
         <div>
 
-          <Link
-            to="/medications"
-            className="page-back-link"
-          >
-            Volver a medicamentos
-          </Link>
-
           <h1 className="page-title">
             Entregas a pacientes
           </h1>
@@ -493,9 +511,17 @@ export default function MedicationDeliveriesPage() {
 
       </div>
 
+      <MedicationModuleTabs />
+
       {error && (
         <p className="auth-error">
           {error}
+        </p>
+      )}
+
+      {scopedFacilityId && (
+        <p className="page-subtitle">
+          Vista limitada a entregas de: {user?.facility_name || 'tu punto de stock'}
         </p>
       )}
 
@@ -535,6 +561,7 @@ export default function MedicationDeliveriesPage() {
             <select
               className="form-input"
               value={form.facility_id}
+              disabled={!canSelectFacility}
               onChange={(e) =>
                 setForm({
                   ...form,
@@ -811,6 +838,7 @@ export default function MedicationDeliveriesPage() {
         <select
           className="form-input"
           value={filters.facility_id}
+          disabled={!canSelectFacility}
           onChange={(e) =>
             setFilters({
               ...filters,
@@ -862,7 +890,8 @@ export default function MedicationDeliveriesPage() {
             setFilters({
               status: 'todos',
               reason: 'todos',
-              facility_id: '',
+              facility_id:
+                scopedFacilityId || '',
               search: '',
               date_from: '',
               date_to: ''
