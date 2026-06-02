@@ -47,7 +47,8 @@ export async function create(req: AuthRequest, res: Response) {
       newData: {
         username: req.body.username,
         email: req.body.email,
-        role_id: req.body.role_id
+        role_id: req.body.role_id,
+        facility_id: req.body.facility_id || null
       },
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'] || null
@@ -85,7 +86,8 @@ export async function update(req: AuthRequest, res: Response) {
       newData: {
         username: req.body.username,
         email: req.body.email,
-        role_id: req.body.role_id
+        role_id: req.body.role_id,
+        facility_id: req.body.facility_id || null
       },
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'] || null

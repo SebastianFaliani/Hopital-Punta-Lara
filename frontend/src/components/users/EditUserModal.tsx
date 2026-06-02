@@ -11,6 +11,11 @@ type Role = {
   name: string;
 };
 
+type Facility = {
+  id: number;
+  name: string;
+};
+
 type User = {
   id: number;
   first_name: string;
@@ -19,6 +24,8 @@ type User = {
   username: string;
 
   role_id: number;
+  facility_id: number | null;
+  facility_name: string | null;
   role: string;
 
   is_active: boolean;
@@ -44,8 +51,15 @@ export default function EditUserModal({
     last_name: user.last_name,
     email: user.email,
     username: user.username,
-    role_id: user.role_id
+    role_id: user.role_id,
+    facility_id:
+      user.facility_id
+        ? String(user.facility_id)
+        : ''
   });
+
+  const [facilities, setFacilities] =
+    useState<Facility[]>([]);
 
   const [loading, setLoading] =
     useState(false);
@@ -55,14 +69,18 @@ export default function EditUserModal({
 
   useEffect(() => {
 
-    async function loadRoles() {
+    async function loadInitialData() {
 
       try {
 
-        const res =
-          await apiFetch('/roles');
+        const [rolesRes, facilitiesRes] =
+          await Promise.all([
+            apiFetch('/roles'),
+            apiFetch('/health-facilities')
+          ]);
 
-        setRoles(res.data);
+        setRoles(rolesRes.data);
+        setFacilities(facilitiesRes.data);
 
       } catch (error) {
 
@@ -70,7 +88,7 @@ export default function EditUserModal({
       }
     }
 
-    loadRoles();
+    loadInitialData();
 
   }, []);
 
@@ -105,7 +123,14 @@ export default function EditUserModal({
         {
           method: 'PUT',
 
-          body: JSON.stringify(form)
+          body: JSON.stringify({
+            ...form,
+            role_id: Number(form.role_id),
+            facility_id:
+              form.facility_id
+                ? Number(form.facility_id)
+                : null
+          })
         }
       );
 
@@ -132,7 +157,7 @@ export default function EditUserModal({
 
     setForm({
       ...form,
-      [e.target.name]:
+        [e.target.name]:
         e.target.name === 'role_id'
           ? Number(e.target.value)
           : e.target.value
@@ -207,6 +232,27 @@ export default function EditUserModal({
                 {role.name}
               </option>
 
+            ))}
+
+          </select>
+
+          <select
+            className="auth-input"
+            name="facility_id"
+            value={form.facility_id}
+            onChange={handleChange}
+          >
+            <option value="">
+              Sin punto asignado / vista general
+            </option>
+
+            {facilities.map((facility) => (
+              <option
+                key={facility.id}
+                value={facility.id}
+              >
+                {facility.name}
+              </option>
             ))}
 
           </select>

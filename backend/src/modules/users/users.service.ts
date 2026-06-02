@@ -13,6 +13,8 @@ export async function getAllUsers() {
         u.username,
 
         u.role_id,
+        u.facility_id,
+        hf.name AS facility_name,
 
         u.is_active,
         u.created_at,
@@ -23,6 +25,8 @@ export async function getAllUsers() {
 
       INNER JOIN roles r
         ON r.id = u.role_id
+      LEFT JOIN health_facilities hf
+        ON hf.id = u.facility_id
 
       ORDER BY u.created_at DESC
     `
@@ -39,7 +43,8 @@ export async function createUser(data: any) {
     email,
     username,
     password,
-    role_id
+    role_id,
+    facility_id
   } = data;
 
   const cleanUsername =
@@ -67,16 +72,18 @@ export async function createUser(data: any) {
     `
       INSERT INTO users (
         role_id,
+        facility_id,
         first_name,
         last_name,
         email,
         username,
         password_hash
       )
-      VALUES (?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `,
     [
       role_id,
+      facility_id || null,
       first_name,
       last_name,
       email,
@@ -100,7 +107,8 @@ export async function updateUser(
     last_name,
     email,
     username,
-    role_id
+    role_id,
+    facility_id
   } = data;
 
   const cleanUsername =
@@ -137,7 +145,8 @@ export async function updateUser(
         last_name = ?,
         email = ?,
         username = ?,
-        role_id = ?
+        role_id = ?,
+        facility_id = ?
       WHERE id = ?
     `,
     [
@@ -146,6 +155,7 @@ export async function updateUser(
       email,
       cleanUsername,
       role_id,
+      facility_id || null,
       id
     ]
   );

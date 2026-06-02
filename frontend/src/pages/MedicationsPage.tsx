@@ -298,6 +298,13 @@ export default function MedicationsPage() {
             Entregas
           </Link>
 
+          <Link
+            className="btn-secondary table-link-button"
+            to="/medications/chronic"
+          >
+            Cronicos
+          </Link>
+
           {canEdit && (
             <button
               className="btn-primary"

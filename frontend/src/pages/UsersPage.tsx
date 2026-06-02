@@ -17,6 +17,8 @@ type User = {
   username: string;
   role_id: number;
   role: string;
+  facility_id: number | null;
+  facility_name: string | null;
   is_active: boolean;
 };
 
@@ -263,6 +265,10 @@ export default function UsersPage() {
             </th>
 
             <th>
+              Punto
+            </th>
+
+            <th>
               Estado
             </th>
 
@@ -302,6 +308,10 @@ export default function UsersPage() {
 
               <td>
                 {u.role}
+              </td>
+
+              <td>
+                {u.facility_name || 'Vista general'}
               </td>
 
               <td>
@@ -374,7 +384,7 @@ export default function UsersPage() {
             filteredUsers.length === 0 && (
 
               <tr>
-                <td colSpan={6}>
+                <td colSpan={7}>
                   No hay usuarios para esos filtros.
                 </td>
               </tr>

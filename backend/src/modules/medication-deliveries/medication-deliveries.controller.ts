@@ -12,6 +12,11 @@ import {
 } from '../audit/audit.service';
 
 import {
+  assertFacilityAccess,
+  getScopedFacilityId
+} from '../health-facilities/facility-access';
+
+import {
   cancelMedicationDelivery,
   createMedicationDelivery,
   getMedicationDeliveries,
@@ -78,7 +83,7 @@ function validateDeliveryBody(
 }
 
 export async function handleGetMedicationDeliveries(
-  req: Request,
+  req: AuthRequest,
   res: Response
 ) {
 
@@ -112,9 +117,12 @@ export async function handleGetMedicationDeliveries(
         status,
         reason,
         facility_id:
-          req.query.facility_id
-            ? Number(req.query.facility_id)
-            : undefined,
+          getScopedFacilityId(
+            req.user,
+            req.query.facility_id
+              ? Number(req.query.facility_id)
+              : null
+          ) || undefined,
         search:
           req.query.search
             ? String(req.query.search)
@@ -146,7 +154,7 @@ export async function handleGetMedicationDeliveries(
 }
 
 export async function handleGetMedicationDeliveryById(
-  req: Request,
+  req: AuthRequest,
   res: Response
 ) {
 
@@ -163,6 +171,11 @@ export async function handleGetMedicationDeliveryById(
         message: 'Entrega no encontrada'
       });
     }
+
+    assertFacilityAccess(
+      req.user,
+      Number(delivery.facility_id)
+    );
 
     return res.json({
       success: true,
@@ -196,6 +209,11 @@ export async function handleCreateMedicationDelivery(
         message: validationError
       });
     }
+
+    assertFacilityAccess(
+      req.user,
+      Number(req.body.facility_id)
+    );
 
     const id =
       await createMedicationDelivery({
@@ -268,6 +286,21 @@ export async function handleCancelMedicationDelivery(
 
     const id =
       Number(req.params.id);
+
+    const delivery =
+      await getMedicationDeliveryById(id);
+
+    if (!delivery) {
+      return res.status(404).json({
+        success: false,
+        message: 'Entrega no encontrada'
+      });
+    }
+
+    assertFacilityAccess(
+      req.user,
+      Number(delivery.facility_id)
+    );
 
     await cancelMedicationDelivery(
       id,

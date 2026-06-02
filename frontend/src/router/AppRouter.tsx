@@ -15,6 +15,7 @@ import MedicationBatchesPage from '../pages/MedicationBatchesPage';
 import MedicationFacilitiesPage from '../pages/MedicationFacilitiesPage';
 import MedicationTransfersPage from '../pages/MedicationTransfersPage';
 import MedicationDeliveriesPage from '../pages/MedicationDeliveriesPage';
+import ChronicMedicationsPage from '../pages/ChronicMedicationsPage';
 import TransfersPage from '../pages/TransfersPage';
 import AmbulancesPage from '../pages/AmbulancesPage';
 import DriversPage from '../pages/DriversPage';
@@ -85,6 +86,11 @@ export default function AppRouter() {
             <Route
               path="/medications/deliveries"
               element={<MedicationDeliveriesPage />}
+            />
+
+            <Route
+              path="/medications/chronic"
+              element={<ChronicMedicationsPage />}
             />
 
             <Route

@@ -164,12 +164,17 @@ export async function loginUser(
           u.last_name,
           u.email,
           u.username,
+          u.facility_id,
+          hf.name AS facility_name,
+          hf.facility_type,
           u.password_hash,
           u.is_active,
           r.name AS role
         FROM users u
         INNER JOIN roles r
           ON r.id = u.role_id
+        LEFT JOIN health_facilities hf
+          ON hf.id = u.facility_id
         WHERE u.username = ?
         LIMIT 1
       `,
@@ -223,7 +228,10 @@ export async function loginUser(
       userId: user.id,
       email: user.email,
       username: user.username,
-      role: user.role
+      role: user.role,
+      facility_id: user.facility_id,
+      facility_name: user.facility_name,
+      facility_type: user.facility_type
     });
 
   // refresh token
@@ -264,7 +272,10 @@ export async function loginUser(
       last_name: user.last_name,
       email: user.email,
       username: user.username,
-      role: user.role
+      role: user.role,
+      facility_id: user.facility_id,
+      facility_name: user.facility_name,
+      facility_type: user.facility_type
     }
   };
 }

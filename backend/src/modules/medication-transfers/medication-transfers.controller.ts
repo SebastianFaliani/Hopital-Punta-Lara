@@ -12,6 +12,11 @@ import {
 } from '../audit/audit.service';
 
 import {
+  assertFacilityAccess,
+  getScopedFacilityId
+} from '../health-facilities/facility-access';
+
+import {
   cancelMedicationTransfer,
   createMedicationTransfer,
   getFacilityBatchStocks,
@@ -74,7 +79,7 @@ function validateTransferBody(
 }
 
 export async function handleGetFacilityBatchStocks(
-  req: Request,
+  req: AuthRequest,
   res: Response
 ) {
 
@@ -89,6 +94,11 @@ export async function handleGetFacilityBatchStocks(
         message: 'Debe seleccionar un punto de stock'
       });
     }
+
+    assertFacilityAccess(
+      req.user,
+      facilityId
+    );
 
     const rows =
       await getFacilityBatchStocks(facilityId);
@@ -110,7 +120,7 @@ export async function handleGetFacilityBatchStocks(
 }
 
 export async function handleGetMedicationTransfers(
-  req: Request,
+  req: AuthRequest,
   res: Response
 ) {
 
@@ -130,9 +140,12 @@ export async function handleGetMedicationTransfers(
       await getMedicationTransfers({
         status,
         facility_id:
-          req.query.facility_id
-            ? Number(req.query.facility_id)
-            : undefined,
+          getScopedFacilityId(
+            req.user,
+            req.query.facility_id
+              ? Number(req.query.facility_id)
+              : null
+          ) || undefined,
         search:
           req.query.search
             ? String(req.query.search)
@@ -207,6 +220,11 @@ export async function handleCreateMedicationTransfer(
       });
     }
 
+    assertFacilityAccess(
+      req.user,
+      Number(req.body.source_facility_id)
+    );
+
     const id =
       await createMedicationTransfer({
         source_facility_id:
@@ -269,6 +287,21 @@ export async function handleReceiveMedicationTransfer(
     const id =
       Number(req.params.id);
 
+    const transfer =
+      await getMedicationTransferById(id);
+
+    if (!transfer) {
+      return res.status(404).json({
+        success: false,
+        message: 'Traslado no encontrado'
+      });
+    }
+
+    assertFacilityAccess(
+      req.user,
+      Number(transfer.destination_facility_id)
+    );
+
     await receiveMedicationTransfer(
       id,
       req.user?.userId ?? null
@@ -312,6 +345,21 @@ export async function handleCancelMedicationTransfer(
 
     const id =
       Number(req.params.id);
+
+    const transfer =
+      await getMedicationTransferById(id);
+
+    if (!transfer) {
+      return res.status(404).json({
+        success: false,
+        message: 'Traslado no encontrado'
+      });
+    }
+
+    assertFacilityAccess(
+      req.user,
+      Number(transfer.source_facility_id)
+    );
 
     await cancelMedicationTransfer(
       id,

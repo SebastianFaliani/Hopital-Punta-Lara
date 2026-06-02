@@ -10,6 +10,11 @@ type Role = {
   name: string;
 };
 
+type Facility = {
+  id: number;
+  name: string;
+};
+
 type Props = {
   onClose: () => void;
   onCreated: () => void;
@@ -26,11 +31,15 @@ export default function CreateUserModal({
     email: '',
     username: '',
     password: '',
-    role_id: 1
+    role_id: 1,
+    facility_id: ''
   });
 
   const [roles, setRoles] =
     useState<Role[]>([]);
+
+  const [facilities, setFacilities] =
+    useState<Facility[]>([]);
 
   const [loading, setLoading] =
     useState(false);
@@ -40,14 +49,18 @@ export default function CreateUserModal({
 
   useEffect(() => {
 
-    async function loadRoles() {
+    async function loadInitialData() {
 
       try {
 
-        const res =
-          await apiFetch('/roles');
+        const [rolesRes, facilitiesRes] =
+          await Promise.all([
+            apiFetch('/roles'),
+            apiFetch('/health-facilities')
+          ]);
 
-        setRoles(res.data);
+        setRoles(rolesRes.data);
+        setFacilities(facilitiesRes.data);
 
       } catch (error) {
 
@@ -55,7 +68,7 @@ export default function CreateUserModal({
       }
     }
 
-    loadRoles();
+    loadInitialData();
 
   }, []);
 
@@ -103,7 +116,11 @@ export default function CreateUserModal({
 
           body: JSON.stringify({
             ...form,
-            role_id: Number(form.role_id)
+            role_id: Number(form.role_id),
+            facility_id:
+              form.facility_id
+                ? Number(form.facility_id)
+                : null
           })
         }
       );
@@ -216,6 +233,27 @@ export default function CreateUserModal({
                 {role.name}
               </option>
 
+            ))}
+
+          </select>
+
+          <select
+            className="auth-input"
+            name="facility_id"
+            value={form.facility_id}
+            onChange={handleChange}
+          >
+            <option value="">
+              Sin punto asignado / vista general
+            </option>
+
+            {facilities.map((facility) => (
+              <option
+                key={facility.id}
+                value={facility.id}
+              >
+                {facility.name}
+              </option>
             ))}
 
           </select>

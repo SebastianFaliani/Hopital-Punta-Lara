@@ -7,6 +7,9 @@ export interface User {
   email: string;
   username: string;
   role: string;
+  facility_id?: number | null;
+  facility_name?: string | null;
+  facility_type?: string | null;
 }
 
 export interface AuthContextType {
