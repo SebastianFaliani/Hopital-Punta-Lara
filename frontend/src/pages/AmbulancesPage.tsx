@@ -5,6 +5,8 @@ import {
 
 import { apiFetch }
   from '../api/api';
+import { useAuth }
+  from '../auth/useAuth';
 
 import TransfersNav
   from '../components/transfers/TransfersNav';
@@ -30,6 +32,12 @@ const emptyForm = {
 };
 
 export default function AmbulancesPage() {
+  const { user } =
+    useAuth();
+
+  const canEdit =
+    user?.role === 'admin' ||
+    user?.role === 'user';
 
   const [ambulances, setAmbulances] =
     useState<Ambulance[]>([]);
@@ -158,10 +166,17 @@ export default function AmbulancesPage() {
         </h1>
       </div>
 
-      <form
-        className="management-form"
-        onSubmit={handleSubmit}
-      >
+      {!canEdit && (
+        <p className="page-subtitle">
+          Vista de consulta. Podes ver las ambulancias sin modificar datos.
+        </p>
+      )}
+
+      {canEdit && (
+        <form
+          className="management-form"
+          onSubmit={handleSubmit}
+        >
 
         <input
           className="form-input"
@@ -254,7 +269,8 @@ export default function AmbulancesPage() {
           }
         </div>
 
-      </form>
+        </form>
+      )}
 
       {
         error && (
@@ -273,7 +289,9 @@ export default function AmbulancesPage() {
               <th>Tipo</th>
               <th>Estado</th>
               <th>Activo</th>
-              <th>Acciones</th>
+              {canEdit && (
+                <th>Acciones</th>
+              )}
             </tr>
           </thead>
           <tbody>
@@ -286,36 +304,46 @@ export default function AmbulancesPage() {
                 <td>
                   {ambulance.is_active ? 'Si' : 'No'}
                 </td>
-                <td>
-                  <div className="table-actions">
-                    <button
-                      className="btn-primary"
-                      onClick={() =>
-                        startEdit(ambulance)
-                      }
-                    >
-                      Editar
-                    </button>
-                    <button
-                      className={
-                        ambulance.is_active
-                          ? 'btn-danger'
-                          : 'btn-success'
-                      }
-                      onClick={() =>
-                        handleToggle(ambulance.id)
-                      }
-                    >
-                      {
-                        ambulance.is_active
-                          ? 'Desactivar'
-                          : 'Activar'
-                      }
-                    </button>
-                  </div>
-                </td>
+                {canEdit && (
+                  <td>
+                    <div className="table-actions">
+                      <button
+                        className="btn-primary"
+                        onClick={() =>
+                          startEdit(ambulance)
+                        }
+                      >
+                        Editar
+                      </button>
+                      <button
+                        className={
+                          ambulance.is_active
+                            ? 'btn-danger'
+                            : 'btn-success'
+                        }
+                        onClick={() =>
+                          handleToggle(ambulance.id)
+                        }
+                      >
+                        {
+                          ambulance.is_active
+                            ? 'Desactivar'
+                            : 'Activar'
+                        }
+                      </button>
+                    </div>
+                  </td>
+                )}
               </tr>
             ))}
+
+            {ambulances.length === 0 && (
+              <tr>
+                <td colSpan={canEdit ? 6 : 5}>
+                  No hay ambulancias cargadas.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>

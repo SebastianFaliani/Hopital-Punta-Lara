@@ -1255,7 +1255,7 @@ export default function ChronicMedicationsPage() {
                     className="form-input"
                     type="number"
                     min="0"
-                    step="0.01"
+                    step="1"
                     value={planForm.monthly_quantity}
                     onChange={(e) =>
                       setPlanForm({
@@ -1688,7 +1688,7 @@ export default function ChronicMedicationsPage() {
                                 )
                                 : undefined
                             }
-                            step="0.01"
+                            step="1"
                             value={deliveryItems[item.id]?.delivered_quantity || 0}
                             onChange={(e) =>
                               setDeliveryItems({
@@ -1852,3 +1852,4 @@ export default function ChronicMedicationsPage() {
     </div>
   );
 }
+

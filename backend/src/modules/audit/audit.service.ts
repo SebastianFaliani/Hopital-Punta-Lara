@@ -1,4 +1,7 @@
 import { pool } from '../../config/database';
+import {
+  canAccessAllFacilities
+} from '../health-facilities/facility-access';
 
 type AuditInput = {
   user?: any;
@@ -57,20 +60,29 @@ export async function logAudit(
 }
 
 export async function getAuditLogs(
-  filters: any
+  filters: any,
+  user?: any
 ) {
 
   const params: any[] = [];
   const where: string[] = [];
 
+  if (
+    user &&
+    !canAccessAllFacilities(user)
+  ) {
+    where.push('audit_user.facility_id = ?');
+    params.push(Number(user.facility_id));
+  }
+
   if (filters.search) {
     where.push(
       `(
-        description LIKE ?
-        OR username LIKE ?
-        OR module LIKE ?
-        OR action LIKE ?
-        OR entity_type LIKE ?
+        al.description LIKE ?
+        OR al.username LIKE ?
+        OR al.module LIKE ?
+        OR al.action LIKE ?
+        OR al.entity_type LIKE ?
       )`
     );
     const value =
@@ -85,27 +97,27 @@ export async function getAuditLogs(
   }
 
   if (filters.module && filters.module !== 'todos') {
-    where.push('module = ?');
+    where.push('al.module = ?');
     params.push(filters.module);
   }
 
   if (filters.action && filters.action !== 'todos') {
-    where.push('action = ?');
+    where.push('al.action = ?');
     params.push(filters.action);
   }
 
   if (filters.user && filters.user !== 'todos') {
-    where.push('username = ?');
+    where.push('al.username = ?');
     params.push(filters.user);
   }
 
   if (filters.date_from) {
-    where.push('DATE(created_at) >= ?');
+    where.push('DATE(al.created_at) >= ?');
     params.push(filters.date_from);
   }
 
   if (filters.date_to) {
-    where.push('DATE(created_at) <= ?');
+    where.push('DATE(al.created_at) <= ?');
     params.push(filters.date_to);
   }
 
@@ -136,7 +148,9 @@ export async function getAuditLogs(
     await pool.query(
       `
         SELECT COUNT(*) AS total
-        FROM audit_logs
+        FROM audit_logs al
+        LEFT JOIN users audit_user
+          ON audit_user.id = al.user_id
         ${whereSql}
       `,
       params
@@ -146,23 +160,25 @@ export async function getAuditLogs(
     await pool.query(
       `
         SELECT
-          id,
-          user_id,
-          username,
-          user_role,
-          module,
-          action,
-          entity_type,
-          entity_id,
-          description,
-          old_data,
-          new_data,
-          ip_address,
-          user_agent,
-          created_at
-        FROM audit_logs
+          al.id,
+          al.user_id,
+          al.username,
+          al.user_role,
+          al.module,
+          al.action,
+          al.entity_type,
+          al.entity_id,
+          al.description,
+          al.old_data,
+          al.new_data,
+          al.ip_address,
+          al.user_agent,
+          al.created_at
+        FROM audit_logs al
+        LEFT JOIN users audit_user
+          ON audit_user.id = al.user_id
         ${whereSql}
-        ORDER BY created_at DESC, id DESC
+        ORDER BY al.created_at DESC, al.id DESC
         LIMIT ? OFFSET ?
       `,
       [
@@ -175,21 +191,31 @@ export async function getAuditLogs(
   const [modules]: any =
     await pool.query(
       `
-        SELECT DISTINCT module
-        FROM audit_logs
-        WHERE module IS NOT NULL
-        ORDER BY module ASC
+        SELECT DISTINCT al.module
+        FROM audit_logs al
+        LEFT JOIN users audit_user
+          ON audit_user.id = al.user_id
+        ${whereSql}
+          ${whereSql ? 'AND' : 'WHERE'} al.module IS NOT NULL
+        ORDER BY al.module ASC
       `
+      ,
+      params
     );
 
   const [actions]: any =
     await pool.query(
       `
-        SELECT DISTINCT action
-        FROM audit_logs
-        WHERE action IS NOT NULL
-        ORDER BY action ASC
+        SELECT DISTINCT al.action
+        FROM audit_logs al
+        LEFT JOIN users audit_user
+          ON audit_user.id = al.user_id
+        ${whereSql}
+          ${whereSql ? 'AND' : 'WHERE'} al.action IS NOT NULL
+        ORDER BY al.action ASC
       `
+      ,
+      params
     );
 
   const total =

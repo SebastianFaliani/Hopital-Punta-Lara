@@ -148,7 +148,7 @@ export default function EditBatchModal({
             className="form-input"
             type="number"
             min="0"
-            step="0.01"
+            step="1"
             name="purchase_price"
             placeholder="Costo de compra"
             value={form.purchase_price}
@@ -195,3 +195,4 @@ export default function EditBatchModal({
     </div>
   );
 }
+

@@ -169,7 +169,8 @@ export async function loginUser(
           hf.facility_type,
           u.password_hash,
           u.is_active,
-          r.name AS role
+          r.name AS role,
+          COALESCE(r.description, r.name) AS role_description
         FROM users u
         INNER JOIN roles r
           ON r.id = u.role_id
@@ -226,9 +227,12 @@ export async function loginUser(
   const accessToken =
     generateAccessToken({
       userId: user.id,
+      first_name: user.first_name,
+      last_name: user.last_name,
       email: user.email,
       username: user.username,
       role: user.role,
+      role_description: user.role_description,
       facility_id: user.facility_id,
       facility_name: user.facility_name,
       facility_type: user.facility_type
@@ -273,6 +277,7 @@ export async function loginUser(
       email: user.email,
       username: user.username,
       role: user.role,
+      role_description: user.role_description,
       facility_id: user.facility_id,
       facility_name: user.facility_name,
       facility_type: user.facility_type

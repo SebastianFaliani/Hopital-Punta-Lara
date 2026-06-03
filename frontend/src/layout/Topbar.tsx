@@ -8,6 +8,10 @@ export default function Topbar() {
 
   const { user, logout } = useAuth();
 
+  const dependencyName =
+    user?.facility_name ||
+    'Administracion general';
+
   const [openPasswordModal, setOpenPasswordModal] =
     useState(false);
 
@@ -18,7 +22,7 @@ export default function Topbar() {
       <header className="app-topbar">
 
       <span className="app-topbar-title">
-        Panel Hospital
+        {dependencyName}
       </span>
 
       <div className="app-topbar-actions">

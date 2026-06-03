@@ -9,7 +9,10 @@ export async function handleGetAuditLogs(
 
   try {
     const result =
-      await getAuditLogs(req.query);
+      await getAuditLogs(
+        req.query,
+        req.user
+      );
 
     return res.json({
       success: true,

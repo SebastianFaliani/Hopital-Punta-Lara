@@ -5,6 +5,8 @@ import {
 
 import { apiFetch }
   from '../api/api';
+import { useAuth }
+  from '../auth/useAuth';
 
 import TransfersNav
   from '../components/transfers/TransfersNav';
@@ -61,6 +63,12 @@ function formatDateTime(
 }
 
 export default function DriverShiftsPage() {
+  const { user } =
+    useAuth();
+
+  const canEdit =
+    user?.role === 'admin' ||
+    user?.role === 'user';
 
   const [shifts, setShifts] =
     useState<Shift[]>([]);
@@ -198,10 +206,17 @@ export default function DriverShiftsPage() {
         </h1>
       </div>
 
-      <form
-        className="management-form"
-        onSubmit={handleSubmit}
-      >
+      {!canEdit && (
+        <p className="page-subtitle">
+          Vista de consulta. Podes ver las guardias sin modificar datos.
+        </p>
+      )}
+
+      {canEdit && (
+        <form
+          className="management-form"
+          onSubmit={handleSubmit}
+        >
 
         <select
           className="form-input"
@@ -307,7 +322,8 @@ export default function DriverShiftsPage() {
           }
         </div>
 
-      </form>
+        </form>
+      )}
 
       {
         error && (
@@ -326,7 +342,9 @@ export default function DriverShiftsPage() {
               <th>Inicio</th>
               <th>Fin</th>
               <th>Estado</th>
-              <th>Acciones</th>
+              {canEdit && (
+                <th>Acciones</th>
+              )}
             </tr>
           </thead>
           <tbody>
@@ -347,18 +365,28 @@ export default function DriverShiftsPage() {
                   )}
                 </td>
                 <td>{shift.status}</td>
-                <td>
-                  <button
-                    className="btn-primary"
-                    onClick={() =>
-                      startEdit(shift)
-                    }
-                  >
-                    Editar
-                  </button>
-                </td>
+                {canEdit && (
+                  <td>
+                    <button
+                      className="btn-primary"
+                      onClick={() =>
+                        startEdit(shift)
+                      }
+                    >
+                      Editar
+                    </button>
+                  </td>
+                )}
               </tr>
             ))}
+
+            {shifts.length === 0 && (
+              <tr>
+                <td colSpan={canEdit ? 6 : 5}>
+                  No hay guardias cargadas.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>

@@ -27,6 +27,25 @@
   gap: 10px;
 }
 
+.app-sidebar-identity {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.app-sidebar-identity strong {
+  color: white;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.app-sidebar-identity span {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
 .app-sidebar-brand img {
   width: 42px;
   height: 42px;

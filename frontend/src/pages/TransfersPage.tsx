@@ -5,6 +5,8 @@ import {
 
 import { apiFetch }
   from '../api/api';
+import { useAuth }
+  from '../auth/useAuth';
 
 import TransfersNav
   from '../components/transfers/TransfersNav';
@@ -339,6 +341,12 @@ function EditTripModal({
 }
 
 export default function TransfersPage() {
+  const { user } =
+    useAuth();
+
+  const canEdit =
+    user?.role === 'admin' ||
+    user?.role === 'user';
 
   const [transfers, setTransfers] =
     useState<Transfer[]>([]);
@@ -506,10 +514,17 @@ export default function TransfersPage() {
         </div>
       </div>
 
-      <form
-        className="transfer-form"
-        onSubmit={handleSubmit}
-      >
+      {!canEdit && (
+        <p className="page-subtitle">
+          Vista de consulta. Podes ver las solicitudes y sus viajes, sin modificar datos.
+        </p>
+      )}
+
+      {canEdit && (
+        <form
+          className="transfer-form"
+          onSubmit={handleSubmit}
+        >
         <input
           className="form-input"
           name="patient_name"
@@ -696,7 +711,8 @@ export default function TransfersPage() {
         >
           Crear traslado
         </button>
-      </form>
+        </form>
+      )}
 
       {
         error && (
@@ -715,7 +731,9 @@ export default function TransfersPage() {
               <th>Destino</th>
               <th>Estado</th>
               <th>Viajes</th>
-              <th>Cambiar estado</th>
+              {canEdit && (
+                <th>Cambiar estado</th>
+              )}
             </tr>
           </thead>
           <tbody>
@@ -756,44 +774,56 @@ export default function TransfersPage() {
                         <span>
                           Estado: {trip.status}
                         </span>
-                        <button
-                          className="btn-secondary"
-                          onClick={() =>
-                            setSelectedTrip(trip)
-                          }
-                        >
-                          Editar viaje
-                        </button>
+                        {canEdit && (
+                          <button
+                            className="btn-secondary"
+                            onClick={() =>
+                              setSelectedTrip(trip)
+                            }
+                          >
+                            Editar viaje
+                          </button>
+                        )}
                       </div>
                     ))}
                   </div>
                 </td>
-                <td>
-                  <select
-                    className="form-input"
-                    value={transfer.status}
-                    onChange={(e) =>
-                      updateRequestStatus(
-                        transfer.id,
-                        e.target.value
-                      )
-                    }
-                  >
-                    <option value="pendiente">Pendiente</option>
-                    <option value="programado">Programado</option>
-                    <option value="en_proceso">En proceso</option>
-                    <option value="finalizado">Finalizado</option>
-                    <option value="cancelado">Cancelado</option>
-                  </select>
-                </td>
+                {canEdit && (
+                  <td>
+                    <select
+                      className="form-input"
+                      value={transfer.status}
+                      onChange={(e) =>
+                        updateRequestStatus(
+                          transfer.id,
+                          e.target.value
+                        )
+                      }
+                    >
+                      <option value="pendiente">Pendiente</option>
+                      <option value="programado">Programado</option>
+                      <option value="en_proceso">En proceso</option>
+                      <option value="finalizado">Finalizado</option>
+                      <option value="cancelado">Cancelado</option>
+                    </select>
+                  </td>
+                )}
               </tr>
             ))}
+
+            {transfers.length === 0 && (
+              <tr>
+                <td colSpan={canEdit ? 6 : 5}>
+                  No hay traslados cargados.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
 
       {
-        selectedTrip && (
+        selectedTrip && canEdit && (
           <EditTripModal
             trip={selectedTrip}
             ambulances={ambulances}

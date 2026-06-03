@@ -190,7 +190,7 @@ export default function BatchMovementsModal({
     if (!form.facility_id) {
 
       setError(
-        'Debe seleccionar el punto de stock'
+        'Debe seleccionar la dependencia'
       );
 
       return;
@@ -295,7 +295,7 @@ export default function BatchMovementsModal({
             onChange={handleChange}
           >
             <option value="">
-              Punto de stock
+              Dependencia
             </option>
 
             {facilities.map((facility) => (
@@ -332,7 +332,7 @@ export default function BatchMovementsModal({
             className="form-input"
             type="number"
             min="0"
-            step="0.01"
+            step="1"
             name="quantity"
             placeholder="Cantidad"
             value={form.quantity}
@@ -513,3 +513,4 @@ export default function BatchMovementsModal({
     </div>
   );
 }
+

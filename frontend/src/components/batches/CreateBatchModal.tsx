@@ -189,7 +189,7 @@ export default function CreateBatchModal({
             className="form-input"
             type="number"
             min="0"
-            step="0.01"
+            step="1"
             name="current_stock"
             placeholder="Stock actual"
             value={form.current_stock}
@@ -220,7 +220,7 @@ export default function CreateBatchModal({
             className="form-input"
             type="number"
             min="0"
-            step="0.01"
+            step="1"
             name="purchase_price"
             placeholder="Costo de compra"
             value={form.purchase_price}
@@ -267,3 +267,4 @@ export default function CreateBatchModal({
     </div>
   );
 }
+

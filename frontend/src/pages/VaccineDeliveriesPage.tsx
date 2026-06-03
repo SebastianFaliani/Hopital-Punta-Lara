@@ -167,7 +167,6 @@ export default function VaccineDeliveriesPage() {
   const canSelectFacility =
     Boolean(
       user?.role === 'admin' ||
-      user?.role === 'dir' ||
       user?.facility_type === 'secretaria' ||
       !user?.facility_id
     );
@@ -522,7 +521,7 @@ export default function VaccineDeliveriesPage() {
 
       {scopedFacilityId && (
         <p className="page-subtitle">
-          Vista limitada a entregas de: {user?.facility_name || 'tu punto de stock'}
+          Vista limitada a entregas de: {user?.facility_name || 'tu dependencia'}
         </p>
       )}
 
@@ -703,7 +702,7 @@ export default function VaccineDeliveriesPage() {
                   className="form-input"
                   type="number"
                   min="0"
-                  step="0.01"
+                  step="1"
                   max={
                     selectedStock
                       ? Number(selectedStock.current_stock)
@@ -1068,4 +1067,5 @@ export default function VaccineDeliveriesPage() {
     </div>
   );
 }
+
 

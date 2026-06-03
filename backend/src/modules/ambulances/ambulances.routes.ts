@@ -18,7 +18,7 @@ const router = Router();
 router.get(
   '/',
   authenticateToken,
-  authorizeRoles('admin', 'user'),
+  authorizeRoles('admin', 'user', 'dir'),
   getAmbulances
 );
 

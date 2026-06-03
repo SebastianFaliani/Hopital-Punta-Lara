@@ -7,7 +7,6 @@ export function canAccessAllFacilities(
 
   return (
     user?.role === 'admin' ||
-    user?.role === 'dir' ||
     user?.facility_type === 'secretaria' ||
     !user?.facility_id
   );

@@ -58,8 +58,7 @@ export default function MedicationFacilitiesPage() {
     useState('');
 
   const canEdit =
-    user?.role === 'admin' ||
-    user?.role === 'farmacia';
+    user?.role === 'admin';
 
   async function loadFacilities() {
 
@@ -173,11 +172,11 @@ export default function MedicationFacilitiesPage() {
         <div>
 
           <h1 className="page-title">
-            Puntos de stock
+            Dependencias
           </h1>
 
           <p className="page-subtitle">
-            Secretaria, hospital y unidades sanitarias donde puede vivir medicacion.
+            Secretaria, hospital y unidades sanitarias del sistema.
           </p>
 
         </div>
@@ -203,7 +202,7 @@ export default function MedicationFacilitiesPage() {
             {
               selectedFacility
                 ? 'Editar punto'
-                : 'Nuevo punto'
+                : 'Nueva dependencia'
             }
           </h2>
 

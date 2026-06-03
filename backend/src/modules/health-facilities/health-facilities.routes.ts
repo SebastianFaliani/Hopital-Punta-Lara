@@ -31,8 +31,7 @@ router.post(
   '/',
   authenticateToken,
   authorizeRoles(
-    'admin',
-    'farmacia'
+    'admin'
   ),
   handleCreateFacility
 );
@@ -41,8 +40,7 @@ router.put(
   '/:id',
   authenticateToken,
   authorizeRoles(
-    'admin',
-    'farmacia'
+    'admin'
   ),
   handleUpdateFacility
 );
@@ -51,8 +49,7 @@ router.patch(
   '/:id/toggle',
   authenticateToken,
   authorizeRoles(
-    'admin',
-    'farmacia'
+    'admin'
   ),
   handleToggleFacility
 );

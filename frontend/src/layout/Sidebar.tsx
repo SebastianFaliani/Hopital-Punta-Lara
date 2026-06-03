@@ -5,23 +5,91 @@ export default function Sidebar() {
 
   const { user } = useAuth();
 
+  const displayUsername =
+    [user?.first_name, user?.last_name]
+      .filter(Boolean)
+      .join(' ') ||
+    user?.username ||
+    user?.email ||
+    '-';
+
+  const displayRole =
+    user?.role_description ||
+    user?.role ||
+    '-';
+
+  const isAdmin =
+    user?.role === 'admin';
+
+  const isDirector =
+    user?.role === 'dir';
+
+  const isSecretary =
+    user?.facility_type === 'secretaria' ||
+    !user?.facility_id;
+
+  const isHospital =
+    user?.facility_type === 'hospital' ||
+    !user?.facility_id;
+
+  const canUseHospitalModules =
+    isAdmin ||
+    isSecretary ||
+    isHospital;
+
+  const canSeePersonnel =
+    isAdmin ||
+    (
+      user?.role === 'user' &&
+      canUseHospitalModules
+    ) ||
+    (
+      isDirector &&
+      canUseHospitalModules
+    );
+
+  const canSeeTransfers =
+    canSeePersonnel;
+
+  const canSeeLaboratory =
+    isAdmin ||
+    (
+      user?.role === 'lab' &&
+      canUseHospitalModules
+    ) ||
+    (
+      user?.role === 'user' &&
+      canUseHospitalModules
+    ) ||
+    (
+      isDirector &&
+      canUseHospitalModules
+    );
+
+  const canSeeVaccines =
+    isAdmin ||
+    user?.role === 'vacu' ||
+    isDirector;
+
+  const canSeeMedications =
+    isAdmin ||
+    user?.role === 'farmacia' ||
+    isDirector;
+
   return (
 
     <aside className="app-sidebar">
 
       <div className="app-sidebar-brand">
-        <img
-          src="/hospital-logo.jpg"
-          alt="Hospital Municipal de Punta Lara"
-        />
-        <h2 className="app-sidebar-title">
-          Hospital
-        </h2>
+        <div className="app-sidebar-identity">
+          <strong>
+            User: {displayUsername}
+          </strong>
+          <span>
+            {displayRole}
+          </span>
+        </div>
       </div>
-
-      <p className="app-sidebar-user">
-        {user?.username || user?.email}
-      </p>
 
       <hr className="app-sidebar-divider" />
 
@@ -29,50 +97,55 @@ export default function Sidebar() {
         Dashboard
       </NavLink>
 
-      {user?.role === 'admin' && (
+      {isAdmin && (
         <NavLink to="/users" className="app-nav-link">
           Usuarios
         </NavLink>
       )}
 
-      {(user?.role === 'admin' || user?.role === 'user' || user?.role === 'dir') && (
+      {isAdmin && (
+        <NavLink to="/medications/facilities" className="app-nav-link">
+          Dependencias
+        </NavLink>
+      )}
+
+      {canSeePersonnel && (
         <NavLink to="/personnel" className="app-nav-link">
           Personal
         </NavLink>
       )}
 
-      {(user?.role === 'admin' || user?.role === 'vacu' || user?.role === 'dir') && (
+      {canSeeVaccines && (
         <NavLink to="/vaccines" className="app-nav-link">
           Vacunas
         </NavLink>
       )}
       
-      {(user?.role === 'admin' || user?.role === 'farmacia' || user?.role === 'dir') && (
-      <NavLink to="/medications" className="app-nav-link">
-        Medicamentos
-      </NavLink>
+      {canSeeMedications && (
+        <NavLink to="/medications" className="app-nav-link">
+          Medicamentos
+        </NavLink>
+      )}
 
-        )}
-
-      {(user?.role === 'admin' || user?.role === 'user' || user?.role === 'dir') && (
+      {canSeeTransfers && (
         <NavLink to="/transfers" className="app-nav-link">
           Traslados
         </NavLink>
       )}
 
-      {(user?.role === 'admin' || user?.role === 'user' || user?.role === 'dir' || user?.role === 'lab') && (
+      {canSeeLaboratory && (
         <NavLink to="/laboratory" className="app-nav-link">
           Laboratorio
         </NavLink>
       )}
 
-      {(user?.role === 'admin' || user?.role === 'user') && (
+      {isAdmin && (
         <NavLink to="/whatsapp" className="app-nav-link">
           WhatsApp
         </NavLink>
       )}
 
-      {(user?.role === 'admin' || user?.role === 'dir') && (
+      {(isAdmin || isDirector) && (
         <NavLink to="/audit" className="app-nav-link">
           Auditoria
         </NavLink>

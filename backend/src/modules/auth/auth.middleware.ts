@@ -5,6 +5,7 @@ import {
 } from 'express';
 
 import jwt from 'jsonwebtoken';
+import { pool } from '../../config/database';
 
 export interface AuthRequest extends Request {
   user?: any;
@@ -41,15 +42,78 @@ export function authenticateToken(
   try {
 
     // validar token
-    const decoded = jwt.verify(
+    const decoded: any = jwt.verify(
       token,
       process.env.JWT_SECRET as string
     );
 
-    // guardar usuario en request
-    req.user = decoded;
+    const userId =
+      decoded.userId || decoded.id;
 
-    next();
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Token invalido'
+      });
+    }
+
+    pool.query(
+      `
+        SELECT
+          u.id,
+          u.first_name,
+          u.last_name,
+          u.email,
+          u.username,
+          u.facility_id,
+          hf.name AS facility_name,
+          hf.facility_type,
+          r.name AS role,
+          COALESCE(r.description, r.name) AS role_description
+        FROM users u
+        INNER JOIN roles r
+          ON r.id = u.role_id
+        LEFT JOIN health_facilities hf
+          ON hf.id = u.facility_id
+        WHERE u.id = ?
+          AND u.is_active = TRUE
+        LIMIT 1
+      `,
+      [userId]
+    )
+      .then(([rows]: any) => {
+        if (rows.length === 0) {
+          return res.status(401).json({
+            success: false,
+            message: 'Usuario invalido'
+          });
+        }
+
+        const user = rows[0];
+
+        req.user = {
+          ...decoded,
+          userId: user.id,
+          id: user.id,
+          first_name: user.first_name,
+          last_name: user.last_name,
+          email: user.email,
+          username: user.username,
+          role: user.role,
+          role_description: user.role_description,
+          facility_id: user.facility_id,
+          facility_name: user.facility_name,
+          facility_type: user.facility_type
+        };
+
+        next();
+      })
+      .catch(() =>
+        res.status(401).json({
+          success: false,
+          message: 'Token invalido'
+        })
+      );
 
   } catch (error) {
 

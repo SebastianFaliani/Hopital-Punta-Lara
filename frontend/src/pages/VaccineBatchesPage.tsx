@@ -167,7 +167,6 @@ export default function VaccineBatchesPage() {
   const canSelectFacility =
     Boolean(
       user?.role === 'admin' ||
-      user?.role === 'dir' ||
       user?.facility_type === 'secretaria' ||
       !user?.facility_id
     );
@@ -607,7 +606,7 @@ export default function VaccineBatchesPage() {
                     className="form-input"
                     type="number"
                     min="0"
-                    step="0.01"
+                    step="1"
                     placeholder="Stock"
                     value={batchForm.current_stock}
                     onChange={(e) =>
@@ -629,7 +628,7 @@ export default function VaccineBatchesPage() {
                       })
                     }
                   >
-                    <option value="">Punto de stock</option>
+                    <option value="">Dependencia</option>
                     {facilities.map((facility) => (
                       <option
                         key={facility.id}
@@ -646,7 +645,7 @@ export default function VaccineBatchesPage() {
                 className="form-input"
                 type="number"
                 min="0"
-                step="0.01"
+                step="1"
                 placeholder="Costo"
                 value={batchForm.purchase_price}
                 onChange={(e) =>
@@ -739,7 +738,7 @@ export default function VaccineBatchesPage() {
                   })
                 }
               >
-                <option value="">Punto de stock</option>
+                <option value="">Dependencia</option>
                 {facilities.map((facility) => (
                   <option
                     key={facility.id}
@@ -754,7 +753,7 @@ export default function VaccineBatchesPage() {
                 className="form-input"
                 type="number"
                 min="0"
-                step="0.01"
+                step="1"
                 placeholder="Cantidad"
                 value={movementForm.quantity}
                 onChange={(e) =>
@@ -840,3 +839,4 @@ export default function VaccineBatchesPage() {
     </div>
   );
 }
+

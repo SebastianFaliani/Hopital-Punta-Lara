@@ -178,7 +178,6 @@ export default function MedicationTransfersPage() {
   const canSelectSource =
     Boolean(
       user?.role === 'admin' ||
-      user?.role === 'dir' ||
       user?.facility_type === 'secretaria' ||
       !user?.facility_id
     );
@@ -701,7 +700,7 @@ export default function MedicationTransfersPage() {
                   className="form-input"
                   type="number"
                   min="0"
-                  step="0.01"
+                  step="1"
                   max={
                     selectedStock
                       ? Number(selectedStock.current_stock)
@@ -1136,3 +1135,4 @@ export default function MedicationTransfersPage() {
     </div>
   );
 }
+

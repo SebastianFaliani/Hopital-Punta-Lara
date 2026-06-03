@@ -313,7 +313,7 @@ export default function MedicationsPage() {
 
       {isFacilityScoped && (
         <p className="page-subtitle">
-          Vista limitada al stock de: {user.facility_name || 'tu punto de stock'}
+          Vista limitada al stock de: {user.facility_name || 'tu dependencia'}
         </p>
       )}
 

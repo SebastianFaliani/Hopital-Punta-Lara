@@ -51,6 +51,7 @@ export async function handleGetFacilities(
   try {
 
     const includeInactive =
+      req.user?.role === 'admin' &&
       req.query.includeInactive === 'true';
 
     const facilities =
@@ -70,7 +71,7 @@ export async function handleGetFacilities(
     return res.status(500).json({
       success: false,
       message:
-        'Error al obtener puntos de stock'
+        'Error al obtener dependencias'
     });
   }
 }
@@ -107,7 +108,7 @@ export async function handleCreateFacility(
       action: 'crear_punto_stock_medicamento',
       entityType: 'health_facility',
       entityId: id,
-      description: `Creo punto de stock ${req.body.name}`,
+      description: `Creo dependencia ${req.body.name}`,
       newData: req.body,
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'] || null
@@ -115,7 +116,7 @@ export async function handleCreateFacility(
 
     return res.status(201).json({
       success: true,
-      message: 'Punto de stock creado',
+      message: 'Dependencia creada',
       data: { id }
     });
 
@@ -128,7 +129,7 @@ export async function handleCreateFacility(
       message:
         error.code === 'ER_DUP_ENTRY'
           ? 'Ya existe un punto con ese nombre'
-          : 'Error al crear punto de stock'
+          : 'Error al crear dependencia'
     });
   }
 }
@@ -167,7 +168,7 @@ export async function handleUpdateFacility(
       action: 'editar_punto_stock_medicamento',
       entityType: 'health_facility',
       entityId: Number(req.params.id),
-      description: `Edito punto de stock ${req.body.name}`,
+      description: `Edito dependencia ${req.body.name}`,
       newData: req.body,
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'] || null
@@ -175,7 +176,7 @@ export async function handleUpdateFacility(
 
     return res.json({
       success: true,
-      message: 'Punto de stock actualizado'
+      message: 'Dependencia actualizada'
     });
 
   } catch (error: any) {
@@ -187,7 +188,7 @@ export async function handleUpdateFacility(
       message:
         error.code === 'ER_DUP_ENTRY'
           ? 'Ya existe un punto con ese nombre'
-          : 'Error al actualizar punto de stock'
+          : 'Error al actualizar dependencia'
     });
   }
 }
@@ -209,7 +210,7 @@ export async function handleToggleFacility(
       action: 'activar_desactivar_punto_stock_medicamento',
       entityType: 'health_facility',
       entityId: Number(req.params.id),
-      description: `Cambio estado de punto de stock ${req.params.id}`,
+      description: `Cambio estado de dependencia ${req.params.id}`,
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'] || null
     });

@@ -5,6 +5,8 @@ import {
 
 import { apiFetch }
   from '../api/api';
+import { useAuth }
+  from '../auth/useAuth';
 
 import TransfersNav
   from '../components/transfers/TransfersNav';
@@ -26,6 +28,12 @@ const emptyForm = {
 };
 
 export default function DriversPage() {
+  const { user } =
+    useAuth();
+
+  const canEdit =
+    user?.role === 'admin' ||
+    user?.role === 'user';
 
   const [drivers, setDrivers] =
     useState<Driver[]>([]);
@@ -144,10 +152,17 @@ export default function DriversPage() {
         </h1>
       </div>
 
-      <form
-        className="management-form"
-        onSubmit={handleSubmit}
-      >
+      {!canEdit && (
+        <p className="page-subtitle">
+          Vista de consulta. Podes ver los choferes sin modificar datos.
+        </p>
+      )}
+
+      {canEdit && (
+        <form
+          className="management-form"
+          onSubmit={handleSubmit}
+        >
 
         <input
           className="form-input"
@@ -206,7 +221,8 @@ export default function DriversPage() {
           }
         </div>
 
-      </form>
+        </form>
+      )}
 
       {
         error && (
@@ -224,7 +240,9 @@ export default function DriversPage() {
               <th>Telefono</th>
               <th>Licencia</th>
               <th>Activo</th>
-              <th>Acciones</th>
+              {canEdit && (
+                <th>Acciones</th>
+              )}
             </tr>
           </thead>
           <tbody>
@@ -238,36 +256,46 @@ export default function DriversPage() {
                 <td>
                   {driver.is_active ? 'Si' : 'No'}
                 </td>
-                <td>
-                  <div className="table-actions">
-                    <button
-                      className="btn-primary"
-                      onClick={() =>
-                        startEdit(driver)
-                      }
-                    >
-                      Editar
-                    </button>
-                    <button
-                      className={
-                        driver.is_active
-                          ? 'btn-danger'
-                          : 'btn-success'
-                      }
-                      onClick={() =>
-                        handleToggle(driver.id)
-                      }
-                    >
-                      {
-                        driver.is_active
-                          ? 'Desactivar'
-                          : 'Activar'
-                      }
-                    </button>
-                  </div>
-                </td>
+                {canEdit && (
+                  <td>
+                    <div className="table-actions">
+                      <button
+                        className="btn-primary"
+                        onClick={() =>
+                          startEdit(driver)
+                        }
+                      >
+                        Editar
+                      </button>
+                      <button
+                        className={
+                          driver.is_active
+                            ? 'btn-danger'
+                            : 'btn-success'
+                        }
+                        onClick={() =>
+                          handleToggle(driver.id)
+                        }
+                      >
+                        {
+                          driver.is_active
+                            ? 'Desactivar'
+                            : 'Activar'
+                        }
+                      </button>
+                    </div>
+                  </td>
+                )}
               </tr>
             ))}
+
+            {drivers.length === 0 && (
+              <tr>
+                <td colSpan={canEdit ? 5 : 4}>
+                  No hay choferes cargados.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>

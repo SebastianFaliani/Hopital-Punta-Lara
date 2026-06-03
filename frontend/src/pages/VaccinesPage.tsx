@@ -314,7 +314,7 @@ export default function VaccinesPage() {
 
       {user?.facility_id && user.facility_type !== 'secretaria' && (
         <p className="page-subtitle">
-          Estas viendo el stock de {user.facility_name || 'tu punto de stock'}.
+          Estas viendo el stock de {user.facility_name || 'tu dependencia'}.
         </p>
       )}
 
@@ -645,7 +645,7 @@ export default function VaccinesPage() {
                 className="form-input"
                 type="number"
                 min="0"
-                step="0.01"
+                step="1"
                 placeholder="Stock minimo"
                 value={form.minimum_stock}
                 onChange={(e) =>
@@ -696,3 +696,4 @@ export default function VaccinesPage() {
     </div>
   );
 }
+
