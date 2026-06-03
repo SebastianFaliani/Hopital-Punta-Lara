@@ -634,6 +634,9 @@ export default function PersonnelPage() {
   const [leaveForm, setLeaveForm] =
     useState(emptyLeaveForm);
 
+  const [editingLeaveRequest, setEditingLeaveRequest] =
+    useState<LeaveRequest | null>(null);
+
   const [vacationRules, setVacationRules] =
     useState<VacationRule[]>([]);
 
@@ -1150,11 +1153,94 @@ export default function PersonnelPage() {
   ) {
 
     setSelectedLeaveEmployee(employee);
+    setEditingLeaveRequest(null);
     setLeaveForm({
       ...leaveForm,
       employee_id: String(employee.id)
     });
     loadLeaveSummary(employee.id);
+  }
+
+  function resetLeaveForm() {
+
+    setEditingLeaveRequest(null);
+
+    setLeaveForm({
+      ...emptyLeaveForm,
+      employee_id:
+        selectedLeaveEmployee
+          ? String(selectedLeaveEmployee.id)
+          : ''
+    });
+  }
+
+  function startEditLeaveRequest(
+    request: LeaveRequest
+  ) {
+
+    const employee =
+      employees.find((item) =>
+        item.id === request.employee_id
+      );
+
+    if (employee) {
+      setSelectedLeaveEmployee(employee);
+      loadLeaveSummary(employee.id);
+    } else {
+      setSelectedLeaveEmployee({
+        id: request.employee_id,
+        department_id: null,
+        department_name: request.department_name,
+        full_name: request.full_name,
+        dni: request.dni,
+        cuil: null,
+        birth_date: null,
+        hire_date: request.hire_date,
+        file_number: request.file_number,
+        address: null,
+        phone: null,
+        email: null,
+        license_number: null,
+        employment_type: request.employment_type,
+        is_professional: false,
+        notes: null,
+        is_active: true
+      });
+      loadLeaveSummary(request.employee_id);
+    }
+
+    setEditingLeaveRequest(request);
+    setActiveTab('leaves');
+    setLeaveForm({
+      employee_id: String(request.employee_id),
+      code: request.code,
+      start_date: toDateInput(request.start_date),
+      end_date: toDateInput(request.end_date),
+      total_hours:
+        request.total_hours
+          ? String(request.total_hours)
+          : '',
+      permission_kind:
+        request.permission_kind || 'salida',
+      exit_reason:
+        request.exit_reason || 'particular',
+      exit_time:
+        request.exit_time || '',
+      return_time:
+        request.return_time || '',
+      no_return:
+        Boolean(request.no_return),
+      shift_label:
+        request.shift_label || '',
+      exam_type:
+        request.exam_type || '',
+      is_exception:
+        Boolean(request.is_exception),
+      exception_reason:
+        request.exception_reason || '',
+      notes:
+        request.notes || ''
+    });
   }
 
   function handleLeaveChange(
@@ -1252,9 +1338,14 @@ export default function PersonnelPage() {
 
       const res =
         await apiFetch(
-        '/personnel/leave-requests',
+        editingLeaveRequest
+          ? `/personnel/leave-requests/${editingLeaveRequest.id}`
+          : '/personnel/leave-requests',
         {
-          method: 'POST',
+          method:
+            editingLeaveRequest
+              ? 'PUT'
+              : 'POST',
           body:
             JSON.stringify({
               ...leaveForm,
@@ -1272,6 +1363,10 @@ export default function PersonnelPage() {
       const createdId =
         res.data?.id;
 
+      const wasEditing =
+        Boolean(editingLeaveRequest);
+
+      setEditingLeaveRequest(null);
       setLeaveForm(emptyLeaveForm);
       if (selectedLeaveEmployee) {
         setLeaveForm({
@@ -1293,6 +1388,7 @@ export default function PersonnelPage() {
         );
 
       if (
+        !wasEditing &&
         createdRequest &&
         isPrintableLeaveCode(createdRequest.code)
       ) {
@@ -3618,6 +3714,12 @@ export default function PersonnelPage() {
               className="personnel-form"
               onSubmit={handleLeaveSubmit}
             >
+              {editingLeaveRequest && (
+                <div className="form-note">
+                  Editando licencia #{editingLeaveRequest.id}. Al guardar se recalculan los dias y el presentismo si corresponde.
+                </div>
+              )}
+
               <input
                 className="form-input"
                 value={
@@ -3796,12 +3898,30 @@ export default function PersonnelPage() {
               />
 
               <button
-                className="btn-success"
+                className={
+                  editingLeaveRequest
+                    ? 'btn-primary'
+                    : 'btn-success'
+                }
                 type="submit"
                 disabled={!selectedLeaveEmployee}
               >
-                Crear solicitud
+                {
+                  editingLeaveRequest
+                    ? 'Guardar cambios'
+                    : 'Crear solicitud'
+                }
               </button>
+
+              {editingLeaveRequest && (
+                <button
+                  className="btn-secondary"
+                  type="button"
+                  onClick={resetLeaveForm}
+                >
+                  Cancelar edicion
+                </button>
+              )}
             </form>
             )}
 
@@ -3852,6 +3972,18 @@ export default function PersonnelPage() {
                       {!readOnly && (
                         <td>
                         <div className="table-actions">
+                          {!['cancelado', 'rechazado'].includes(request.status) && (
+                            <button
+                              className="btn-primary"
+                              type="button"
+                              onClick={() =>
+                                startEditLeaveRequest(request)
+                              }
+                            >
+                              Editar
+                            </button>
+                          )}
+
                           {isPrintableLeaveCode(request.code) && (
                             <button
                               className="btn-secondary"
@@ -4240,6 +4372,18 @@ export default function PersonnelPage() {
                       {!readOnly && (
                         <td>
                         <div className="table-actions">
+                          {!['cancelado', 'rechazado'].includes(request.status) && (
+                            <button
+                              className="btn-primary"
+                              type="button"
+                              onClick={() =>
+                                startEditLeaveRequest(request)
+                              }
+                            >
+                              Editar
+                            </button>
+                          )}
+
                           {isPrintableLeaveCode(request.code) && (
                             <button
                               className="btn-secondary"

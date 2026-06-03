@@ -978,8 +978,20 @@ async function getVacationUsage(
 
 async function getVacationRequestCount(
   employeeId: number,
-  year: number
+  year: number,
+  excludeLeaveRequestId?: number
 ) {
+  const params: any[] = [
+    employeeId,
+    year
+  ];
+
+  let excludeFilter = '';
+
+  if (excludeLeaveRequestId) {
+    excludeFilter = 'AND lr.id <> ?';
+    params.push(excludeLeaveRequestId);
+  }
 
   const [rows]: any =
     await pool.query(
@@ -992,11 +1004,9 @@ async function getVacationRequestCount(
           AND ac.code = '8'
           AND lr.status IN ('pendiente', 'aprobado')
           AND YEAR(lr.start_date) = ?
+          ${excludeFilter}
       `,
-      [
-        employeeId,
-        year
-      ]
+      params
     );
 
   return Number(rows[0]?.total || 0);
@@ -1334,8 +1344,21 @@ async function getCodeForLeave(
 async function getApprovedUsage(
   employeeId: number,
   code: string,
-  year: number
+  year: number,
+  excludeLeaveRequestId?: number
 ) {
+  const params: any[] = [
+    employeeId,
+    code,
+    year
+  ];
+
+  let excludeFilter = '';
+
+  if (excludeLeaveRequestId) {
+    excludeFilter = 'AND lr.id <> ?';
+    params.push(excludeLeaveRequestId);
+  }
 
   const [rows]: any =
     await pool.query(
@@ -1351,12 +1374,9 @@ async function getApprovedUsage(
           AND ac.code = ?
           AND lr.status IN ('pendiente', 'aprobado')
           AND YEAR(lr.start_date) = ?
+          ${excludeFilter}
       `,
-      [
-        employeeId,
-        code,
-        year
-      ]
+      params
     );
 
   const [adjustments]: any =
@@ -1394,8 +1414,22 @@ async function getMonthlyUsage(
   employeeId: number,
   codes: string[],
   year: number,
-  month: number
+  month: number,
+  excludeLeaveRequestId?: number
 ) {
+  const params: any[] = [
+    employeeId,
+    codes,
+    year,
+    month
+  ];
+
+  let excludeFilter = '';
+
+  if (excludeLeaveRequestId) {
+    excludeFilter = 'AND lr.id <> ?';
+    params.push(excludeLeaveRequestId);
+  }
 
   const [rows]: any =
     await pool.query(
@@ -1412,13 +1446,9 @@ async function getMonthlyUsage(
           AND lr.status IN ('pendiente', 'aprobado')
           AND YEAR(lr.start_date) = ?
           AND MONTH(lr.start_date) = ?
+          ${excludeFilter}
       `,
-      [
-        employeeId,
-        codes,
-        year,
-        month
-      ]
+      params
     );
 
   const [adjustments]: any =
@@ -1458,8 +1488,22 @@ async function getDateRangeUsage(
   employeeId: number,
   codes: string[],
   startDate: string,
-  endDate: string
+  endDate: string,
+  excludeLeaveRequestId?: number
 ) {
+  const params: any[] = [
+    employeeId,
+    codes,
+    endDate,
+    startDate
+  ];
+
+  let excludeFilter = '';
+
+  if (excludeLeaveRequestId) {
+    excludeFilter = 'AND lr.id <> ?';
+    params.push(excludeLeaveRequestId);
+  }
 
   const [rows]: any =
     await pool.query(
@@ -1476,13 +1520,9 @@ async function getDateRangeUsage(
           AND lr.status IN ('pendiente', 'aprobado')
           AND lr.start_date <= ?
           AND lr.end_date >= ?
+          ${excludeFilter}
       `,
-      [
-        employeeId,
-        codes,
-        endDate,
-        startDate
-      ]
+      params
     );
 
   const [adjustments]: any =
@@ -1606,7 +1646,8 @@ async function getUsageByCodes(
 
 async function getCompensatoryBalance(
   employeeId: number,
-  year: number
+  year: number,
+  excludeLeaveRequestId?: number
 ) {
 
   const [creditRows]: any =
@@ -1643,6 +1684,18 @@ async function getCompensatoryBalance(
       ]
     );
 
+  const pendingParams: any[] = [
+    employeeId,
+    year
+  ];
+
+  let pendingExcludeFilter = '';
+
+  if (excludeLeaveRequestId) {
+    pendingExcludeFilter = 'AND lr.id <> ?';
+    pendingParams.push(excludeLeaveRequestId);
+  }
+
   const [pendingRows]: any =
     await pool.query(
       `
@@ -1654,11 +1707,9 @@ async function getCompensatoryBalance(
           AND ac.code = '34'
           AND lr.status = 'pendiente'
           AND YEAR(lr.start_date) = ?
+          ${pendingExcludeFilter}
       `,
-      [
-        employeeId,
-        year
-      ]
+      pendingParams
     );
 
   const [creditAdjustments]: any =
@@ -1727,7 +1778,8 @@ async function assertAnnualDayLimit(
   requestedDays: number,
   limitDays: number,
   message: string,
-  isException: boolean
+  isException: boolean,
+  excludeLeaveRequestId?: number
 ) {
 
   if (isException) {
@@ -1738,7 +1790,8 @@ async function assertAnnualDayLimit(
     await getApprovedUsage(
       employeeId,
       code,
-      year
+      year,
+      excludeLeaveRequestId
     );
 
   if (usage.days + requestedDays > limitDays) {
@@ -2095,7 +2148,8 @@ export async function getEmployeeDirectiveSummary(
 }
 
 async function validateLeaveRequest(
-  data: any
+  data: any,
+  excludeLeaveRequestId?: number
 ) {
 
   const employee =
@@ -2179,13 +2233,45 @@ async function validateLeaveRequest(
         startYear
       );
 
+    let currentRequestVacationDays = 0;
+
+    if (excludeLeaveRequestId) {
+      const [currentRows]: any =
+        await pool.query(
+          `
+            SELECT COALESCE(lr.total_days, 0) AS total_days
+            FROM leave_requests lr
+            INNER JOIN attendance_codes ac
+              ON ac.id = lr.attendance_code_id
+            WHERE lr.id = ?
+              AND lr.employee_id = ?
+              AND ac.code = '8'
+              AND lr.status IN ('pendiente', 'aprobado')
+              AND YEAR(lr.start_date) = ?
+            LIMIT 1
+          `,
+          [
+            excludeLeaveRequestId,
+            employee.id,
+            startYear
+          ]
+        );
+
+      currentRequestVacationDays =
+        Number(currentRows[0]?.total_days || 0);
+    }
+
     const availableDays =
       Number(balance.available_days);
+
+    const availableDaysForEdit =
+      availableDays + currentRequestVacationDays;
 
     const alreadyRequestedParts =
       await getVacationRequestCount(
         employee.id,
-        startYear
+        startYear,
+        excludeLeaveRequestId
       );
 
     if (alreadyRequestedParts >= 2 && !isException) {
@@ -2194,23 +2280,25 @@ async function validateLeaveRequest(
       );
     }
 
-    if (totalDays > availableDays && !isException) {
+    if (totalDays > availableDaysForEdit && !isException) {
       throw new Error(
-        `La clave 8 supera el saldo disponible. Disponible: ${availableDays} dias`
+        `La clave 8 supera el saldo disponible. Disponible: ${availableDaysForEdit} dias`
       );
     }
 
     const alreadyUsedVacation =
-      Number(balance.used_days || 0) > 0 ||
-      Number(balance.pending_days || 0) > 0;
+      Number(balance.used_days || 0) +
+        Number(balance.pending_days || 0) -
+        currentRequestVacationDays >
+      0;
 
     if (
       alreadyUsedVacation &&
-      totalDays !== availableDays &&
+      totalDays !== availableDaysForEdit &&
       !isException
     ) {
       throw new Error(
-        `La segunda parte de la licencia anual debe tomarse completa. Dias disponibles: ${availableDays}`
+        `La segunda parte de la licencia anual debe tomarse completa. Dias disponibles: ${availableDaysForEdit}`
       );
     }
   }
@@ -2232,7 +2320,8 @@ async function validateLeaveRequest(
       await getApprovedUsage(
         employee.id,
         '29',
-        startYear
+        startYear,
+        excludeLeaveRequestId
       );
 
     const availableDays =
@@ -2258,7 +2347,8 @@ async function validateLeaveRequest(
     const compensatory =
       await getCompensatoryBalance(
         employee.id,
-        startYear
+        startYear,
+        excludeLeaveRequestId
       );
 
     if (totalDays > compensatory.remainingDays && !isException) {
@@ -2276,7 +2366,8 @@ async function validateLeaveRequest(
       totalDays,
       20,
       'La clave 5 tiene un maximo de 20 dias por año',
-      isException
+      isException,
+      excludeLeaveRequestId
     );
   }
 
@@ -2369,7 +2460,8 @@ async function validateLeaveRequest(
         employee.id,
         ['46'],
         week.start,
-        week.end
+        week.end,
+        excludeLeaveRequestId
       );
 
     if (weekly.hours + totalHours > 5 && !isException) {
@@ -2390,7 +2482,8 @@ async function validateLeaveRequest(
       await getApprovedUsage(
         employee.id,
         '26',
-        startYear
+        startYear,
+        excludeLeaveRequestId
       );
 
     if (yearly.days + totalDays > 6 && !isException) {
@@ -2404,7 +2497,8 @@ async function validateLeaveRequest(
         employee.id,
         ['26'],
         startYear,
-        startMonth
+        startMonth,
+        excludeLeaveRequestId
       );
 
     if (monthly.requests > 0 && !isException) {
@@ -2447,14 +2541,16 @@ async function validateLeaveRequest(
       await getApprovedUsage(
         employee.id,
         '24',
-        startYear
+        startYear,
+        excludeLeaveRequestId
       );
 
     const yearly43 =
       await getApprovedUsage(
         employee.id,
         '43',
-        startYear
+        startYear,
+        excludeLeaveRequestId
       );
 
     if (
@@ -2473,7 +2569,8 @@ async function validateLeaveRequest(
         employee.id,
         ['24', '43'],
         startYear,
-        startMonth
+        startMonth,
+        excludeLeaveRequestId
       );
 
     if (monthly.hours + totalHours > 5 && !isException) {
@@ -2973,6 +3070,150 @@ export async function createLeaveRequest(
     );
 
   return result.insertId;
+}
+
+export async function updateLeaveRequest(
+  id: number,
+  data: any,
+  userId?: number
+) {
+
+  const validated =
+    await validateLeaveRequest(
+      data,
+      id
+    );
+
+  const connection =
+    await pool.getConnection();
+
+  try {
+
+    await connection.beginTransaction();
+
+    const [existingRows]: any =
+      await connection.query(
+        `
+          SELECT status
+          FROM leave_requests
+          WHERE id = ?
+          LIMIT 1
+        `,
+        [id]
+      );
+
+    if (!existingRows.length) {
+      throw new Error(
+        'La solicitud no existe'
+      );
+    }
+
+    const previousStatus =
+      existingRows[0].status;
+
+    if (['cancelado', 'rechazado'].includes(previousStatus)) {
+      throw new Error(
+        'No se puede editar una licencia cancelada o rechazada'
+      );
+    }
+
+    if (previousStatus === 'aprobado') {
+      await adjustVacationBalanceForRequest(
+        connection,
+        id,
+        -1
+      );
+
+      await removeLeaveFromAttendance(
+        connection,
+        id
+      );
+    }
+
+    await connection.query(
+      `
+        UPDATE leave_requests
+        SET
+          employee_id = ?,
+          attendance_code_id = ?,
+          start_date = ?,
+          end_date = ?,
+          total_days = ?,
+          total_hours = ?,
+          permission_kind = ?,
+          exit_reason = ?,
+          exit_time = ?,
+          return_time = ?,
+          no_return = ?,
+          shift_label = ?,
+          exam_type = ?,
+          is_exception = ?,
+          exception_reason = ?,
+          notes = ?
+        WHERE id = ?
+      `,
+      [
+        validated.employee.id,
+        validated.code.id,
+        validated.startDate,
+        validated.endDate,
+        validated.totalDays,
+        validated.totalHours,
+        validated.code.code === '24'
+          ? 'entrada'
+          : 'salida',
+        ['24', '43'].includes(validated.code.code)
+          ? data.exit_reason || null
+          : null,
+        ['24', '43'].includes(validated.code.code)
+          ? data.exit_time || null
+          : null,
+        ['24', '43'].includes(validated.code.code)
+          ? data.return_time || null
+          : null,
+        validated.code.code === '43'
+          ? Boolean(data.no_return)
+          : false,
+        validated.code.code === '26'
+          ? data.shift_label || null
+          : null,
+        ['17', '18'].includes(validated.code.code)
+          ? data.exam_type || null
+          : null,
+        Boolean(data.is_exception),
+        data.exception_reason || null,
+        data.notes || null,
+        id
+      ]
+    );
+
+    if (previousStatus === 'aprobado') {
+      await adjustVacationBalanceForRequest(
+        connection,
+        id,
+        1
+      );
+
+      await applyLeaveToAttendance(
+        connection,
+        id,
+        userId
+      );
+    }
+
+    await connection.commit();
+
+  } catch (error) {
+
+    await connection.rollback();
+    throw error;
+
+  } finally {
+
+    connection.release();
+  }
+
+  return true;
 }
 
 export async function updateLeaveRequestStatus(

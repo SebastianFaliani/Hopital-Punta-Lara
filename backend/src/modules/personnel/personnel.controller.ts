@@ -35,6 +35,7 @@ import {
   updateAttendanceCode,
   completeLeaveReturn,
   updateEmployee,
+  updateLeaveRequest,
   updateLeaveRequestStatus,
   updateVacationBalance,
   updateVacationRule
@@ -441,6 +442,56 @@ export async function handleCreateLeaveRequest(
     return res.status(201).json({
       success: true,
       data: { id }
+    });
+
+  } catch (error: any) {
+    return res.status(400).json({
+      success: false,
+      message: error.message
+    });
+  }
+}
+
+export async function handleUpdateLeaveRequest(
+  req: AuthRequest,
+  res: Response
+) {
+
+  try {
+
+    if (
+      !req.body.employee_id ||
+      !req.body.code ||
+      !req.body.start_date
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          'Empleado, clave y fecha desde son obligatorios'
+      });
+    }
+
+    await updateLeaveRequest(
+      Number(req.params.id),
+      req.body,
+      req.user?.id
+    );
+
+    await logAudit({
+      user: req.user,
+      module: 'personal',
+      action: 'editar_licencia',
+      entityType: 'leave_request',
+      entityId: Number(req.params.id),
+      description:
+        `Edito licencia clave ${req.body.code} del empleado ${req.body.employee_id}`,
+      newData: req.body,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'] || null
+    });
+
+    return res.json({
+      success: true
     });
 
   } catch (error: any) {

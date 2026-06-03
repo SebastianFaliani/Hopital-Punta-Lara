@@ -24,6 +24,25 @@
   margin-top: 10px;
 }
 
+.form-note {
+
+  grid-column: 1 / -1;
+
+  padding: 12px 14px;
+
+  border: 1px solid #bfdbfe;
+
+  border-radius: 8px;
+
+  background: #eff6ff;
+
+  color: #1e40af;
+
+  font-size: 14px;
+
+  font-weight: 700;
+}
+
 .management-form,
 .transfer-form,
 .personnel-form {

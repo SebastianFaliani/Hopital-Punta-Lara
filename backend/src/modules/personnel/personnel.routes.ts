@@ -30,6 +30,7 @@ import {
   handleUpdateAttendanceCode,
   handleCompleteLeaveReturn,
   handleUpdateEmployee,
+  handleUpdateLeaveRequest,
   handleUpdateLeaveRequestStatus,
   handleUpdateVacationBalance,
   handleUpdateVacationRule
@@ -100,6 +101,11 @@ router.get(
 router.post(
   '/leave-requests',
   handleCreateLeaveRequest
+);
+
+router.put(
+  '/leave-requests/:id',
+  handleUpdateLeaveRequest
 );
 
 router.patch(
