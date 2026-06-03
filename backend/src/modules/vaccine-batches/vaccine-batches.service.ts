@@ -1,57 +1,207 @@
 import { pool } from '../../config/database';
+import {
+  getDefaultFacilityId
+} from '../health-facilities/health-facilities.service';
 
 export async function getBatchesByVaccine(
-  vaccineId: number
+  vaccineId: number,
+  facilityId?: number | null
 ) {
+  const stockJoinCondition =
+    facilityId
+      ? 'vbs.vaccine_batch_id = vb.id AND vbs.facility_id = ?'
+      : 'vbs.vaccine_batch_id = vb.id';
+
+  const stockParams =
+    facilityId
+      ? [facilityId, vaccineId]
+      : [vaccineId];
+
+  const scopedHaving =
+    facilityId
+      ? 'HAVING COUNT(vbs.vaccine_batch_id) > 0'
+      : '';
+
   const [rows]: any =
     await pool.query(
       `
         SELECT
-          id,
-          vaccine_id,
-          batch_number,
-          expiration_date,
-          current_stock,
-          purchase_price,
-          is_active,
-          created_at,
-          updated_at
-        FROM vaccine_batches
-        WHERE vaccine_id = ?
-        ORDER BY expiration_date ASC, batch_number ASC
+          vb.id,
+          vb.vaccine_id,
+          vb.batch_number,
+          vb.expiration_date,
+          COALESCE(SUM(vbs.current_stock), 0) AS current_stock,
+          vb.purchase_price,
+          vb.is_active,
+          vb.created_at,
+          vb.updated_at
+        FROM vaccine_batches vb
+        LEFT JOIN vaccine_batch_stocks vbs
+          ON ${stockJoinCondition}
+        WHERE vb.vaccine_id = ?
+        GROUP BY
+          vb.id,
+          vb.vaccine_id,
+          vb.batch_number,
+          vb.expiration_date,
+          vb.purchase_price,
+          vb.is_active,
+          vb.created_at,
+          vb.updated_at
+        ${scopedHaving}
+        ORDER BY vb.expiration_date ASC, vb.batch_number ASC
       `,
-      [vaccineId]
+      stockParams
     );
 
-  return rows;
+  if (rows.length === 0) {
+    return [];
+  }
+
+  const facilityFilter =
+    facilityId
+      ? 'AND vbs.facility_id = ?'
+      : '';
+
+  const stockByFacilityParams =
+    facilityId
+      ? [
+        rows.map((row: any) => row.id),
+        facilityId
+      ]
+      : [
+        rows.map((row: any) => row.id)
+      ];
+
+  const [stockRows]: any =
+    await pool.query(
+      `
+        SELECT
+          vbs.vaccine_batch_id,
+          vbs.facility_id,
+          hf.name AS facility_name,
+          hf.facility_type,
+          vbs.current_stock
+        FROM vaccine_batch_stocks vbs
+        INNER JOIN health_facilities hf
+          ON hf.id = vbs.facility_id
+        WHERE vbs.vaccine_batch_id IN (?)
+          ${facilityFilter}
+        ORDER BY hf.name ASC
+      `,
+      stockByFacilityParams
+    );
+
+  const stocksByBatch =
+    stockRows.reduce(
+      (acc: Record<number, any[]>, stock: any) => {
+        const batchId =
+          Number(stock.vaccine_batch_id);
+
+        acc[batchId] =
+          acc[batchId] || [];
+
+        acc[batchId].push({
+          facility_id:
+            Number(stock.facility_id),
+          facility_name:
+            stock.facility_name,
+          facility_type:
+            stock.facility_type,
+          current_stock:
+            Number(stock.current_stock)
+        });
+
+        return acc;
+      },
+      {}
+    );
+
+  return rows.map((row: any) => ({
+    ...row,
+    current_stock:
+      Number(row.current_stock),
+    stock_by_facility:
+      stocksByBatch[Number(row.id)] || []
+  }));
 }
 
 export async function createVaccineBatch(
   vaccineId: number,
   data: any
 ) {
-  const [result]: any =
-    await pool.query(
-      `
-        INSERT INTO vaccine_batches (
-          vaccine_id,
-          batch_number,
-          expiration_date,
-          current_stock,
-          purchase_price
-        )
-        VALUES (?, ?, ?, ?, ?)
-      `,
-      [
-        vaccineId,
-        data.batch_number,
-        data.expiration_date,
-        Number(data.current_stock),
-        data.purchase_price ?? null
-      ]
-    );
+  const connection =
+    await pool.getConnection();
 
-  return result.insertId;
+  try {
+    await connection.beginTransaction();
+
+    const initialStock =
+      Number(data.current_stock || 0);
+
+    const [result]: any =
+      await connection.query(
+        `
+          INSERT INTO vaccine_batches (
+            vaccine_id,
+            batch_number,
+            expiration_date,
+            current_stock,
+            purchase_price
+          )
+          VALUES (?, ?, ?, ?, ?)
+        `,
+        [
+          vaccineId,
+          data.batch_number,
+          data.expiration_date,
+          initialStock,
+          data.purchase_price ?? null
+        ]
+      );
+
+    const batchId =
+      Number(result.insertId);
+
+    if (initialStock > 0) {
+      const targetFacilityId =
+        data.facility_id ??
+        await getDefaultFacilityId(connection);
+
+      if (!targetFacilityId) {
+        throw new Error(
+          'No hay un punto de stock activo para cargar el lote'
+        );
+      }
+
+      await connection.query(
+        `
+          INSERT INTO vaccine_batch_stocks (
+            vaccine_batch_id,
+            facility_id,
+            current_stock
+          )
+          VALUES (?, ?, ?)
+          ON DUPLICATE KEY UPDATE
+            current_stock = VALUES(current_stock)
+        `,
+        [
+          batchId,
+          targetFacilityId,
+          initialStock
+        ]
+      );
+    }
+
+    await connection.commit();
+
+    return batchId;
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
 }
 
 export async function updateVaccineBatch(
@@ -64,14 +214,12 @@ export async function updateVaccineBatch(
       SET
         batch_number = ?,
         expiration_date = ?,
-        current_stock = ?,
         purchase_price = ?
       WHERE id = ?
     `,
     [
       data.batch_number,
       data.expiration_date,
-      Number(data.current_stock),
       data.purchase_price ?? null,
       id
     ]
@@ -126,6 +274,8 @@ export async function getVaccineMovementsByBatch(
         SELECT
           vm.id,
           vm.vaccine_batch_id,
+          vm.facility_id,
+          hf.name AS facility_name,
           vm.movement_type,
           vm.quantity,
           vm.reference_type,
@@ -138,6 +288,8 @@ export async function getVaccineMovementsByBatch(
         FROM vaccine_movements vm
         LEFT JOIN users u
           ON u.id = vm.created_by
+        LEFT JOIN health_facilities hf
+          ON hf.id = vm.facility_id
         WHERE vm.vaccine_batch_id = ?
         ORDER BY vm.created_at DESC, vm.id DESC
       `,
@@ -184,11 +336,65 @@ export async function createVaccineMovement(
     const signedQuantity =
       getSignedQuantity(data);
 
-    const newStock =
-      Number(batch.current_stock) +
+    const facilityId =
+      data.facility_id
+        ? Number(data.facility_id)
+        : null;
+
+    if (!facilityId) {
+      throw new Error(
+        'Debe seleccionar el punto de stock'
+      );
+    }
+
+    const [facilityRows]: any =
+      await connection.query(
+        `
+          SELECT id, is_active
+          FROM health_facilities
+          WHERE id = ?
+          FOR UPDATE
+        `,
+        [facilityId]
+      );
+
+    if (facilityRows.length === 0) {
+      throw new Error(
+        'Punto de stock no encontrado'
+      );
+    }
+
+    if (!facilityRows[0].is_active) {
+      throw new Error(
+        'No se puede mover stock en un punto inactivo'
+      );
+    }
+
+    const [stockRows]: any =
+      await connection.query(
+        `
+          SELECT current_stock
+          FROM vaccine_batch_stocks
+          WHERE vaccine_batch_id = ?
+            AND facility_id = ?
+          FOR UPDATE
+        `,
+        [
+          batchId,
+          facilityId
+        ]
+      );
+
+    const currentFacilityStock =
+      stockRows.length > 0
+        ? Number(stockRows[0].current_stock)
+        : 0;
+
+    const newFacilityStock =
+      currentFacilityStock +
       signedQuantity;
 
-    if (newStock < 0) {
+    if (newFacilityStock < 0) {
       throw new Error('El movimiento deja el stock en negativo');
     }
 
@@ -197,16 +403,18 @@ export async function createVaccineMovement(
         `
           INSERT INTO vaccine_movements (
             vaccine_batch_id,
+            facility_id,
             movement_type,
             quantity,
             reference_type,
             notes,
             created_by
           )
-          VALUES (?, ?, ?, ?, ?, ?)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
         `,
         [
           batchId,
+          facilityId,
           data.movement_type,
           signedQuantity,
           'manual',
@@ -214,6 +422,37 @@ export async function createVaccineMovement(
           data.created_by ?? null
         ]
       );
+
+    await connection.query(
+      `
+        INSERT INTO vaccine_batch_stocks (
+          vaccine_batch_id,
+          facility_id,
+          current_stock
+        )
+        VALUES (?, ?, ?)
+        ON DUPLICATE KEY UPDATE
+          current_stock = VALUES(current_stock)
+      `,
+      [
+        batchId,
+        facilityId,
+        newFacilityStock
+      ]
+    );
+
+    const [totalRows]: any =
+      await connection.query(
+        `
+          SELECT COALESCE(SUM(current_stock), 0) AS total_stock
+          FROM vaccine_batch_stocks
+          WHERE vaccine_batch_id = ?
+        `,
+        [batchId]
+      );
+
+    const newStock =
+      Number(totalRows[0]?.total_stock || 0);
 
     await connection.query(
       `
@@ -231,7 +470,8 @@ export async function createVaccineMovement(
 
     return {
       id: result.insertId,
-      current_stock: newStock
+      current_stock: newStock,
+      facility_stock: newFacilityStock
     };
   } catch (error) {
     await connection.rollback();

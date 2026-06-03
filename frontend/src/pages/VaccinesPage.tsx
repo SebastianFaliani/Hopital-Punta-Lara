@@ -9,6 +9,7 @@ import {
 
 import { apiFetch } from '../api/api';
 import { useAuth } from '../auth/useAuth';
+import VaccineModuleTabs from '../components/vaccines/VaccineModuleTabs';
 
 type Vaccine = {
   id: number;
@@ -308,6 +309,14 @@ export default function VaccinesPage() {
         )}
 
       </div>
+
+      <VaccineModuleTabs />
+
+      {user?.facility_id && user.facility_type !== 'secretaria' && (
+        <p className="page-subtitle">
+          Estas viendo el stock de {user.facility_name || 'tu punto de stock'}.
+        </p>
+      )}
 
       <div className="dashboard-grid">
 

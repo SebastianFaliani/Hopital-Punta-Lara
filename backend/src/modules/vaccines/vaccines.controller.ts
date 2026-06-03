@@ -12,6 +12,9 @@ import {
   toggleVaccine,
   updateVaccine
 } from './vaccines.service';
+import {
+  getScopedFacilityId
+} from '../health-facilities/facility-access';
 
 function validateVaccineBody(
   body: any
@@ -31,12 +34,14 @@ function validateVaccineBody(
 }
 
 export async function handleGetAllVaccines(
-  req: Request,
+  req: AuthRequest,
   res: Response
 ) {
   try {
     const vaccines =
-      await getAllVaccines();
+      await getAllVaccines(
+        getScopedFacilityId(req.user)
+      );
 
     return res.json({
       success: true,

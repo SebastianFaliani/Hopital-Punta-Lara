@@ -22,6 +22,8 @@ import healthFacilitiesRoutes from './modules/health-facilities/health-facilitie
 import medicationTransfersRoutes from './modules/medication-transfers/medication-transfers.routes';
 import medicationDeliveriesRoutes from './modules/medication-deliveries/medication-deliveries.routes';
 import chronicMedicationsRoutes from './modules/chronic-medications/chronic-medications.routes';
+import vaccineTransfersRoutes from './modules/vaccine-transfers/vaccine-transfers.routes';
+import vaccineDeliveriesRoutes from './modules/vaccine-deliveries/vaccine-deliveries.routes';
 
 dotenv.config();
 
@@ -88,5 +90,7 @@ app.use('/health-facilities', healthFacilitiesRoutes);
 app.use('/medication-transfers', medicationTransfersRoutes);
 app.use('/medication-deliveries', medicationDeliveriesRoutes);
 app.use('/chronic-medications', chronicMedicationsRoutes);
+app.use('/vaccine-transfers', vaccineTransfersRoutes);
+app.use('/vaccine-deliveries', vaccineDeliveriesRoutes);
 
 export default app;

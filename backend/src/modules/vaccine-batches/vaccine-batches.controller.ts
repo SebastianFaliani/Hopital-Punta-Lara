@@ -6,6 +6,10 @@ import {
 import { AuthRequest } from '../auth/auth.middleware';
 import { getVaccineById } from '../vaccines/vaccines.service';
 import { logAudit } from '../audit/audit.service';
+import {
+  assertFacilityAccess,
+  getScopedFacilityId
+} from '../health-facilities/facility-access';
 
 import {
   createVaccineBatch,
@@ -24,7 +28,8 @@ const allowedMovementTypes = [
 ];
 
 function validateBatchBody(
-  body: any
+  body: any,
+  requireStock = true
 ) {
   if (!body.batch_number) {
     return 'El lote es obligatorio';
@@ -35,8 +40,11 @@ function validateBatchBody(
   }
 
   if (
+    requireStock &&
+    (
     body.current_stock === undefined ||
     Number(body.current_stock) < 0
+    )
   ) {
     return 'El stock debe ser mayor o igual a cero';
   }
@@ -82,7 +90,7 @@ function validateMovementBody(
 }
 
 export async function handleGetBatchesByVaccine(
-  req: Request,
+  req: AuthRequest,
   res: Response
 ) {
   try {
@@ -100,7 +108,10 @@ export async function handleGetBatchesByVaccine(
     }
 
     const batches =
-      await getBatchesByVaccine(vaccineId);
+      await getBatchesByVaccine(
+        vaccineId,
+        getScopedFacilityId(req.user)
+      );
 
     return res.json({
       success: true,
@@ -125,7 +136,7 @@ export async function handleCreateVaccineBatch(
 ) {
   try {
     const validationError =
-      validateBatchBody(req.body);
+      validateBatchBody(req.body, false);
 
     if (validationError) {
       return res.status(400).json({
@@ -158,7 +169,14 @@ export async function handleCreateVaccineBatch(
             req.body.purchase_price === '' ||
             req.body.purchase_price === undefined
               ? null
-              : Number(req.body.purchase_price)
+              : Number(req.body.purchase_price),
+          facility_id:
+            req.body.facility_id
+              ? getScopedFacilityId(
+                req.user,
+                Number(req.body.facility_id)
+              )
+              : getScopedFacilityId(req.user)
         }
       );
 
@@ -209,7 +227,7 @@ export async function handleUpdateVaccineBatch(
       {
         batch_number: req.body.batch_number,
         expiration_date: req.body.expiration_date,
-        current_stock: Number(req.body.current_stock),
+        current_stock: 0,
         purchase_price:
           req.body.purchase_price === '' ||
           req.body.purchase_price === undefined
@@ -317,6 +335,15 @@ export async function handleCreateVaccineMovement(
       });
     }
 
+    const facilityId =
+      req.body.facility_id
+        ? Number(req.body.facility_id)
+        : getScopedFacilityId(req.user);
+
+    if (facilityId) {
+      assertFacilityAccess(req.user, facilityId);
+    }
+
     const result =
       await createVaccineMovement(
         Number(req.params.id),
@@ -325,7 +352,8 @@ export async function handleCreateVaccineMovement(
           movement_direction: req.body.movement_direction,
           quantity: Number(req.body.quantity),
           notes: req.body.notes,
-          created_by: req.user?.userId ?? null
+          created_by: req.user?.userId ?? null,
+          facility_id: facilityId
         }
       );
 

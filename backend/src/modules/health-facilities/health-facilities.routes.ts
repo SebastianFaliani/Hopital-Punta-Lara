@@ -21,6 +21,7 @@ router.get(
   authorizeRoles(
     'admin',
     'farmacia',
+    'vacu',
     'dir'
   ),
   handleGetFacilities

@@ -1,6 +1,24 @@
 import { pool } from '../../config/database';
 
-export async function getAllVaccines() {
+export async function getAllVaccines(
+  facilityId?: number | null
+) {
+
+  const stockJoinCondition =
+    facilityId
+      ? 'vbs.vaccine_batch_id = vb.id AND vbs.facility_id = ?'
+      : 'vbs.vaccine_batch_id = vb.id';
+
+  const params =
+    facilityId
+      ? [facilityId]
+      : [];
+
+  const scopedHaving =
+    facilityId
+      ? 'HAVING COUNT(vbs.vaccine_batch_id) > 0'
+      : '';
+
   const [rows]: any =
     await pool.query(
       `
@@ -16,7 +34,7 @@ export async function getAllVaccines() {
             SUM(
               CASE
                 WHEN vb.is_active = TRUE
-                  THEN vb.current_stock
+                  THEN vbs.current_stock
                 ELSE 0
               END
             ),
@@ -27,6 +45,8 @@ export async function getAllVaccines() {
         FROM vaccines v
         LEFT JOIN vaccine_batches vb
           ON vb.vaccine_id = v.id
+        LEFT JOIN vaccine_batch_stocks vbs
+          ON ${stockJoinCondition}
         GROUP BY
           v.id,
           v.name,
@@ -37,8 +57,10 @@ export async function getAllVaccines() {
           v.minimum_stock,
           v.is_active,
           v.created_at
+        ${scopedHaving}
         ORDER BY v.name ASC
-      `
+      `,
+      params
     );
 
   return rows;

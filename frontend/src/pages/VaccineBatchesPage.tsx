@@ -27,10 +27,17 @@ type Batch = {
   current_stock: number;
   purchase_price: number | null;
   is_active: boolean;
+  stock_by_facility?: Array<{
+    facility_id: number;
+    facility_name: string;
+    facility_type: string;
+    current_stock: number;
+  }>;
 };
 
 type Movement = {
   id: number;
+  facility_name: string | null;
   movement_type: string;
   quantity: number;
   notes: string | null;
@@ -38,11 +45,18 @@ type Movement = {
   created_by_name: string | null;
 };
 
+type Facility = {
+  id: number;
+  name: string;
+  facility_type: string;
+};
+
 const emptyBatchForm = {
   batch_number: '',
   expiration_date: '',
   current_stock: 0,
-  purchase_price: ''
+  purchase_price: '',
+  facility_id: ''
 };
 
 const movementLabels: Record<string, string> = {
@@ -110,6 +124,9 @@ export default function VaccineBatchesPage() {
   const [batches, setBatches] =
     useState<Batch[]>([]);
 
+  const [facilities, setFacilities] =
+    useState<Facility[]>([]);
+
   const [batchForm, setBatchForm] =
     useState(emptyBatchForm);
 
@@ -130,6 +147,7 @@ export default function VaccineBatchesPage() {
       movement_type: 'ingreso',
       movement_direction: 'entrada',
       quantity: 0,
+      facility_id: '',
       notes: ''
     });
 
@@ -145,6 +163,55 @@ export default function VaccineBatchesPage() {
   const canEdit =
     user?.role === 'admin' ||
     user?.role === 'vacu';
+
+  const canSelectFacility =
+    Boolean(
+      user?.role === 'admin' ||
+      user?.role === 'dir' ||
+      user?.facility_type === 'secretaria' ||
+      !user?.facility_id
+    );
+
+  const scopedFacilityId =
+    !canSelectFacility && user?.facility_id
+      ? String(user.facility_id)
+      : '';
+
+  async function loadFacilities() {
+    try {
+      const res =
+        await apiFetch('/health-facilities');
+
+      setFacilities(res.data);
+
+      const defaultFacility =
+        res.data.find((facility: Facility) =>
+          facility.facility_type === 'secretaria'
+        ) || res.data[0];
+
+      const nextFacilityId =
+        scopedFacilityId ||
+        (
+          defaultFacility
+            ? String(defaultFacility.id)
+            : ''
+        );
+
+      setBatchForm((current) => ({
+        ...current,
+        facility_id:
+          current.facility_id || nextFacilityId
+      }));
+
+      setMovementForm((current) => ({
+        ...current,
+        facility_id:
+          current.facility_id || nextFacilityId
+      }));
+    } catch (error: any) {
+      setError(error.message);
+    }
+  }
 
   async function loadBatches() {
     try {
@@ -181,11 +248,21 @@ export default function VaccineBatchesPage() {
 
   useEffect(() => {
     loadBatches();
+    loadFacilities();
   }, [vaccineId]);
 
   function openCreateBatch() {
     setEditingBatch(null);
-    setBatchForm(emptyBatchForm);
+    setBatchForm({
+      ...emptyBatchForm,
+      facility_id:
+        scopedFacilityId ||
+        facilities.find((facility) =>
+          facility.facility_type === 'secretaria'
+        )?.id.toString() ||
+        facilities[0]?.id.toString() ||
+        ''
+    });
     setError('');
     setShowBatchForm(true);
   }
@@ -201,7 +278,12 @@ export default function VaccineBatchesPage() {
       purchase_price:
         batch.purchase_price === null
           ? ''
-          : String(batch.purchase_price)
+          : String(batch.purchase_price),
+      facility_id:
+        scopedFacilityId ||
+        batch.stock_by_facility?.[0]?.facility_id.toString() ||
+        facilities[0]?.id.toString() ||
+        ''
     });
     setError('');
     setShowBatchForm(true);
@@ -221,13 +303,22 @@ export default function VaccineBatchesPage() {
     try {
       setSaving(true);
 
+      const payload =
+        editingBatch
+          ? {
+            batch_number: batchForm.batch_number,
+            expiration_date: batchForm.expiration_date,
+            purchase_price: batchForm.purchase_price
+          }
+          : batchForm;
+
       await apiFetch(
         editingBatch
           ? `/vaccine-batches/${editingBatch.id}`
           : `/vaccines/${vaccineId}/batches`,
         {
           method: editingBatch ? 'PUT' : 'POST',
-          body: JSON.stringify(batchForm)
+          body: JSON.stringify(payload)
         }
       );
 
@@ -266,6 +357,16 @@ export default function VaccineBatchesPage() {
       movement_type: 'ingreso',
       movement_direction: 'entrada',
       quantity: 0,
+      facility_id:
+        scopedFacilityId ||
+        batch.stock_by_facility?.find((stock) =>
+          Number(stock.current_stock) > 0
+        )?.facility_id.toString() ||
+        facilities.find((facility) =>
+          facility.facility_type === 'secretaria'
+        )?.id.toString() ||
+        facilities[0]?.id.toString() ||
+        '',
       notes: ''
     });
     setMovements([]);
@@ -303,10 +404,11 @@ export default function VaccineBatchesPage() {
 
       setMovementForm({
         movement_type: 'ingreso',
-        movement_direction: 'entrada',
-        quantity: 0,
-        notes: ''
-      });
+      movement_direction: 'entrada',
+      quantity: 0,
+      facility_id: movementForm.facility_id,
+      notes: ''
+    });
     } catch (error: any) {
       setError(error.message);
     } finally {
@@ -383,7 +485,21 @@ export default function VaccineBatchesPage() {
               <tr key={batch.id}>
                 <td>{batch.batch_number}</td>
                 <td>{formatDate(batch.expiration_date)}</td>
-                <td>{Number(batch.current_stock)}</td>
+                <td>
+                  <div>
+                    <strong>{Number(batch.current_stock)}</strong>
+                    {batch.stock_by_facility &&
+                      batch.stock_by_facility.length > 0 && (
+                      <div className="batch-stock-list">
+                        {batch.stock_by_facility.map((stock) => (
+                          <span key={stock.facility_id}>
+                            {stock.facility_name}: {Number(stock.current_stock)}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </td>
                 <td>{formatMoney(batch.purchase_price)}</td>
                 <td>
                   <span
@@ -485,20 +601,46 @@ export default function VaccineBatchesPage() {
                 }
               />
 
-              <input
-                className="form-input"
-                type="number"
-                min="0"
-                step="0.01"
-                placeholder="Stock"
-                value={batchForm.current_stock}
-                onChange={(e) =>
-                  setBatchForm({
-                    ...batchForm,
-                    current_stock: Number(e.target.value)
-                  })
-                }
-              />
+              {!editingBatch && (
+                <>
+                  <input
+                    className="form-input"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="Stock"
+                    value={batchForm.current_stock}
+                    onChange={(e) =>
+                      setBatchForm({
+                        ...batchForm,
+                        current_stock: Number(e.target.value)
+                      })
+                    }
+                  />
+
+                  <select
+                    className="form-input"
+                    value={batchForm.facility_id}
+                    disabled={!canSelectFacility}
+                    onChange={(e) =>
+                      setBatchForm({
+                        ...batchForm,
+                        facility_id: e.target.value
+                      })
+                    }
+                  >
+                    <option value="">Punto de stock</option>
+                    {facilities.map((facility) => (
+                      <option
+                        key={facility.id}
+                        value={facility.id}
+                      >
+                        {facility.name}
+                      </option>
+                    ))}
+                  </select>
+                </>
+              )}
 
               <input
                 className="form-input"
@@ -586,6 +728,28 @@ export default function VaccineBatchesPage() {
                 </select>
               )}
 
+              <select
+                className="form-input"
+                value={movementForm.facility_id}
+                disabled={!canSelectFacility}
+                onChange={(e) =>
+                  setMovementForm({
+                    ...movementForm,
+                    facility_id: e.target.value
+                  })
+                }
+              >
+                <option value="">Punto de stock</option>
+                {facilities.map((facility) => (
+                  <option
+                    key={facility.id}
+                    value={facility.id}
+                  >
+                    {facility.name}
+                  </option>
+                ))}
+              </select>
+
               <input
                 className="form-input"
                 type="number"
@@ -640,6 +804,7 @@ export default function VaccineBatchesPage() {
                 <thead>
                   <tr>
                     <th>Fecha</th>
+                    <th>Punto</th>
                     <th>Tipo</th>
                     <th>Cantidad</th>
                     <th>Usuario</th>
@@ -650,6 +815,7 @@ export default function VaccineBatchesPage() {
                   {movements.map((movement) => (
                     <tr key={movement.id}>
                       <td>{formatDateTime(movement.created_at)}</td>
+                      <td>{movement.facility_name || '-'}</td>
                       <td>{movementLabels[movement.movement_type]}</td>
                       <td>{formatQuantity(movement.quantity)}</td>
                       <td>{movement.created_by_name || '-'}</td>
@@ -659,7 +825,7 @@ export default function VaccineBatchesPage() {
 
                   {movements.length === 0 && (
                     <tr>
-                      <td colSpan={5}>
+                      <td colSpan={6}>
                         No hay movimientos registrados.
                       </td>
                     </tr>

@@ -24,6 +24,8 @@ import WhatsappPage from '../pages/WhatsappPage';
 import PersonnelPage from '../pages/PersonnelPage';
 import VaccinesPage from '../pages/VaccinesPage';
 import VaccineBatchesPage from '../pages/VaccineBatchesPage';
+import VaccineTransfersPage from '../pages/VaccineTransfersPage';
+import VaccineDeliveriesPage from '../pages/VaccineDeliveriesPage';
 import AuditPage from '../pages/AuditPage';
 import LaboratoryPage from '../pages/LaboratoryPage';
 
@@ -146,6 +148,16 @@ export default function AppRouter() {
             <Route
               path="/vaccines"
               element={<VaccinesPage />}
+            />
+
+            <Route
+              path="/vaccines/transfers"
+              element={<VaccineTransfersPage />}
+            />
+
+            <Route
+              path="/vaccines/deliveries"
+              element={<VaccineDeliveriesPage />}
             />
 
             <Route
