@@ -101,7 +101,7 @@ export default function Sidebar() {
       )}
 
       {isAdmin && (
-        <NavLink to="/medications/facilities" className="app-nav-link">
+        <NavLink to="/facilities" className="app-nav-link">
           Dependencias
         </NavLink>
       )}

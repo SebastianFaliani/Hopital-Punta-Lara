@@ -10,7 +10,6 @@ import {
 import {
   useAuth
 } from '../auth/useAuth';
-import MedicationModuleTabs from '../components/medications/MedicationModuleTabs';
 
 type Facility = {
   id: number;
@@ -182,8 +181,6 @@ export default function MedicationFacilitiesPage() {
         </div>
 
       </div>
-
-      <MedicationModuleTabs />
 
       {error && (
         <p className="auth-error">

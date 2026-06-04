@@ -76,8 +76,13 @@ export default function AppRouter() {
             />
 
             <Route
-              path="/medications/facilities"
+              path="/facilities"
               element={<MedicationFacilitiesPage />}
+            />
+
+            <Route
+              path="/medications/facilities"
+              element={<Navigate to="/facilities" replace />}
             />
 
             <Route
