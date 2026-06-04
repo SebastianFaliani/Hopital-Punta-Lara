@@ -8,6 +8,7 @@ import { useAuth }  from '../auth/useAuth';
 import CreateUserModal  from '../components/users/CreateUserModal';
 import EditUserModal   from '../components/users/EditUserModal';
 import AdminResetPasswordModal from '../components/users/AdminResetPasswordModal';
+import UserAccessModal from '../components/users/UserAccessModal';
 
 type User = {
   id: number;
@@ -36,6 +37,9 @@ export default function UsersPage() {
     useState<User | null>(null);
 
   const [passwordUser, setPasswordUser] =
+    useState<User | null>(null);
+
+  const [accessUser, setAccessUser] =
     useState<User | null>(null);
 
   const [filters, setFilters] =
@@ -348,6 +352,15 @@ export default function UsersPage() {
                   <button
                     className="btn-secondary"
                     onClick={() =>
+                      setAccessUser(u)
+                    }
+                  >
+                    Permisos
+                  </button>
+
+                  <button
+                    className="btn-secondary"
+                    onClick={() =>
                       setPasswordUser(u)
                     }
                   >
@@ -420,6 +433,18 @@ export default function UsersPage() {
             onUpdated={loadUsers}
           />
 
+        )
+      }
+
+      {
+        accessUser && (
+          <UserAccessModal
+            user={accessUser}
+            onClose={() =>
+              setAccessUser(null)
+            }
+            onUpdated={loadUsers}
+          />
         )
       }
 

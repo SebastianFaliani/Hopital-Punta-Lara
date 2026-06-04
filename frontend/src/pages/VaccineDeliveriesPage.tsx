@@ -11,6 +11,7 @@ import {
 import {
   useAuth
 } from '../auth/useAuth';
+import { hasPermission } from '../auth/permissions';
 import VaccineModuleTabs from '../components/vaccines/VaccineModuleTabs';
 
 type Facility = {
@@ -114,8 +115,11 @@ export default function VaccineDeliveriesPage() {
     useAuth();
 
   const canEdit =
-    user?.role === 'admin' ||
-    user?.role === 'vacu';
+    hasPermission(
+      user,
+      'vaccines.manage',
+      ['admin', 'vacu']
+    );
 
   const [facilities, setFacilities] =
     useState<Facility[]>([]);
@@ -167,6 +171,8 @@ export default function VaccineDeliveriesPage() {
   const canSelectFacility =
     Boolean(
       user?.role === 'admin' ||
+      user?.access_all_facilities ||
+      Number(user?.facility_ids?.length || 0) > 1 ||
       user?.facility_type === 'secretaria' ||
       !user?.facility_id
     );

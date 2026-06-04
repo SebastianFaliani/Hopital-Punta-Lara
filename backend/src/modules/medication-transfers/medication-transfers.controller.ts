@@ -13,6 +13,7 @@ import {
 
 import {
   assertFacilityAccess,
+  canAccessFacility,
   canAccessAllFacilities,
   getScopedFacilityId
 } from '../health-facilities/facility-access';
@@ -206,10 +207,14 @@ export async function handleGetMedicationTransferById(
 
     if (
       !canAccessAllFacilities(req.user) &&
-      Number(req.user?.facility_id) !==
-        Number(transfer.source_facility_id) &&
-      Number(req.user?.facility_id) !==
+      !canAccessFacility(
+        req.user,
+        Number(transfer.source_facility_id)
+      ) &&
+      !canAccessFacility(
+        req.user,
         Number(transfer.destination_facility_id)
+      )
     ) {
       return res.status(403).json({
         success: false,

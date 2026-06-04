@@ -11,6 +11,10 @@ export interface User {
   facility_id?: number | null;
   facility_name?: string | null;
   facility_type?: string | null;
+  access_all_facilities?: boolean;
+  facility_ids?: number[];
+  permissions?: string[];
+  permissions_configured?: boolean;
 }
 
 export interface AuthContextType {

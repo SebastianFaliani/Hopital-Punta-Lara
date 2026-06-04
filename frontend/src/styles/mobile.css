@@ -279,6 +279,25 @@
     align-items: center;
   }
 
+  .modal-content.access-modal {
+    width: calc(100vw - 20px);
+    max-height: calc(100vh - 20px);
+  }
+
+  .access-facility-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .access-permission-table th,
+  .access-permission-table td {
+    padding: 10px 8px;
+  }
+
+  .access-permission-table th:not(:first-child),
+  .access-permission-table td:not(:first-child) {
+    width: 72px;
+  }
+
   .table-container,
   .attendance-grid-wrap {
     width: 100%;

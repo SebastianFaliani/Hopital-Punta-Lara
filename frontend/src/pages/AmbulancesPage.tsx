@@ -7,6 +7,7 @@ import { apiFetch }
   from '../api/api';
 import { useAuth }
   from '../auth/useAuth';
+import { hasPermission } from '../auth/permissions';
 
 import TransfersNav
   from '../components/transfers/TransfersNav';
@@ -36,8 +37,11 @@ export default function AmbulancesPage() {
     useAuth();
 
   const canEdit =
-    user?.role === 'admin' ||
-    user?.role === 'user';
+    hasPermission(
+      user,
+      'transfers.manage',
+      ['admin', 'user']
+    );
 
   const [ambulances, setAmbulances] =
     useState<Ambulance[]>([]);

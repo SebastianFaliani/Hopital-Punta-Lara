@@ -7,7 +7,10 @@ import {
   changeOwnPassword,
   adminResetUserPassword,
   toggleUserStatusService,
-  deleteUser
+  deleteUser,
+  getUserAccessConfiguration,
+  resetUserAccessConfiguration,
+  updateUserAccessConfiguration
 } from './users.service';
 import { AuthRequest } from '../auth/auth.middleware';
 
@@ -250,6 +253,98 @@ export async function remove(req: AuthRequest, res: Response) {
 
   } catch (error: any) {
 
+    return res.status(400).json({
+      success: false,
+      message: error.message
+    });
+  }
+}
+
+export async function getUserAccess(
+  req: AuthRequest,
+  res: Response
+) {
+  try {
+    return res.json({
+      success: true,
+      data:
+        await getUserAccessConfiguration(
+          Number(req.params.id)
+        )
+    });
+  } catch (error: any) {
+    return res.status(400).json({
+      success: false,
+      message: error.message
+    });
+  }
+}
+
+export async function updateUserAccess(
+  req: AuthRequest,
+  res: Response
+) {
+  try {
+    const userId =
+      Number(req.params.id);
+
+    await updateUserAccessConfiguration(
+      userId,
+      req.body
+    );
+
+    await logAudit({
+      user: req.user,
+      module: 'usuarios',
+      action: 'editar_accesos_usuario',
+      entityType: 'user',
+      entityId: userId,
+      description:
+        `Actualizo permisos y dependencias del usuario ${userId}`,
+      newData: req.body,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'] || null
+    });
+
+    return res.json({
+      success: true,
+      message: 'Accesos actualizados'
+    });
+  } catch (error: any) {
+    return res.status(400).json({
+      success: false,
+      message: error.message
+    });
+  }
+}
+
+export async function resetUserAccess(
+  req: AuthRequest,
+  res: Response
+) {
+  try {
+    const userId =
+      Number(req.params.id);
+
+    await resetUserAccessConfiguration(userId);
+
+    await logAudit({
+      user: req.user,
+      module: 'usuarios',
+      action: 'restablecer_accesos_usuario',
+      entityType: 'user',
+      entityId: userId,
+      description:
+        `Restablecio permisos del rol para el usuario ${userId}`,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'] || null
+    });
+
+    return res.json({
+      success: true,
+      message: 'Permisos del rol restablecidos'
+    });
+  } catch (error: any) {
     return res.status(400).json({
       success: false,
       message: error.message

@@ -7,6 +7,9 @@ import {
   AuthRequest
 } from '../auth/auth.middleware';
 import { logAudit } from '../audit/audit.service';
+import {
+  assertFacilityAccess
+} from '../health-facilities/facility-access';
 
 import {
   createStockMovement,
@@ -106,6 +109,11 @@ export async function handleCreateStockMovement(
         message: validationError
       });
     }
+
+    assertFacilityAccess(
+      req.user,
+      Number(req.body.facility_id)
+    );
 
     const result =
       await createStockMovement(

@@ -11,6 +11,7 @@ import {
 import {
   useAuth
 } from '../auth/useAuth';
+import { hasPermission } from '../auth/permissions';
 import MedicationModuleTabs from '../components/medications/MedicationModuleTabs';
 
 type Facility = {
@@ -189,8 +190,11 @@ export default function ChronicMedicationsPage() {
     useAuth();
 
   const canEdit =
-    user?.role === 'admin' ||
-    user?.role === 'farmacia';
+    hasPermission(
+      user,
+      'medications.manage',
+      ['admin', 'farmacia']
+    );
 
   const [facilities, setFacilities] =
     useState<Facility[]>([]);
@@ -284,6 +288,7 @@ export default function ChronicMedicationsPage() {
     canEdit &&
     (
       user?.role === 'admin' ||
+      user?.access_all_facilities ||
       !user?.facility_id ||
       user?.facility_type === 'secretaria' ||
       userFacility?.facility_type === 'secretaria'

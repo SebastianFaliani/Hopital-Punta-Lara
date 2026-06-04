@@ -7,6 +7,7 @@ export function canAccessAllFacilities(
 
   return (
     user?.role === 'admin' ||
+    user?.access_all_facilities ||
     user?.facility_type === 'secretaria' ||
     !user?.facility_id
   );
@@ -21,6 +22,16 @@ export function getScopedFacilityId(
     return requestedFacilityId || null;
   }
 
+  if (
+    requestedFacilityId &&
+    Array.isArray(user?.facility_ids) &&
+    user.facility_ids
+      .map(Number)
+      .includes(Number(requestedFacilityId))
+  ) {
+    return Number(requestedFacilityId);
+  }
+
   return Number(user.facility_id);
 }
 
@@ -29,15 +40,29 @@ export function assertFacilityAccess(
   facilityId: number
 ) {
 
-  if (canAccessAllFacilities(user)) {
+  if (canAccessFacility(user, facilityId)) {
     return;
   }
 
-  if (Number(user.facility_id) !== Number(facilityId)) {
-    throw new Error(
-      'No tenes permiso para operar sobre este punto de stock'
-    );
+  throw new Error(
+    'No tenes permiso para operar sobre este punto de stock'
+  );
+}
+
+export function canAccessFacility(
+  user: any,
+  facilityId: number
+) {
+  if (canAccessAllFacilities(user)) {
+    return true;
   }
+
+  const allowedFacilityIds =
+    Array.isArray(user?.facility_ids)
+      ? user.facility_ids.map(Number)
+      : [Number(user?.facility_id)];
+
+  return allowedFacilityIds.includes(Number(facilityId));
 }
 
 export async function canPrepareFromSecretary(
@@ -46,6 +71,7 @@ export async function canPrepareFromSecretary(
 
   if (
     user?.role === 'admin' ||
+    user?.access_all_facilities ||
     user?.facility_type === 'secretaria' ||
     !user?.facility_id
   ) {

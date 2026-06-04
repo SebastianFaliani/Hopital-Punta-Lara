@@ -10,6 +10,7 @@ import {
 
 import { apiFetch } from '../api/api';
 import { useAuth } from '../auth/useAuth';
+import { hasPermission } from '../auth/permissions';
 
 type Vaccine = {
   id: number;
@@ -161,12 +162,17 @@ export default function VaccineBatchesPage() {
     useState('');
 
   const canEdit =
-    user?.role === 'admin' ||
-    user?.role === 'vacu';
+    hasPermission(
+      user,
+      'vaccines.manage',
+      ['admin', 'vacu']
+    );
 
   const canSelectFacility =
     Boolean(
       user?.role === 'admin' ||
+      user?.access_all_facilities ||
+      Number(user?.facility_ids?.length || 0) > 1 ||
       user?.facility_type === 'secretaria' ||
       !user?.facility_id
     );

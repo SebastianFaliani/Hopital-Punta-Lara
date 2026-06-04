@@ -9,6 +9,7 @@ import {
 
 import { apiFetch } from '../api/api';
 import { useAuth } from '../auth/useAuth';
+import { hasPermission } from '../auth/permissions';
 import CreateMedicationModal from '../components/medications/CreateMedicationModal';
 import EditMedicationModal from '../components/medications/EditMedicationModal';
 import MedicationModuleTabs from '../components/medications/MedicationModuleTabs';
@@ -39,6 +40,11 @@ type MedicationAlert = {
   batches: MedicationBatch[];
 };
 
+type Facility = {
+  id: number;
+  name: string;
+};
+
 export default function MedicationsPage() {
 
   const { user } = useAuth();
@@ -65,13 +71,26 @@ export default function MedicationsPage() {
   const [batchAlerts, setBatchAlerts] =
     useState<MedicationAlert[]>([]);
 
+  const [facilities, setFacilities] =
+    useState<Facility[]>([]);
+
+  const [selectedFacilityId, setSelectedFacilityId] =
+    useState(
+      user?.facility_id
+        ? String(user.facility_id)
+        : ''
+    );
 
   async function loadMedications() {
 
     try {
+      const facilityQuery =
+        selectedFacilityId
+          ? `?facility_id=${selectedFacilityId}`
+          : '';
 
       const res =
-        await apiFetch('/medications');
+        await apiFetch(`/medications${facilityQuery}`);
 
       setMedications(res.data);
 
@@ -80,7 +99,7 @@ export default function MedicationsPage() {
           res.data.map(async (medication: Medication) => {
             const batchesRes =
               await apiFetch(
-                `/medications/${medication.id}/batches`
+                `/medications/${medication.id}/batches${facilityQuery}`
               );
 
             return {
@@ -102,6 +121,12 @@ export default function MedicationsPage() {
 
     loadMedications();
 
+  }, [selectedFacilityId]);
+
+  useEffect(() => {
+    apiFetch('/health-facilities')
+      .then((res) => setFacilities(res.data))
+      .catch(() => setFacilities([]));
   }, []);
 
   async function handleToggle(
@@ -131,8 +156,11 @@ export default function MedicationsPage() {
   }
 
   const canEdit =
-    user.role === 'admin' ||
-    user.role === 'farmacia';
+    hasPermission(
+      user,
+      'medications.manage',
+      ['admin', 'farmacia']
+    );
 
   const isFacilityScoped =
     Boolean(
@@ -141,6 +169,21 @@ export default function MedicationsPage() {
       user.role !== 'dir' &&
       user.facility_type !== 'secretaria'
     );
+
+  const selectableFacilities =
+    facilities.filter((facility) =>
+      user.access_all_facilities ||
+      user.role === 'admin' ||
+      user.facility_type === 'secretaria' ||
+      user.facility_ids?.includes(facility.id)
+    );
+
+  const selectedFacilityName =
+    selectableFacilities.find((facility) =>
+      String(facility.id) === selectedFacilityId
+    )?.name ||
+    user.facility_name ||
+    'tu dependencia';
 
   const presentations =
     Array.from(
@@ -311,9 +354,34 @@ export default function MedicationsPage() {
 
       <MedicationModuleTabs />
 
+      {selectableFacilities.length > 1 && (
+        <div className="filter-bar">
+          <select
+            className="form-input"
+            value={selectedFacilityId}
+            onChange={(event) =>
+              setSelectedFacilityId(event.target.value)
+            }
+          >
+            {(user.role === 'admin' ||
+              user.access_all_facilities ||
+              user.facility_type === 'secretaria') && (
+              <option value="">
+                Vista general
+              </option>
+            )}
+            {selectableFacilities.map((facility) => (
+              <option key={facility.id} value={facility.id}>
+                {facility.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
       {isFacilityScoped && (
         <p className="page-subtitle">
-          Vista limitada al stock de: {user.facility_name || 'tu dependencia'}
+          Vista limitada al stock de: {selectedFacilityName}
         </p>
       )}
 

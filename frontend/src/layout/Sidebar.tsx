@@ -1,5 +1,6 @@
 import { Link, NavLink } from 'react-router-dom';
 import { useAuth } from '../auth/useAuth';
+import { hasPermission } from '../auth/permissions';
 
 export default function Sidebar() {
 
@@ -21,9 +22,6 @@ export default function Sidebar() {
   const isAdmin =
     user?.role === 'admin';
 
-  const isDirector =
-    user?.role === 'dir';
-
   const isSecretary =
     user?.facility_type === 'secretaria' ||
     !user?.facility_id;
@@ -38,43 +36,42 @@ export default function Sidebar() {
     isHospital;
 
   const canSeePersonnel =
-    isAdmin ||
-    (
-      user?.role === 'user' &&
-      canUseHospitalModules
-    ) ||
-    (
-      isDirector &&
-      canUseHospitalModules
-    );
+    hasPermission(
+      user,
+      'personnel.view',
+      ['admin', 'user', 'dir']
+    ) &&
+    canUseHospitalModules;
 
   const canSeeTransfers =
-    canSeePersonnel;
+    hasPermission(
+      user,
+      'transfers.view',
+      ['admin', 'user', 'dir']
+    ) &&
+    canUseHospitalModules;
 
   const canSeeLaboratory =
-    isAdmin ||
-    (
-      user?.role === 'lab' &&
-      canUseHospitalModules
-    ) ||
-    (
-      user?.role === 'user' &&
-      canUseHospitalModules
-    ) ||
-    (
-      isDirector &&
-      canUseHospitalModules
-    );
+    hasPermission(
+      user,
+      'laboratory.view',
+      ['admin', 'lab', 'user', 'dir']
+    ) &&
+    canUseHospitalModules;
 
   const canSeeVaccines =
-    isAdmin ||
-    user?.role === 'vacu' ||
-    isDirector;
+    hasPermission(
+      user,
+      'vaccines.view',
+      ['admin', 'vacu', 'dir']
+    );
 
   const canSeeMedications =
-    isAdmin ||
-    user?.role === 'farmacia' ||
-    isDirector;
+    hasPermission(
+      user,
+      'medications.view',
+      ['admin', 'farmacia', 'dir']
+    );
 
   return (
 
@@ -145,7 +142,11 @@ export default function Sidebar() {
         </NavLink>
       )}
 
-      {(isAdmin || isDirector) && (
+      {hasPermission(
+        user,
+        'audit.view',
+        ['admin', 'dir']
+      ) && (
         <NavLink to="/audit" className="app-nav-link">
           Auditoria
         </NavLink>

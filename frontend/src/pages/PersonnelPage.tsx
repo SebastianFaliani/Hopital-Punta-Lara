@@ -7,6 +7,7 @@ import {
 import { apiFetch }
   from '../api/api';
 import { useAuth } from '../auth/useAuth';
+import { hasPermission } from '../auth/permissions';
 
 type Department = {
   id: number;
@@ -552,7 +553,11 @@ export default function PersonnelPage() {
   const { user } = useAuth();
 
   const readOnly =
-    user?.role === 'dir';
+    !hasPermission(
+      user,
+      'personnel.manage',
+      ['admin', 'user']
+    );
 
   const [activeTab, setActiveTab] =
     useState('employees');

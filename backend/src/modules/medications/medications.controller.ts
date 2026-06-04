@@ -30,7 +30,12 @@ export async function handleGetAllMedications(
 
     const medications =
       await getAllMedications(
-        getScopedFacilityId(req.user)
+        getScopedFacilityId(
+          req.user,
+          req.query.facility_id
+            ? Number(req.query.facility_id)
+            : null
+        )
       );
 
     return res.json({

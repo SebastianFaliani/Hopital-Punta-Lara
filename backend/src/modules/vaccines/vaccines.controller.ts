@@ -40,7 +40,12 @@ export async function handleGetAllVaccines(
   try {
     const vaccines =
       await getAllVaccines(
-        getScopedFacilityId(req.user)
+        getScopedFacilityId(
+          req.user,
+          req.query.facility_id
+            ? Number(req.query.facility_id)
+            : null
+        )
       );
 
     return res.json({

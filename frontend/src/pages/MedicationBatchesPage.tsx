@@ -11,6 +11,7 @@ import {
 import { apiFetch }
   from '../api/api';
 import { useAuth } from '../auth/useAuth';
+import { hasPermission } from '../auth/permissions';
 
 import CreateBatchModal
   from '../components/batches/CreateBatchModal';
@@ -105,8 +106,11 @@ export default function MedicationBatchesPage() {
     useState('');
 
   const canEdit =
-    user?.role === 'admin' ||
-    user?.role === 'farmacia';
+    hasPermission(
+      user,
+      'medications.manage',
+      ['admin', 'farmacia']
+    );
 
   async function loadBatches() {
 

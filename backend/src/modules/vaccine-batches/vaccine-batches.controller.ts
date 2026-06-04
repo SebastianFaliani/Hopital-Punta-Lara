@@ -110,7 +110,12 @@ export async function handleGetBatchesByVaccine(
     const batches =
       await getBatchesByVaccine(
         vaccineId,
-        getScopedFacilityId(req.user)
+        getScopedFacilityId(
+          req.user,
+          req.query.facility_id
+            ? Number(req.query.facility_id)
+            : null
+        )
       );
 
     return res.json({

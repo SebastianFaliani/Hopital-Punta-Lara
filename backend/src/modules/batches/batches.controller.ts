@@ -5,6 +5,7 @@ import {
 import { AuthRequest } from '../auth/auth.middleware';
 import { logAudit } from '../audit/audit.service';
 import {
+  assertFacilityAccess,
   getScopedFacilityId
 } from '../health-facilities/facility-access';
 
@@ -80,7 +81,12 @@ export async function handleGetBatchesByMedication(
     const batches =
       await getBatchesByMedication(
         medicationId,
-        getScopedFacilityId(req.user)
+        getScopedFacilityId(
+          req.user,
+          req.query.facility_id
+            ? Number(req.query.facility_id)
+            : null
+        )
       );
 
     return res.json({
@@ -123,6 +129,13 @@ export async function handleCreateBatch(
 
     const medicationId =
       Number(req.params.id);
+
+    if (req.body.facility_id) {
+      assertFacilityAccess(
+        req.user,
+        Number(req.body.facility_id)
+      );
+    }
 
     const medication =
       await getMedicationById(

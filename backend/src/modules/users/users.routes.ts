@@ -5,6 +5,9 @@ import {
     update,
     changePassword,
     resetPasswordByAdmin,
+    getUserAccess,
+    updateUserAccess,
+    resetUserAccess,
     toggleUserStatus,
     remove
  } from './users.controller';
@@ -34,6 +37,27 @@ router.put(
   authenticateToken,
   authorizeRoles('admin'),
   update
+);
+
+router.get(
+  '/:id/access',
+  authenticateToken,
+  authorizeRoles('admin'),
+  getUserAccess
+);
+
+router.put(
+  '/:id/access',
+  authenticateToken,
+  authorizeRoles('admin'),
+  updateUserAccess
+);
+
+router.delete(
+  '/:id/access/permissions',
+  authenticateToken,
+  authorizeRoles('admin'),
+  resetUserAccess
 );
 
 router.patch(

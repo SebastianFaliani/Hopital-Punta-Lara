@@ -1,5 +1,10 @@
 import { pool } from '../../config/database';
 import bcrypt from 'bcryptjs';
+export {
+  getUserAccessConfiguration,
+  resetUserAccessConfiguration,
+  updateUserAccessConfiguration
+} from '../access-control/access-control.service';
 
 export async function getAllUsers() {
 
@@ -14,6 +19,7 @@ export async function getAllUsers() {
 
         u.role_id,
         u.facility_id,
+        u.access_all_facilities,
         hf.name AS facility_name,
 
         u.is_active,

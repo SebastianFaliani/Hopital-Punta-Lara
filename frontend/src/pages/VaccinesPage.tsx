@@ -9,6 +9,7 @@ import {
 
 import { apiFetch } from '../api/api';
 import { useAuth } from '../auth/useAuth';
+import { hasPermission } from '../auth/permissions';
 import VaccineModuleTabs from '../components/vaccines/VaccineModuleTabs';
 
 type Vaccine = {
@@ -34,6 +35,11 @@ type VaccineBatch = {
 type VaccineAlert = {
   vaccine: Vaccine;
   batches: VaccineBatch[];
+};
+
+type Facility = {
+  id: number;
+  name: string;
 };
 
 const emptyForm = {
@@ -78,10 +84,25 @@ export default function VaccinesPage() {
   const [error, setError] =
     useState('');
 
+  const [facilities, setFacilities] =
+    useState<Facility[]>([]);
+
+  const [selectedFacilityId, setSelectedFacilityId] =
+    useState(
+      user?.facility_id
+        ? String(user.facility_id)
+        : ''
+    );
+
   async function loadVaccines() {
     try {
+      const facilityQuery =
+        selectedFacilityId
+          ? `?facility_id=${selectedFacilityId}`
+          : '';
+
       const res =
-        await apiFetch('/vaccines');
+        await apiFetch(`/vaccines${facilityQuery}`);
 
       setVaccines(res.data);
 
@@ -90,7 +111,7 @@ export default function VaccinesPage() {
           res.data.map(async (vaccine: Vaccine) => {
             const batchesRes =
               await apiFetch(
-                `/vaccines/${vaccine.id}/batches`
+                `/vaccines/${vaccine.id}/batches${facilityQuery}`
               );
 
             return {
@@ -108,6 +129,12 @@ export default function VaccinesPage() {
 
   useEffect(() => {
     loadVaccines();
+  }, [selectedFacilityId]);
+
+  useEffect(() => {
+    apiFetch('/health-facilities')
+      .then((res) => setFacilities(res.data))
+      .catch(() => setFacilities([]));
   }, []);
 
   function openCreate() {
@@ -185,17 +212,35 @@ export default function VaccinesPage() {
     }
   }
 
-  if (
-    user?.role !== 'admin' &&
-    user?.role !== 'vacu' &&
-    user?.role !== 'dir'
-  ) {
+  if (!hasPermission(
+    user,
+    'vaccines.view',
+    ['admin', 'vacu', 'dir']
+  )) {
     return <h2>No autorizado</h2>;
   }
 
   const canEdit =
-    user?.role === 'admin' ||
-    user?.role === 'vacu';
+    hasPermission(
+      user,
+      'vaccines.manage',
+      ['admin', 'vacu']
+    );
+
+  const selectableFacilities =
+    facilities.filter((facility) =>
+      user?.access_all_facilities ||
+      user?.role === 'admin' ||
+      user?.facility_type === 'secretaria' ||
+      user?.facility_ids?.includes(facility.id)
+    );
+
+  const selectedFacilityName =
+    selectableFacilities.find((facility) =>
+      String(facility.id) === selectedFacilityId
+    )?.name ||
+    user?.facility_name ||
+    'tu dependencia';
 
   const presentations =
     Array.from(
@@ -312,9 +357,34 @@ export default function VaccinesPage() {
 
       <VaccineModuleTabs />
 
+      {selectableFacilities.length > 1 && (
+        <div className="filter-bar">
+          <select
+            className="form-input"
+            value={selectedFacilityId}
+            onChange={(event) =>
+              setSelectedFacilityId(event.target.value)
+            }
+          >
+            {(user?.role === 'admin' ||
+              user?.access_all_facilities ||
+              user?.facility_type === 'secretaria') && (
+              <option value="">
+                Vista general
+              </option>
+            )}
+            {selectableFacilities.map((facility) => (
+              <option key={facility.id} value={facility.id}>
+                {facility.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
       {user?.facility_id && user.facility_type !== 'secretaria' && (
         <p className="page-subtitle">
-          Estas viendo el stock de {user.facility_name || 'tu dependencia'}.
+          Estas viendo el stock de {selectedFacilityName}.
         </p>
       )}
 
