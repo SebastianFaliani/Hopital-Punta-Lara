@@ -664,6 +664,223 @@
   margin: 0;
 }
 
+.whatsapp-admin-test {
+  margin: 14px 0 18px;
+  padding: 14px;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  background: #eff6ff;
+}
+
+.whatsapp-admin-test h3 {
+  margin: 0 0 10px;
+}
+
+.whatsapp-appointment-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(220px, 1fr));
+  gap: 12px;
+  margin: 16px 0 20px;
+}
+
+.whatsapp-appointment-form .form-input {
+  margin-bottom: 0;
+}
+
+.whatsapp-schedule-editor {
+  grid-column: 1 / -1;
+  padding: 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.whatsapp-section-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.whatsapp-section-title-row h3 {
+  margin: 0;
+}
+
+.whatsapp-schedule-row {
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) 120px 120px auto;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.whatsapp-chat-layout {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 16px;
+  min-height: 520px;
+}
+
+.whatsapp-conversation-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 560px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.whatsapp-conversation-search {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #ffffff;
+}
+
+.whatsapp-conversation {
+  display: grid;
+  grid-template-columns: 42px 1fr;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: #ffffff;
+  text-align: left;
+  cursor: pointer;
+}
+
+.whatsapp-conversation.active {
+  border-color: var(--color-primary);
+  background: #eff6ff;
+}
+
+.whatsapp-conversation-avatar,
+.whatsapp-chat-avatar {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  overflow: hidden;
+  border-radius: 50%;
+  background: #e0f2fe;
+  color: #075985;
+  font-weight: 700;
+  flex: 0 0 auto;
+}
+
+.whatsapp-conversation-avatar img,
+.whatsapp-chat-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.whatsapp-conversation-body {
+  min-width: 0;
+}
+
+.whatsapp-conversation-body strong,
+.whatsapp-conversation-body span,
+.whatsapp-conversation-body small {
+  display: block;
+}
+
+.whatsapp-conversation-body span {
+  margin: 6px 0;
+  color: #475569;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.whatsapp-conversation-body small {
+  color: #64748b;
+}
+
+.whatsapp-chat-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 520px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: #f8fafc;
+}
+
+.whatsapp-chat-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--color-border);
+  background: #ffffff;
+}
+
+.whatsapp-chat-header strong,
+.whatsapp-chat-header small {
+  display: block;
+}
+
+.whatsapp-chat-header small {
+  margin-top: 2px;
+  color: #64748b;
+}
+
+.whatsapp-chat-messages {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 420px;
+  overflow-y: auto;
+  padding: 16px;
+}
+
+.whatsapp-bubble {
+  max-width: min(620px, 82%);
+  padding: 10px 12px;
+  border-radius: 8px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+}
+
+.whatsapp-bubble p {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.whatsapp-bubble small {
+  display: block;
+  margin-top: 6px;
+  color: #64748b;
+  font-size: 11px;
+}
+
+.whatsapp-bubble.incoming {
+  align-self: flex-start;
+  background: #ffffff;
+}
+
+.whatsapp-bubble.outgoing {
+  align-self: flex-end;
+  background: #dcfce7;
+}
+
+.whatsapp-chat-compose {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  padding: 12px;
+  border-top: 1px solid var(--color-border);
+  background: #ffffff;
+}
+
+.whatsapp-chat-compose .form-input {
+  margin: 0;
+}
+
 .badge-warning {
   color: #92400e;
   background: #fef3c7;
@@ -680,6 +897,13 @@
   }
 
   .whatsapp-connection-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .whatsapp-appointment-form,
+  .whatsapp-schedule-row,
+  .whatsapp-chat-layout,
+  .whatsapp-chat-compose {
     grid-template-columns: 1fr;
   }
 }

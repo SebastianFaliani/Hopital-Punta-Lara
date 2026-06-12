@@ -249,8 +249,8 @@ export default function UsersPage() {
           type="button"
           className={
             activeTab === 'users'
-              ? 'active'
-              : ''
+              ? 'module-tab module-tab-active'
+              : 'module-tab'
           }
           onClick={() =>
             setActiveTab('users')
@@ -263,8 +263,8 @@ export default function UsersPage() {
           type="button"
           className={
             activeTab === 'roles'
-              ? 'active'
-              : ''
+              ? 'module-tab module-tab-active'
+              : 'module-tab'
           }
           onClick={() =>
             setActiveTab('roles')

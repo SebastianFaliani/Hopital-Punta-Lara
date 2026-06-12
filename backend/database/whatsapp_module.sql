@@ -37,64 +37,43 @@ INSERT INTO whatsapp_auto_replies (
   'menu',
   'Menu principal',
   'hola,buen dia,buenas,menu,opciones,informacion,info',
-  'Hospital Punta Lara\n\nHola. Gracias por comunicarte con el hospital.\n\nResponde con el numero de la opcion:\n\n1. Turnos\n2. Especialidades medicas\n3. Laboratorio\n4. Kinesiologia\n5. Guardia\n6. Traslados / Ambulancia\n7. Horarios y contacto\n8. Hablar con administracion',
+  'Hospital Punta Lara\n\nHola. Gracias por comunicarte con el hospital.\n\nResponde con el numero de la opcion:\n\n1. Especialidades medicas / turnos\n2. Resultados de laboratorio\n3. Hablar con administracion\n4. Horarios y contacto\n5. Preguntas frecuentes',
   0
 ),
 (
   '1',
-  'Turnos',
+  'Especialidades medicas / turnos',
   'turno,turnos,sacar turno,consulta,consultas',
-  'Turnos\n\nLos turnos se otorgan de lunes a viernes de 08:00 a 12:00 hs.\n\nPara solicitar un turno envia:\n- Nombre y apellido\n- DNI\n- Especialidad solicitada\n\nAlgunos servicios requieren derivacion u orden medica.',
+  'Especialidades medicas\n\nPara consultar dias y horarios, responde 1 y elegi la especialidad.\n\nSi la agenda esta abierta, el sistema te va a pedir tus datos para solicitar el turno.',
   1
 ),
 (
   '2',
-  'Especialidades medicas',
-  'especialidad,especialidades,medico,medica,cardiologia,traumatologia,pediatria,ginecologia,clinica',
-  'Especialidades medicas\n\nActualmente podes consultar por:\n- Clinica medica\n- Pediatria\n- Ginecologia\n- Traumatologia\n- Cardiologia\n- Psicologia\n- Nutricion\n- Kinesiologia\n\nPara turnos escribi: TURNO + especialidad.\nEjemplo: TURNO TRAUMATOLOGIA',
+  'Resultados de laboratorio',
+  'resultado,resultados,laboratorio,analisis,estudio,retirar,retiro,buscar',
+  'Resultados de laboratorio\n\nPara consultar si tus resultados estan disponibles, responde con DNI o apellido.\n\nSolo se consultan estudios de los ultimos 6 meses.',
   2
 ),
 (
   '3',
-  'Laboratorio',
-  'laboratorio,analisis,sangre,extraccion,estudio',
-  'Laboratorio\n\nAtencion con turno previo.\n\nRecorda traer:\n- Orden medica\n- DNI\n\nAlgunos estudios requieren ayuno.\n\nHorario habitual: lunes a viernes de 07:00 a 10:00 hs.',
+  'Administracion',
+  'administracion,secretaria,persona,humano,hablar,reclamo',
+  'Administracion\n\nDejanos tu consulta con:\n- Nombre y apellido\n- DNI\n- Motivo del mensaje\n\nUn administrativo respondera cuando este disponible.',
   3
 ),
 (
   '4',
-  'Kinesiologia',
-  'kinesiologia,kinesio,rehabilitacion,fisioterapia,sesiones',
-  'Kinesiologia\n\nAtencion con derivacion medica.\n\nPara solicitar turno envia:\n- Nombre y apellido\n- DNI\n- Diagnostico o motivo\n\nTraer estudios previos si posee.\n\nHorario habitual: lunes a viernes de 08:00 a 18:00 hs.',
+  'Horarios y contacto',
+  'horario,horarios,direccion,ubicacion,telefono,contacto,donde queda',
+  'Horarios y contacto\n\nGuardia:\n- Atencion las 24 hs.\n\nConsultorios:\n- La atencion depende de los dias y horarios de cada especialista.\n- Responde 1 para consultar especialidades medicas y turnos.\n\nContacto:\n- Telefono: completar telefono del hospital.\n- Email: completar email del hospital.\n- Direccion: completar direccion del hospital.',
   4
 ),
 (
   '5',
-  'Guardia',
-  'guardia,urgencia,emergencia,emergencias,24 horas',
-  'Guardia\n\nLa guardia funciona las 24 hs.\n\nLa atencion se organiza por prioridad medica.\n\nAnte una emergencia concurrir a guardia o llamar al numero local de emergencias correspondiente.',
+  'Preguntas frecuentes',
+  'preguntas frecuentes,frecuentes,faq,orden,ayuno,ecografia,historia clinica',
+  'Preguntas frecuentes\n\nLaboratorio:\n- Traer orden medica.\n- Traer DNI.\n- Venir en ayunas si el estudio lo requiere.\n\nEcografias:\n- Para ecografias que requieren preparacion, consultar indicacion previa.\n- Si corresponde, concurrir con agua tomada y sin orinar segun indicacion medica.\n\nHistoria clinica:\n- Para solicitar copia de historia clinica, realizar el pedido por escrito en administracion.\n- Presentar DNI del paciente.\n\nTurnos:\n- Los turnos dependen de la agenda de cada especialidad.\n- Responde 1 para consultar especialidades medicas.',
   5
-),
-(
-  '6',
-  'Traslados / Ambulancia',
-  'traslado,ambulancia,llevar,paciente,direccion,destino',
-  'Traslados / Ambulancia\n\nLos traslados programados se coordinan previamente.\n\nPara consultar disponibilidad envia:\n- Nombre del paciente\n- Direccion de origen\n- Destino\n- Dia y horario del turno\n\nSujeto a disponibilidad.',
-  6
-),
-(
-  '7',
-  'Horarios y contacto',
-  'horario,horarios,direccion,ubicacion,telefono,contacto,donde queda',
-  'Horarios y contacto\n\nPara informacion general, indica que servicio necesitas consultar.\n\nTambien podes responder:\n1 Turnos\n2 Especialidades\n3 Laboratorio\n4 Kinesiologia\n5 Guardia',
-  7
-),
-(
-  '8',
-  'Administracion',
-  'administracion,secretaria,persona,humano,hablar,reclamo',
-  'Administracion\n\nDejanos tu consulta con:\n- Nombre y apellido\n- DNI\n- Motivo del mensaje\n\nUn administrativo respondera cuando este disponible.',
-  8
 )
 ON DUPLICATE KEY UPDATE
   title = VALUES(title),

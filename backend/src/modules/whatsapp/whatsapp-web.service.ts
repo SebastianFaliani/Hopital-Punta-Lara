@@ -1,4 +1,5 @@
 import path from 'path';
+import fs from 'fs/promises';
 
 import {
   buildWhatsappResponse
@@ -25,6 +26,8 @@ type WhatsappWebState = {
 
 let client: any = null;
 let initializing = false;
+const processedMessageIds =
+  new Set<string>();
 
 const state: WhatsappWebState = {
   status: 'disconnected',
@@ -125,6 +128,172 @@ export function getWhatsappWebStatus() {
     hasClient: Boolean(client),
     initializing
   };
+}
+
+function getWhatsappMessageId(
+  message: any
+) {
+  return (
+    message?.id?._serialized ||
+    message?._data?.id?._serialized ||
+    `${message?.from || 'unknown'}-${message?.timestamp || Date.now()}-${message?.body || message?._data?.body || ''}`
+  );
+}
+
+function getWhatsappMessageText(
+  message: any
+) {
+  return String(
+    message?.body ||
+    message?._data?.body ||
+    message?._data?.caption ||
+    ''
+  ).trim();
+}
+
+function shouldIgnoreWhatsappMessage(
+  message: any
+) {
+  const from =
+    String(message?.from || '');
+
+  return (
+    Boolean(message?.fromMe) ||
+    from === 'status@broadcast' ||
+    from.endsWith('@g.us')
+  );
+}
+
+async function handleIncomingWhatsappMessage(
+  message: any
+) {
+  if (shouldIgnoreWhatsappMessage(message)) {
+    return;
+  }
+
+  const messageId =
+    getWhatsappMessageId(message);
+
+  if (processedMessageIds.has(messageId)) {
+    return;
+  }
+
+  processedMessageIds.add(messageId);
+
+  if (processedMessageIds.size > 500) {
+    const firstMessageId =
+      processedMessageIds.values().next().value;
+
+    if (firstMessageId) {
+      processedMessageIds.delete(firstMessageId);
+    }
+  }
+
+  if (message?.hasMedia) {
+    await message.reply(
+      'Por este canal solo procesamos mensajes de texto. No se guardan audios, imagenes, videos ni archivos.'
+    );
+
+    return;
+  }
+
+  const text =
+    getWhatsappMessageText(message);
+
+  if (!text) {
+    return;
+  }
+
+  const result =
+    await buildWhatsappResponse(
+      text,
+      message.from
+    );
+
+  await message.reply(
+    result.response
+  );
+
+  setEvent(
+    'connected',
+    `Ultimo mensaje respondido: ${message.from}`
+  );
+}
+
+function wait(
+  milliseconds: number
+) {
+  return new Promise((resolve) =>
+    setTimeout(resolve, milliseconds)
+  );
+}
+
+async function removeSessionFolderWithRetry() {
+  const sessionPath =
+    getSessionPath();
+
+  let lastError: any = null;
+
+  for (let attempt = 1; attempt <= 6; attempt += 1) {
+    try {
+      await fs.rm(
+        sessionPath,
+        {
+          recursive: true,
+          force: true,
+          maxRetries: 2,
+          retryDelay: 500
+        }
+      );
+
+      return true;
+    } catch (error: any) {
+      lastError = error;
+
+      if (
+        error?.code !== 'EBUSY' &&
+        error?.code !== 'EPERM'
+      ) {
+        throw error;
+      }
+
+      await wait(750 * attempt);
+    }
+  }
+
+  throw lastError;
+}
+
+export async function sendWhatsappTextMessage(
+  phone: string,
+  message: string
+) {
+  if (!client || !state.isReady) {
+    throw new Error('WhatsApp no esta conectado');
+  }
+
+  await client.sendMessage(
+    phone,
+    message
+  );
+
+  return true;
+}
+
+export async function getWhatsappProfilePictureUrl(
+  phone: string
+) {
+  if (!client || !state.isReady) {
+    return null;
+  }
+
+  try {
+    return await client.getProfilePicUrl(
+      phone
+    );
+  } catch (error) {
+    return null;
+  }
 }
 
 export async function startWhatsappWebSession() {
@@ -229,34 +398,28 @@ export async function startWhatsappWebSession() {
     'message',
     async (message: any) => {
       try {
-        if (message.fromMe) {
-          return;
-        }
-
-        if (message.hasMedia) {
-          await message.reply(
-            'Por este canal solo procesamos mensajes de texto. No se guardan audios, imagenes, videos ni archivos.'
-          );
-
-          return;
-        }
-
-        if (!message.body) {
-          return;
-        }
-
-        const result =
-          await buildWhatsappResponse(
-            message.body,
-            message.from
-          );
-
-        await message.reply(
-          result.response
+        await handleIncomingWhatsappMessage(
+          message
         );
       } catch (error: any) {
         setEvent(
           'failed',
+          error.message || 'Error respondiendo mensaje'
+        );
+      }
+    }
+  );
+
+  client.on(
+    'message_create',
+    async (message: any) => {
+      try {
+        await handleIncomingWhatsappMessage(
+          message
+        );
+      } catch (error: any) {
+        setEvent(
+          state.isReady ? 'connected' : 'failed',
           error.message || 'Error respondiendo mensaje'
         );
       }
@@ -282,13 +445,26 @@ export async function stopWhatsappWebSession() {
 }
 
 export async function logoutWhatsappWebSession() {
-  if (client) {
-    try {
-      await client.logout();
-    } catch (error) {
-      // Si ya estaba desconectado, se destruye igual.
-    }
+  await destroyClient();
+
+  await wait(1200);
+
+  try {
+    await removeSessionFolderWithRetry();
+    setEvent(
+      'disconnected',
+      'Sesion cerrada. Volve a iniciar para generar un nuevo QR.'
+    );
+  } catch (error: any) {
+    setEvent(
+      'failed',
+      'No se pudo borrar la sesion porque Windows todavia tiene archivos bloqueados. Cierra procesos de Chrome/Chromium y vuelve a intentar.'
+    );
   }
 
-  return stopWhatsappWebSession();
+  state.qr = null;
+  state.qrDataUrl = null;
+  state.phone = null;
+
+  return getWhatsappWebStatus();
 }

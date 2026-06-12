@@ -482,11 +482,17 @@
 
   align-items: center;
 
+  justify-content: center;
+
   min-height: 42px;
 
   padding: 0 14px;
 
   color: #374151;
+
+  background: transparent;
+
+  border: 0;
 
   text-decoration: none;
 
@@ -494,6 +500,12 @@
 
   border-bottom:
     3px solid transparent;
+
+  cursor: pointer;
+
+  font-family: inherit;
+
+  font-size: 14px;
 }
 
 .module-tab-active {
