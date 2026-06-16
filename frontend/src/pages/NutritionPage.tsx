@@ -155,6 +155,16 @@ function formatNumber(
   return `${number.toFixed(2)}${suffix}`;
 }
 
+function formatWeightProgress(
+  delta: number
+) {
+  if (delta === 0) {
+    return '0.00 kg acumulados';
+  }
+
+  return `${delta > 0 ? '+' : '-'} ${Math.abs(delta).toFixed(2)} kg acumulados`;
+}
+
 function calculateBmiPreview(
   weight: string,
   height: string
@@ -749,17 +759,33 @@ export default function NutritionPage() {
   const previousControl =
     controls[controls.length - 2];
 
+  const firstControl =
+    controls[0];
+
   const lastWeight =
     numeric(lastControl?.weight_kg);
 
   const previousWeight =
     numeric(previousControl?.weight_kg);
 
+  const firstWeight =
+    numeric(firstControl?.weight_kg);
+
   const weightDelta =
     lastWeight !== null &&
     previousWeight !== null
       ? Number(
         (lastWeight - previousWeight)
+          .toFixed(2)
+      )
+      : null;
+
+  const initialWeightDelta =
+    lastWeight !== null &&
+    firstWeight !== null &&
+    controls.length > 1
+      ? Number(
+        (lastWeight - firstWeight)
           .toFixed(2)
       )
       : null;
@@ -964,6 +990,13 @@ export default function NutritionPage() {
                     {weightDelta !== null
                       ? `${weightDelta > 0 ? '+' : ''}${weightDelta} kg vs anterior`
                       : 'Sin comparacion'}
+                  </span>
+                  <span>
+                    {initialWeightDelta !== null
+                      ? formatWeightProgress(initialWeightDelta)
+                      : controls.length > 0
+                        ? 'Primer control'
+                        : 'Sin peso inicial'}
                   </span>
                 </div>
 
