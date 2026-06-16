@@ -1318,20 +1318,44 @@ export async function getVacationBalances(
 
 export async function updateVacationBalance(
   id: number,
-  allowedDays: number
+  allowedDays: number,
+  usedDays?: number
 ) {
+  const normalizedAllowedDays =
+    Math.max(0, Number(allowedDays || 0));
+
+  const shouldUpdateUsedDays =
+    usedDays !== undefined &&
+    usedDays !== null &&
+    !Number.isNaN(Number(usedDays));
+
+  const normalizedUsedDays =
+    shouldUpdateUsedDays
+      ? Math.max(0, Number(usedDays))
+      : null;
 
   await pool.query(
     `
       UPDATE employee_leave_balances
       SET
         allowed_days = ?,
-        remaining_days = ? - used_days
+        used_days = CASE
+          WHEN ? IS NULL THEN used_days
+          ELSE ?
+        END,
+        remaining_days = ? - CASE
+          WHEN ? IS NULL THEN used_days
+          ELSE ?
+        END
       WHERE id = ?
     `,
     [
-      allowedDays,
-      allowedDays,
+      normalizedAllowedDays,
+      normalizedUsedDays,
+      normalizedUsedDays,
+      normalizedAllowedDays,
+      normalizedUsedDays,
+      normalizedUsedDays,
       id
     ]
   );
@@ -1423,7 +1447,7 @@ export async function createLeaveBalanceAdjustment(
   const usedHours =
     Number(data.used_hours || 0);
 
-  if (usedDays <= 0 && usedHours <= 0) {
+  if (usedDays === 0 && usedHours === 0) {
     throw new Error(
       'Debe cargar dias u horas usadas'
     );
@@ -2038,6 +2062,8 @@ export async function getEmployeeLeaveSummary(
         )
     },
     vacation: {
+      id:
+        Number(vacation.id),
       allowed_days:
         Number(vacation.allowed_days),
       used_days:

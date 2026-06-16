@@ -230,6 +230,7 @@ type DirectiveSummary = {
 
 type LeaveSummary = {
   vacation: {
+    id: number;
     allowed_days: number;
     used_days: number;
     pending_days: number;
@@ -316,10 +317,21 @@ const emptyBalanceAdjustmentForm = {
   adjustment_date: '',
   year: String(new Date().getFullYear()),
   month: '',
+  allowed_days: '',
   used_days: '',
   used_hours: '',
   notes: ''
 };
+
+const balanceManagedCodes = [
+  '8',
+  '29',
+  '26',
+  '24',
+  '43',
+  '34',
+  'C'
+];
 
 const emptyCodeForm = {
   code: '',
@@ -715,6 +727,15 @@ export default function PersonnelPage() {
 
   const [balanceAdjustmentForm, setBalanceAdjustmentForm] =
     useState(emptyBalanceAdjustmentForm);
+
+  const [selectedBalanceEmployee, setSelectedBalanceEmployee] =
+    useState<Employee | null>(null);
+
+  const [balanceEmployeeSearch, setBalanceEmployeeSearch] =
+    useState('');
+
+  const [balanceSummary, setBalanceSummary] =
+    useState<LeaveSummary | null>(null);
 
   const [codeForm, setCodeForm] =
     useState(emptyCodeForm);
@@ -1193,6 +1214,51 @@ export default function PersonnelPage() {
     }
   }
 
+  async function loadBalanceSummary(
+    employeeId: number,
+    year = balanceAdjustmentForm.year
+  ) {
+
+    try {
+      const currentMonth =
+        String(new Date().getMonth() + 1);
+
+      const params =
+        new URLSearchParams({
+          year:
+            year || String(new Date().getFullYear()),
+          month: currentMonth
+        });
+
+      const res =
+        await apiFetch(
+          `/personnel/employees/${employeeId}/leave-summary?${params.toString()}`
+        );
+
+      setBalanceSummary(res.data);
+
+    } catch (error: any) {
+
+      setError(error.message);
+    }
+  }
+
+  function selectBalanceEmployee(
+    employee: Employee
+  ) {
+
+    setSelectedBalanceEmployee(employee);
+      setBalanceAdjustmentForm((current) => ({
+        ...current,
+        employee_id: String(employee.id),
+        allowed_days: '',
+        used_days: '',
+        used_hours: '',
+        notes: ''
+      }));
+    loadBalanceSummary(employee.id);
+  }
+
   function selectLeaveEmployee(
     employee: Employee
   ) {
@@ -1520,10 +1586,140 @@ export default function PersonnelPage() {
     >
   ) {
 
-    setBalanceAdjustmentForm({
+    const currentInfo =
+      getBalanceInfo(
+        e.target.name === 'code'
+          ? e.target.value
+          : balanceAdjustmentForm.code
+      );
+
+    const nextForm = {
       ...balanceAdjustmentForm,
-      [e.target.name]: e.target.value
-    });
+      [e.target.name]: e.target.value,
+      ...(e.target.name === 'code'
+        ? {
+          allowed_days:
+            currentInfo
+              ? String(currentInfo.allowed)
+              : '',
+          used_days:
+            currentInfo?.unit === 'days'
+              ? String(currentInfo.current)
+              : '',
+          used_hours:
+            currentInfo?.unit === 'hours'
+              ? String(currentInfo.current)
+              : '',
+          notes: ''
+        }
+        : {})
+    };
+
+    setBalanceAdjustmentForm(nextForm);
+
+    if (
+      selectedBalanceEmployee &&
+      e.target.name === 'year'
+    ) {
+      loadBalanceSummary(
+        selectedBalanceEmployee.id,
+        nextForm.year
+      );
+    }
+  }
+
+  function getBalanceInfo(
+    code = balanceAdjustmentForm.code
+  ) {
+    if (!balanceSummary) {
+      return null;
+    }
+
+    if (code === '8') {
+      return {
+        unit: 'days',
+        balanceId: balanceSummary.vacation.id,
+        canEditAllowed: true,
+        title: '8 - Licencia anual',
+        allowedLabel: 'Dias que tiene',
+        allowed: Number(balanceSummary.vacation.allowed_days || 0),
+        currentLabel: 'Dias tomados',
+        current: Number(balanceSummary.vacation.used_days || 0),
+        pending: Number(balanceSummary.vacation.pending_days || 0),
+        remaining: Number(balanceSummary.vacation.available_days || 0)
+      };
+    }
+
+    if (code === '29') {
+      return {
+        unit: 'days',
+        title: '29 - Licencia anual complementaria',
+        allowedLabel: 'Dias que tiene',
+        allowed: Number(balanceSummary.code29.allowed_days || 0),
+        currentLabel: 'Dias tomados',
+        current: Number(balanceSummary.code29.used_days || 0),
+        pending: Number(balanceSummary.code29.pending_days || 0),
+        remaining: Number(balanceSummary.code29.remaining_days || 0)
+      };
+    }
+
+    if (code === '26') {
+      return {
+        unit: 'days',
+        title: '26 - Articulo anual',
+        allowedLabel: 'Dias anuales',
+        allowed: Number(balanceSummary.code26.annual_limit_days || 0),
+        currentLabel: 'Dias tomados',
+        current: Number(balanceSummary.code26.used_days || 0),
+        pending: Number(balanceSummary.code26.pending_days || 0),
+        remaining: Number(balanceSummary.code26.remaining_days || 0),
+        monthInfo:
+          `Este mes: usados ${balanceSummary.code26.used_this_month || 0}, quedan ${balanceSummary.code26.remaining_this_month || 0}`
+      };
+    }
+
+    if (['24', '43'].includes(code)) {
+      return {
+        unit: 'hours',
+        title: `${code} - Permisos por horas`,
+        allowedLabel: 'Horas anuales',
+        allowed: Number(balanceSummary.hours24_43.annual_limit_hours || 0),
+        currentLabel: 'Horas usadas',
+        current: Number(balanceSummary.hours24_43.used_hours_year || 0),
+        pending: Number(balanceSummary.hours24_43.pending_hours_year || 0),
+        remaining: Number(balanceSummary.hours24_43.remaining_hours_year || 0),
+        monthInfo:
+          `Este mes: usadas ${balanceSummary.hours24_43.used_hours_month || 0}, quedan ${balanceSummary.hours24_43.remaining_hours_month || 0}`
+      };
+    }
+
+    if (code === 'C') {
+      return {
+        unit: 'days',
+        title: 'C - Compensatorio ganado',
+        allowedLabel: 'Dias ganados',
+        allowed: Number(balanceSummary.compensatory.earned_days || 0),
+        currentLabel: 'Dias ganados',
+        current: Number(balanceSummary.compensatory.earned_days || 0),
+        pending: 0,
+        remaining: Number(balanceSummary.compensatory.remaining_days || 0)
+      };
+    }
+
+    if (code === '34') {
+      return {
+        unit: 'days',
+        title: '34 - Franco compensatorio',
+        allowedLabel: 'Dias disponibles',
+        allowed: Number(balanceSummary.compensatory.earned_days || 0),
+        currentLabel: 'Dias tomados',
+        current: Number(balanceSummary.compensatory.used_days || 0),
+        pending: Number(balanceSummary.compensatory.pending_days || 0),
+        remaining: Number(balanceSummary.compensatory.remaining_days || 0)
+      };
+    }
+
+    return null;
   }
 
   async function handleBalanceAdjustmentSubmit(
@@ -1534,6 +1730,101 @@ export default function PersonnelPage() {
     setError('');
 
     try {
+      const balanceInfo =
+        getBalanceInfo();
+
+      if (!selectedBalanceEmployee || !balanceInfo) {
+        showSystemAlert(
+          'Selecciona un empleado y una licencia para corregir el saldo.'
+        );
+        return;
+      }
+
+      if (balanceAdjustmentForm.code === '8') {
+        const allowedDays =
+          Number(balanceAdjustmentForm.allowed_days || 0);
+
+        const usedDays =
+          Number(balanceAdjustmentForm.used_days || 0);
+
+        const usedDifference =
+          Number(
+            (usedDays - balanceInfo.current)
+              .toFixed(2)
+          );
+
+        await apiFetch(
+          `/personnel/vacation-balances/${balanceInfo.balanceId}`,
+          {
+            method: 'PUT',
+            body:
+              JSON.stringify({
+                allowed_days: allowedDays,
+                used_days: usedDays
+              })
+          }
+        );
+
+        if (usedDifference !== 0) {
+          await apiFetch(
+            '/personnel/leave-balance-adjustments',
+            {
+              method: 'POST',
+              body:
+                JSON.stringify({
+                  employee_id:
+                    Number(balanceAdjustmentForm.employee_id),
+                  code: '8',
+                  year:
+                    Number(balanceAdjustmentForm.year),
+                  month: null,
+                  used_days: usedDifference,
+                  used_hours: 0,
+                  notes:
+                    [
+                      'Correccion manual de licencia anual.',
+                      `Dias tomados antes: ${balanceInfo.current}. Nuevo: ${usedDays}.`,
+                      balanceAdjustmentForm.notes
+                    ]
+                      .filter(Boolean)
+                      .join(' ')
+                })
+            }
+          );
+        }
+
+        await loadBalanceSummary(selectedBalanceEmployee.id);
+        await loadBalanceAdjustments();
+        if (selectedLeaveEmployee) {
+          await loadLeaveSummary(selectedLeaveEmployee.id);
+        }
+        showSystemAlert(
+          'Saldo de licencia anual actualizado.',
+          'Aviso del sistema',
+          'success'
+        );
+        return;
+      }
+
+      const targetValue =
+        balanceInfo.unit === 'hours'
+          ? Number(balanceAdjustmentForm.used_hours || 0)
+          : Number(balanceAdjustmentForm.used_days || 0);
+
+      const difference =
+        Number(
+          (targetValue - balanceInfo.current)
+            .toFixed(2)
+        );
+
+      if (difference === 0) {
+        showSystemAlert(
+          'El valor cargado es igual al saldo actual. No hay nada para corregir.',
+          'Aviso del sistema',
+          'info'
+        );
+        return;
+      }
 
       await apiFetch(
         '/personnel/leave-balance-adjustments',
@@ -1551,19 +1842,33 @@ export default function PersonnelPage() {
                   ? Number(balanceAdjustmentForm.month)
                   : null,
               used_days:
-                balanceAdjustmentForm.used_days
-                  ? Number(balanceAdjustmentForm.used_days)
+                balanceInfo.unit === 'days'
+                  ? difference
                   : 0,
               used_hours:
-                balanceAdjustmentForm.used_hours
-                  ? Number(balanceAdjustmentForm.used_hours)
-                  : 0
+                balanceInfo.unit === 'hours'
+                  ? difference
+                  : 0,
+              notes:
+                [
+                  `Correccion manual de ${balanceInfo.title}.`,
+                  `Antes: ${balanceInfo.current}. Nuevo: ${targetValue}.`,
+                  balanceAdjustmentForm.notes
+                ]
+                  .filter(Boolean)
+                  .join(' ')
             })
         }
       );
 
-      setBalanceAdjustmentForm(emptyBalanceAdjustmentForm);
-      loadBalanceAdjustments();
+      setBalanceAdjustmentForm((current) => ({
+        ...current,
+        used_days: '',
+        used_hours: '',
+        notes: ''
+      }));
+      await loadBalanceAdjustments();
+      await loadBalanceSummary(selectedBalanceEmployee.id);
       if (selectedLeaveEmployee) {
         loadLeaveSummary(selectedLeaveEmployee.id);
       }
@@ -1590,6 +1895,9 @@ export default function PersonnelPage() {
       );
 
       loadBalanceAdjustments();
+      if (selectedBalanceEmployee) {
+        loadBalanceSummary(selectedBalanceEmployee.id);
+      }
       if (selectedLeaveEmployee) {
         loadLeaveSummary(selectedLeaveEmployee.id);
       }
@@ -2241,6 +2549,31 @@ export default function PersonnelPage() {
     filters.per_page
   ]);
 
+  useEffect(() => {
+    const balanceInfo =
+      getBalanceInfo();
+
+    if (!balanceInfo) {
+      return;
+    }
+
+    setBalanceAdjustmentForm((current) => ({
+      ...current,
+      allowed_days: String(balanceInfo.allowed),
+      used_days:
+        balanceInfo.unit === 'days'
+          ? String(balanceInfo.current)
+          : '',
+      used_hours:
+        balanceInfo.unit === 'hours'
+          ? String(balanceInfo.current)
+          : ''
+    }));
+  }, [
+    balanceSummary,
+    balanceAdjustmentForm.code
+  ]);
+
   const filteredEmployees =
     employeeList;
 
@@ -2395,6 +2728,75 @@ export default function PersonnelPage() {
         leaveEmployeePageSize
     );
 
+  const filteredBalanceEmployees =
+    employees
+      .filter((employee) => employee.is_active)
+      .filter((employee) => {
+
+        const search =
+          balanceEmployeeSearch
+            .toLowerCase()
+            .trim();
+
+        if (!search) {
+          return true;
+        }
+
+        return (
+          matchesNameSearch(employee.full_name, search) ||
+          (employee.dni || '')
+            .toLowerCase()
+            .includes(search) ||
+          (employee.file_number || '')
+            .toLowerCase()
+            .includes(search) ||
+          (employee.department_name || '')
+            .toLowerCase()
+            .includes(search)
+        );
+      })
+      .slice(0, 8);
+
+  const selectedBalanceInfo =
+    getBalanceInfo();
+
+  const balanceAllowedInput =
+    Number(
+      balanceAdjustmentForm.allowed_days ||
+      selectedBalanceInfo?.allowed ||
+      0
+    );
+
+  const balanceUsedInput =
+    Number(
+      selectedBalanceInfo?.unit === 'hours'
+        ? balanceAdjustmentForm.used_hours ||
+          selectedBalanceInfo?.current ||
+          0
+        : balanceAdjustmentForm.used_days ||
+          selectedBalanceInfo?.current ||
+          0
+    );
+
+  const balanceAvailablePreview =
+    selectedBalanceInfo
+      ? Number(
+        (
+          balanceAllowedInput -
+          balanceUsedInput -
+          Number(selectedBalanceInfo.pending || 0)
+        ).toFixed(2)
+      )
+      : 0;
+
+  const selectedBalanceAdjustments =
+    selectedBalanceEmployee
+      ? balanceAdjustments.filter((adjustment) =>
+        adjustment.employee_id === selectedBalanceEmployee.id &&
+        adjustment.code === balanceAdjustmentForm.code
+      )
+      : [];
+
   function isSunday(
     day: number
   ) {
@@ -2541,7 +2943,7 @@ export default function PersonnelPage() {
               changeTab('balance-adjustments')
             }
           >
-            Saldos iniciales
+            Saldos de licencias
           </button>
         )}
       </div>
@@ -4806,188 +5208,260 @@ export default function PersonnelPage() {
       {
         activeTab === 'balance-adjustments' && (
           <>
-            <form
-              className="personnel-form"
-              onSubmit={handleBalanceAdjustmentSubmit}
-            >
-              <select
-                className="form-input"
-                name="employee_id"
-                value={balanceAdjustmentForm.employee_id}
-                onChange={handleBalanceAdjustmentChange}
-              >
-                <option value="">Empleado</option>
-                {employees
-                  .filter((employee) => employee.is_active)
-                  .map((employee) => (
-                    <option
-                      key={employee.id}
-                      value={employee.id}
-                    >
-                      {employee.full_name}
-                    </option>
-                  ))}
-              </select>
+            <div className="nutrition-layout">
+              <div className="table-container nutrition-patient-list">
+                <h2>Empleados</h2>
+                <input
+                  className="form-input"
+                  placeholder="Buscar por nombre, DNI o legajo"
+                  value={balanceEmployeeSearch}
+                  onChange={(event) =>
+                    setBalanceEmployeeSearch(event.target.value)
+                  }
+                />
 
-              <select
-                className="form-input"
-                name="code"
-                value={balanceAdjustmentForm.code}
-                onChange={handleBalanceAdjustmentChange}
-              >
-                {codes
-                  .filter((code) =>
-                    [
-                      '8',
-                      '29',
-                      '34',
-                      'C',
-                      '26',
-                      '24',
-                      '43',
-                      '46'
-                    ].includes(code.code)
-                  )
-                  .map((code) => (
-                    <option
-                      key={code.id}
-                      value={code.code}
-                    >
-                      {code.code} - {code.description}
-                    </option>
-                  ))}
-              </select>
-
-              <input
-                className="form-input"
-                type="date"
-                name="adjustment_date"
-                value={balanceAdjustmentForm.adjustment_date}
-                onChange={handleBalanceAdjustmentChange}
-              />
-
-              <input
-                className="form-input"
-                type="number"
-                name="year"
-                placeholder="Año"
-                value={balanceAdjustmentForm.year}
-                onChange={handleBalanceAdjustmentChange}
-              />
-
-              <input
-                className="form-input"
-                type="number"
-                min="1"
-                max="12"
-                name="month"
-                placeholder="Mes"
-                value={balanceAdjustmentForm.month}
-                onChange={handleBalanceAdjustmentChange}
-              />
-
-              <input
-                className="form-input"
-                type="number"
-                min="0"
-                step="1"
-                name="used_days"
-                placeholder="Dias ya usados"
-                value={balanceAdjustmentForm.used_days}
-                onChange={handleBalanceAdjustmentChange}
-              />
-
-              <input
-                className="form-input"
-                type="number"
-                min="0"
-                step="0.5"
-                name="used_hours"
-                placeholder="Horas ya usadas"
-                value={balanceAdjustmentForm.used_hours}
-                onChange={handleBalanceAdjustmentChange}
-              />
-
-              <textarea
-                className="form-input personnel-notes"
-                name="notes"
-                placeholder="Notas"
-                rows={3}
-                value={balanceAdjustmentForm.notes}
-                onChange={handleBalanceAdjustmentChange}
-              />
-
-              <button
-                className="btn-success"
-                type="submit"
-              >
-                Cargar saldo inicial
-              </button>
-            </form>
-
-            <p className="results-summary">
-              Estos ajustes representan consumos previos al uso del sistema y no cargan presentismo.
-            </p>
-
-            <div className="table-container">
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>Empleado</th>
-                    <th>Clave</th>
-                    <th>Fecha</th>
-                    <th>Año</th>
-                    <th>Mes</th>
-                    <th>Dias</th>
-                    <th>Horas</th>
-                    <th>Notas</th>
-                    <th></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {balanceAdjustments.map((adjustment) => (
-                    <tr key={adjustment.id}>
-                      <td>
-                        <strong>{adjustment.full_name}</strong>
-                        <br />
-                        <span>{adjustment.department_name || '-'}</span>
-                      </td>
-                      <td>
-                        {adjustment.code} - {adjustment.description}
-                      </td>
-                      <td>
-                        {toDateInput(adjustment.adjustment_date) || '-'}
-                      </td>
-                      <td>{adjustment.year}</td>
-                      <td>{adjustment.month || '-'}</td>
-                      <td>{Math.trunc(Number(adjustment.used_days || 0)) || '-'}</td>
-                      <td>{adjustment.used_hours || '-'}</td>
-                      <td>{adjustment.notes || '-'}</td>
-                      <td>
-                        <button
-                          className="btn-danger"
-                          type="button"
-                          onClick={() =>
-                            deleteBalanceAdjustment(adjustment.id)
-                          }
-                        >
-                          Eliminar
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-
-                  {
-                    balanceAdjustments.length === 0 && (
-                      <tr>
-                        <td colSpan={9}>
-                          Todavia no hay saldos iniciales cargados.
+                <table className="data-table">
+                  <tbody>
+                    {filteredBalanceEmployees.map((employee) => (
+                      <tr
+                        key={employee.id}
+                        className={
+                          selectedBalanceEmployee?.id === employee.id
+                            ? 'selected-row'
+                            : ''
+                        }
+                      >
+                        <td>
+                          <strong>{employee.full_name}</strong>
+                          <br />
+                          <span>
+                            DNI {employee.dni || '-'} · Legajo {employee.file_number || '-'}
+                          </span>
+                          <br />
+                          <span>{employee.department_name || '-'}</span>
+                        </td>
+                        <td>
+                          <button
+                            className="btn-secondary"
+                            type="button"
+                            onClick={() =>
+                              selectBalanceEmployee(employee)
+                            }
+                          >
+                            Seleccionar
+                          </button>
                         </td>
                       </tr>
-                    )
-                  }
-                </tbody>
-              </table>
+                    ))}
+
+                    {filteredBalanceEmployees.length === 0 && (
+                      <tr>
+                        <td colSpan={2}>
+                          No hay empleados con ese filtro.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              <section className="nutrition-detail-panel">
+                {!selectedBalanceEmployee ? (
+                  <div className="empty-state">
+                    Selecciona un empleado para modificar sus saldos.
+                  </div>
+                ) : (
+                  <>
+                    <div className="nutrition-detail-header">
+                      <div>
+                        <h2>{selectedBalanceEmployee.full_name}</h2>
+                        <p>
+                          DNI {selectedBalanceEmployee.dni || '-'} · Legajo {selectedBalanceEmployee.file_number || '-'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <form
+                      className="personnel-form"
+                      onSubmit={handleBalanceAdjustmentSubmit}
+                    >
+                      <select
+                        className="form-input"
+                        name="code"
+                        value={balanceAdjustmentForm.code}
+                        onChange={handleBalanceAdjustmentChange}
+                      >
+                        {codes
+                          .filter((code) =>
+                            balanceManagedCodes.includes(code.code)
+                          )
+                          .map((code) => (
+                            <option
+                              key={code.id}
+                              value={code.code}
+                            >
+                              {code.code} - {code.description}
+                            </option>
+                          ))}
+                      </select>
+
+                      <input
+                        className="form-input"
+                        type="number"
+                        name="year"
+                        placeholder="Año"
+                        value={balanceAdjustmentForm.year}
+                        onChange={handleBalanceAdjustmentChange}
+                      />
+
+                    </form>
+
+                    {selectedBalanceInfo && (
+                      <>
+                        <div className="dashboard-grid">
+                          <div className="dashboard-card">
+                            <h3>{selectedBalanceInfo.allowedLabel}</h3>
+                            <p>{selectedBalanceInfo.allowed}</p>
+                            <span>{selectedBalanceInfo.title}</span>
+                          </div>
+
+                          <div className="dashboard-card">
+                            <h3>{selectedBalanceInfo.currentLabel}</h3>
+                            <p>{selectedBalanceInfo.current}</p>
+                            <span>Registrado actualmente</span>
+                          </div>
+
+                          <div className="dashboard-card">
+                            <h3>Pendiente</h3>
+                            <p>{selectedBalanceInfo.pending}</p>
+                            <span>Solicitado sin cerrar</span>
+                          </div>
+
+                          <div className="dashboard-card">
+                            <h3>Disponible</h3>
+                            <p>{balanceAvailablePreview}</p>
+                            <span>
+                              Calculado con los valores cargados
+                            </span>
+                          </div>
+                        </div>
+
+                        <form
+                          className="personnel-form"
+                          onSubmit={handleBalanceAdjustmentSubmit}
+                        >
+                          {selectedBalanceInfo.canEditAllowed && (
+                            <input
+                              className="form-input"
+                              type="number"
+                              step="1"
+                              min="0"
+                              name="allowed_days"
+                              placeholder="Dias que tiene"
+                              value={balanceAdjustmentForm.allowed_days}
+                              onChange={handleBalanceAdjustmentChange}
+                            />
+                          )}
+
+                          {selectedBalanceInfo.unit === 'hours' ? (
+                            <input
+                              className="form-input"
+                              type="number"
+                              step="0.5"
+                              name="used_hours"
+                              placeholder="Nuevo total de horas usadas"
+                              value={balanceAdjustmentForm.used_hours}
+                              onChange={handleBalanceAdjustmentChange}
+                            />
+                          ) : (
+                            <input
+                              className="form-input"
+                              type="number"
+                              step="1"
+                              min="0"
+                              name="used_days"
+                              placeholder={
+                                balanceAdjustmentForm.code === 'C'
+                                  ? 'Nuevo total de dias ganados'
+                                  : 'Nuevo total de dias tomados'
+                              }
+                              value={balanceAdjustmentForm.used_days}
+                              onChange={handleBalanceAdjustmentChange}
+                            />
+                          )}
+
+                          <textarea
+                            className="form-input personnel-notes"
+                            name="notes"
+                            placeholder="Motivo de la correccion"
+                            rows={3}
+                            value={balanceAdjustmentForm.notes}
+                            onChange={handleBalanceAdjustmentChange}
+                          />
+
+                          <button
+                            className="btn-success"
+                            type="submit"
+                          >
+                            Guardar correccion
+                          </button>
+                        </form>
+                      </>
+                    )}
+
+                    <p className="results-summary">
+                      Las correcciones manuales ajustan el saldo sin modificar presentismo ni licencias ya cargadas.
+                    </p>
+
+                    <div className="table-container">
+                      <table className="data-table">
+                        <thead>
+                          <tr>
+                            <th>Clave</th>
+                            <th>Año</th>
+                            <th>Dias</th>
+                            <th>Horas</th>
+                            <th>Notas</th>
+                            <th></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {selectedBalanceAdjustments.map((adjustment) => (
+                            <tr key={adjustment.id}>
+                              <td>
+                                {adjustment.code} - {adjustment.description}
+                              </td>
+                              <td>{adjustment.year}</td>
+                              <td>{Number(adjustment.used_days || 0) || '-'}</td>
+                              <td>{Number(adjustment.used_hours || 0) || '-'}</td>
+                              <td>{adjustment.notes || '-'}</td>
+                              <td>
+                                <button
+                                  className="btn-danger"
+                                  type="button"
+                                  onClick={() =>
+                                    deleteBalanceAdjustment(adjustment.id)
+                                  }
+                                >
+                                  Eliminar
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+
+                          {selectedBalanceAdjustments.length === 0 && (
+                            <tr>
+                              <td colSpan={6}>
+                                Todavia no hay correcciones para esta licencia.
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                )}
+              </section>
             </div>
           </>
         )

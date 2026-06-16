@@ -747,7 +747,8 @@ export async function handleUpdateVacationBalance(
   try {
     await updateVacationBalance(
       Number(req.params.id),
-      Number(req.body.allowed_days)
+      Number(req.body.allowed_days),
+      Number(req.body.used_days)
     );
 
     return res.json({
