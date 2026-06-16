@@ -164,6 +164,24 @@ function shouldIgnoreWhatsappMessage(
   );
 }
 
+async function replyToWhatsappMessage(
+  message: any,
+  response: string
+) {
+  try {
+    await message.reply(response);
+  } catch (error) {
+    if (!client || !message?.from) {
+      throw error;
+    }
+
+    await client.sendMessage(
+      message.from,
+      response
+    );
+  }
+}
+
 async function handleIncomingWhatsappMessage(
   message: any
 ) {
@@ -204,13 +222,23 @@ async function handleIncomingWhatsappMessage(
     return;
   }
 
+  setEvent(
+    state.isReady ? 'connected' : 'authenticated',
+    `Mensaje recibido de ${message.from}: ${text.slice(0, 60)}`
+  );
+
+  console.info(
+    `[whatsapp] Mensaje recibido de ${message.from}: ${text}`
+  );
+
   const result =
     await buildWhatsappResponse(
       text,
       message.from
     );
 
-  await message.reply(
+  await replyToWhatsappMessage(
+    message,
     result.response
   );
 
