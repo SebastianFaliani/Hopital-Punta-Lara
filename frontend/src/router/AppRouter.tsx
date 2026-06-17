@@ -29,6 +29,7 @@ import VaccineDeliveriesPage from '../pages/VaccineDeliveriesPage';
 import AuditPage from '../pages/AuditPage';
 import LaboratoryPage from '../pages/LaboratoryPage';
 import NutritionPage from '../pages/NutritionPage';
+import HousekeepingPage from '../pages/HousekeepingPage';
 
 import ProtectedRoute from '../auth/ProtectedRoute';
 import HomeRedirect from '../auth/HomeRedirect';
@@ -185,6 +186,11 @@ export default function AppRouter() {
             <Route
               path="/nutrition"
               element={<NutritionPage />}
+            />
+
+            <Route
+              path="/housekeeping"
+              element={<HousekeepingPage />}
             />
 
             <Route

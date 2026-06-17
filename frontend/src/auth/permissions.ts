@@ -166,6 +166,20 @@ export function getAvailableNavigation(
     });
   }
 
+  if (
+    hospitalModules &&
+    hasPermission(
+      user,
+      'housekeeping.view',
+      ['admin', 'mayo', 'dir']
+    )
+  ) {
+    items.push({
+      path: '/housekeeping',
+      label: 'Mayordomia'
+    });
+  }
+
   if (user.role === 'admin') {
     items.push({
       path: '/whatsapp',

@@ -73,6 +73,11 @@ function getRequestPermission(
       paths: ['/nutrition'],
       view: 'nutrition.view',
       manage: 'nutrition.manage'
+    },
+    {
+      paths: ['/housekeeping'],
+      view: 'housekeeping.view',
+      manage: 'housekeeping.manage'
     }
   ];
 
