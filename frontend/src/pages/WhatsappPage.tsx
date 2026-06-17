@@ -92,6 +92,48 @@ const emptyDoctorForm = {
   closed_message: ''
 };
 
+function formatNextOpeningText(
+  value: string
+) {
+  if (!value) {
+    return '';
+  }
+
+  const [datePart, timePart = ''] =
+    value.split('T');
+
+  const [year, month, day] =
+    datePart.split('-').map(Number);
+
+  if (!year || !month || !day) {
+    return '';
+  }
+
+  const date =
+    new Date(year, month - 1, day);
+
+  const weekday =
+    weekdayOptions.find((option) =>
+      option.value === (date.getDay() === 0 ? 7 : date.getDay())
+    )?.label || '';
+
+  const time =
+    timePart.slice(0, 5);
+
+  return `${weekday} ${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')} a las ${time} hs.`;
+}
+
+function buildClosedBookingMessage(
+  nextOpenAt: string
+) {
+  const formattedDate =
+    formatNextOpeningText(nextOpenAt);
+
+  return formattedDate
+    ? `Por el momento no quedan turnos disponibles. La turnera vuelve a abrir el ${formattedDate}`
+    : '';
+}
+
 export default function WhatsappPage() {
 
   const { user } =
@@ -151,6 +193,21 @@ export default function WhatsappPage() {
   const [editingDoctor, setEditingDoctor] =
     useState<AppointmentDoctor | null>(null);
 
+  const [showDoctorModal, setShowDoctorModal] =
+    useState(false);
+
+  const [doctorSearch, setDoctorSearch] =
+    useState('');
+
+  const [closingDoctor, setClosingDoctor] =
+    useState<AppointmentDoctor | null>(null);
+
+  const [closeBookingForm, setCloseBookingForm] =
+    useState({
+      next_open_at: '',
+      closed_message: ''
+    });
+
   const [scheduleForm, setScheduleForm] =
     useState<DoctorSchedule[]>([]);
 
@@ -175,7 +232,7 @@ export default function WhatsappPage() {
     });
 
   const [activeTab, setActiveTab] =
-    useState<'chat' | 'turnera' | 'conexion'>('chat');
+    useState<'chat' | 'turnera' | 'solicitudes' | 'conexion'>('chat');
 
   async function loadWebStatus() {
 
@@ -548,12 +605,21 @@ export default function WhatsappPage() {
         }))
         : []
     );
+    setShowDoctorModal(true);
+  }
+
+  function startNewDoctor() {
+    setEditingDoctor(null);
+    setDoctorForm(emptyDoctorForm);
+    setScheduleForm([]);
+    setShowDoctorModal(true);
   }
 
   function resetDoctorForm() {
     setEditingDoctor(null);
     setDoctorForm(emptyDoctorForm);
     setScheduleForm([]);
+    setShowDoctorModal(false);
   }
 
   function addScheduleRow() {
@@ -607,7 +673,14 @@ export default function WhatsappPage() {
       const payload = {
         ...doctorForm,
         next_open_at:
-          doctorForm.next_open_at || null
+          doctorForm.next_open_at || null,
+        closed_message:
+          doctorForm.closed_message ||
+          (
+            !doctorForm.is_booking_open && doctorForm.next_open_at
+              ? buildClosedBookingMessage(doctorForm.next_open_at)
+              : ''
+          )
       };
 
       const response =
@@ -646,14 +719,19 @@ export default function WhatsappPage() {
   async function toggleDoctorBooking(
     doctor: AppointmentDoctor
   ) {
-    const nextOpenAt =
-      doctor.is_booking_open
-        ? window.prompt(
-          'La turnera se va a cerrar. Indica cuando vuelve a abrir. Formato: 2026-06-30 07:00'
-        )
-        : null;
+    if (doctor.is_booking_open) {
+      const nextOpenAt =
+        doctor.next_open_at
+          ? doctor.next_open_at.slice(0, 16)
+          : '';
 
-    if (doctor.is_booking_open && !nextOpenAt) {
+      setClosingDoctor(doctor);
+      setCloseBookingForm({
+        next_open_at: nextOpenAt,
+        closed_message:
+          doctor.closed_message ||
+          buildClosedBookingMessage(nextOpenAt)
+      });
       return;
     }
 
@@ -666,17 +744,57 @@ export default function WhatsappPage() {
         {
           method: 'PATCH',
           body: JSON.stringify({
-            is_booking_open: !doctor.is_booking_open,
-            next_open_at: nextOpenAt
+            is_booking_open: true,
+            next_open_at: null,
+            closed_message: null
           })
         }
       );
 
-      setSuccessMessage(
-        doctor.is_booking_open
-          ? 'Turnera cerrada.'
-          : 'Turnera abierta.'
+      setSuccessMessage('Turnera abierta.');
+      await loadDoctors();
+
+    } catch (error: any) {
+      setError(error.message);
+    }
+  }
+
+  async function closeDoctorBooking() {
+    if (!closingDoctor) {
+      return;
+    }
+
+    if (!closeBookingForm.next_open_at) {
+      setError('Indica la fecha y hora en que vuelve a abrir la turnera.');
+      return;
+    }
+
+    try {
+      setError('');
+      setSuccessMessage('');
+
+      const closedMessage =
+        closeBookingForm.closed_message ||
+        buildClosedBookingMessage(closeBookingForm.next_open_at);
+
+      await apiFetch(
+        `/whatsapp/appointments/doctors/${closingDoctor.id}/booking`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify({
+            is_booking_open: false,
+            next_open_at: closeBookingForm.next_open_at,
+            closed_message: closedMessage
+          })
+        }
       );
+
+      setSuccessMessage('Turnera cerrada.');
+      setClosingDoctor(null);
+      setCloseBookingForm({
+        next_open_at: '',
+        closed_message: ''
+      });
       await loadDoctors();
 
     } catch (error: any) {
@@ -871,6 +989,20 @@ export default function WhatsappPage() {
       );
     });
 
+  const filteredDoctors =
+    doctors.filter((doctor) => {
+      const search =
+        doctorSearch.trim().toLowerCase();
+
+      if (!search) {
+        return true;
+      }
+
+      return `${doctor.specialty} ${doctor.doctor_name}`
+        .toLowerCase()
+        .includes(search);
+    });
+
   return (
 
     <div>
@@ -913,6 +1045,20 @@ export default function WhatsappPage() {
           }
         >
           Turnera
+        </button>
+
+        <button
+          type="button"
+          className={
+            activeTab === 'solicitudes'
+              ? 'module-tab module-tab-active'
+              : 'module-tab'
+          }
+          onClick={() =>
+            setActiveTab('solicitudes')
+          }
+        >
+          Solicitudes
         </button>
 
         <button
@@ -1034,196 +1180,34 @@ export default function WhatsappPage() {
       )}
 
       {activeTab === 'turnera' && (
-      <>
       <section className="dashboard-panel whatsapp-preview">
-        <h2>Turnera medica por WhatsApp</h2>
-        <p className="page-subtitle">
-          Configura medicos, dias de atencion y apertura de turnera.
-        </p>
-
-        <form
-          className="whatsapp-appointment-form"
-          onSubmit={saveDoctor}
-        >
-          <input
-            className="form-input"
-            placeholder="Especialidad"
-            value={doctorForm.specialty}
-            onChange={(e) =>
-              setDoctorForm({
-                ...doctorForm,
-                specialty: e.target.value
-              })
-            }
-          />
-
-          <input
-            className="form-input"
-            placeholder="Medico"
-            value={doctorForm.doctor_name}
-            onChange={(e) =>
-              setDoctorForm({
-                ...doctorForm,
-                doctor_name: e.target.value
-              })
-            }
-          />
-
-          <label className="checkbox-row">
-            <input
-              type="checkbox"
-              checked={doctorForm.is_active}
-              onChange={(e) =>
-                setDoctorForm({
-                  ...doctorForm,
-                  is_active: e.target.checked
-                })
-              }
-            />
-            Activo
-          </label>
-
-          <label className="checkbox-row">
-            <input
-              type="checkbox"
-              checked={doctorForm.is_booking_open}
-              onChange={(e) =>
-                setDoctorForm({
-                  ...doctorForm,
-                  is_booking_open: e.target.checked
-                })
-              }
-            />
-            Turnera abierta
-          </label>
-
-          {!doctorForm.is_booking_open && (
-            <input
-              className="form-input"
-              type="datetime-local"
-              value={doctorForm.next_open_at}
-              onChange={(e) =>
-                setDoctorForm({
-                  ...doctorForm,
-                  next_open_at: e.target.value
-                })
-              }
-            />
-          )}
-
-          <textarea
-            className="form-input"
-            rows={3}
-            placeholder="Mensaje opcional cuando no hay turnos"
-            value={doctorForm.closed_message}
-            onChange={(e) =>
-              setDoctorForm({
-                ...doctorForm,
-                closed_message: e.target.value
-              })
-            }
-          />
-
-          <div className="whatsapp-schedule-editor">
-            <div className="whatsapp-section-title-row">
-              <h3>Dias y horarios de atencion</h3>
-              <button
-                className="btn-secondary"
-                type="button"
-                onClick={addScheduleRow}
-              >
-                + Agregar dia
-              </button>
-            </div>
-
-            {scheduleForm.map((schedule, index) => (
-              <div
-                className="whatsapp-schedule-row"
-                key={`${schedule.weekday}-${index}`}
-              >
-                <select
-                  className="form-input"
-                  value={schedule.weekday}
-                  onChange={(e) =>
-                    updateScheduleRow(
-                      index,
-                      'weekday',
-                      Number(e.target.value)
-                    )
-                  }
-                >
-                  {weekdayOptions.map((day) => (
-                    <option
-                      key={day.value}
-                      value={day.value}
-                    >
-                      {day.label}
-                    </option>
-                  ))}
-                </select>
-
-                <input
-                  className="form-input"
-                  type="time"
-                  value={schedule.start_time}
-                  onChange={(e) =>
-                    updateScheduleRow(
-                      index,
-                      'start_time',
-                      e.target.value
-                    )
-                  }
-                />
-
-                <input
-                  className="form-input"
-                  type="time"
-                  value={schedule.end_time}
-                  onChange={(e) =>
-                    updateScheduleRow(
-                      index,
-                      'end_time',
-                      e.target.value
-                    )
-                  }
-                />
-
-                <button
-                  className="btn-danger"
-                  type="button"
-                  onClick={() =>
-                    removeScheduleRow(index)
-                  }
-                >
-                  Quitar
-                </button>
-              </div>
-            ))}
+        <div className="whatsapp-section-title-row">
+          <div>
+            <h2>Turnera medica por WhatsApp</h2>
+            <p className="page-subtitle">
+              Configura medicos, dias de atencion y apertura de turnera.
+            </p>
           </div>
 
-          <div className="management-actions">
-            <button
-              className="btn-success"
-              type="submit"
-            >
-              {
-                editingDoctor
-                  ? 'Guardar medico'
-                  : 'Crear medico'
-              }
-            </button>
+          <button
+            className="btn-primary"
+            type="button"
+            onClick={startNewDoctor}
+          >
+            + Nuevo medico
+          </button>
+        </div>
 
-            {editingDoctor && (
-              <button
-                className="btn-secondary"
-                type="button"
-                onClick={resetDoctorForm}
-              >
-                Cancelar
-              </button>
-            )}
-          </div>
-        </form>
+        <div className="filter-bar">
+          <input
+            className="form-input"
+            placeholder="Buscar medico o especialidad"
+            value={doctorSearch}
+            onChange={(e) =>
+              setDoctorSearch(e.target.value)
+            }
+          />
+        </div>
 
         <div className="table-container">
           <table className="data-table">
@@ -1239,7 +1223,7 @@ export default function WhatsappPage() {
             </thead>
 
             <tbody>
-              {doctors.map((doctor) => (
+              {filteredDoctors.map((doctor) => (
                 <tr key={doctor.id}>
                   <td>{doctor.specialty}</td>
                   <td>{doctor.doctor_name}</td>
@@ -1306,11 +1290,21 @@ export default function WhatsappPage() {
                   </td>
                 </tr>
               ))}
+
+              {filteredDoctors.length === 0 && (
+                <tr>
+                  <td colSpan={6}>
+                    No hay medicos para ese filtro.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
       </section>
+      )}
 
+      {activeTab === 'solicitudes' && (
       <section className="dashboard-panel whatsapp-preview">
         <h2>Agenda de solicitudes</h2>
 
@@ -1441,7 +1435,268 @@ export default function WhatsappPage() {
           </table>
         </div>
       </section>
-      </>
+      )}
+
+      {showDoctorModal && (
+        <div className="modal-overlay">
+          <div className="modal-content modal-content-wide">
+            <h2 className="modal-title">
+              {editingDoctor ? 'Editar medico' : 'Nuevo medico'}
+            </h2>
+
+            <form
+              className="whatsapp-appointment-form"
+              onSubmit={saveDoctor}
+            >
+              <input
+                className="form-input"
+                placeholder="Especialidad"
+                value={doctorForm.specialty}
+                onChange={(e) =>
+                  setDoctorForm({
+                    ...doctorForm,
+                    specialty: e.target.value
+                  })
+                }
+              />
+
+              <input
+                className="form-input"
+                placeholder="Medico"
+                value={doctorForm.doctor_name}
+                onChange={(e) =>
+                  setDoctorForm({
+                    ...doctorForm,
+                    doctor_name: e.target.value
+                  })
+                }
+              />
+
+              <label className="checkbox-row">
+                <input
+                  type="checkbox"
+                  checked={doctorForm.is_active}
+                  onChange={(e) =>
+                    setDoctorForm({
+                      ...doctorForm,
+                      is_active: e.target.checked
+                    })
+                  }
+                />
+                Activo
+              </label>
+
+              <label className="checkbox-row">
+                <input
+                  type="checkbox"
+                  checked={doctorForm.is_booking_open}
+                  onChange={(e) =>
+                    setDoctorForm({
+                      ...doctorForm,
+                      is_booking_open: e.target.checked
+                    })
+                  }
+                />
+                Turnera abierta
+              </label>
+
+              {!doctorForm.is_booking_open && (
+                <input
+                  className="form-input"
+                  type="datetime-local"
+                  value={doctorForm.next_open_at}
+                  onChange={(e) =>
+                    setDoctorForm({
+                      ...doctorForm,
+                      next_open_at: e.target.value,
+                      closed_message:
+                        buildClosedBookingMessage(e.target.value)
+                    })
+                  }
+                />
+              )}
+
+              <textarea
+                className="form-input"
+                rows={3}
+                placeholder="Mensaje opcional cuando no hay turnos"
+                value={doctorForm.closed_message}
+                onChange={(e) =>
+                  setDoctorForm({
+                    ...doctorForm,
+                    closed_message: e.target.value
+                  })
+                }
+              />
+
+              <div className="whatsapp-schedule-editor">
+                <div className="whatsapp-section-title-row">
+                  <h3>Dias y horarios de atencion</h3>
+                  <button
+                    className="btn-secondary"
+                    type="button"
+                    onClick={addScheduleRow}
+                  >
+                    + Agregar dia
+                  </button>
+                </div>
+
+                {scheduleForm.map((schedule, index) => (
+                  <div
+                    className="whatsapp-schedule-row"
+                    key={`${schedule.weekday}-${index}`}
+                  >
+                    <select
+                      className="form-input"
+                      value={schedule.weekday}
+                      onChange={(e) =>
+                        updateScheduleRow(
+                          index,
+                          'weekday',
+                          Number(e.target.value)
+                        )
+                      }
+                    >
+                      {weekdayOptions.map((day) => (
+                        <option
+                          key={day.value}
+                          value={day.value}
+                        >
+                          {day.label}
+                        </option>
+                      ))}
+                    </select>
+
+                    <input
+                      className="form-input"
+                      type="time"
+                      value={schedule.start_time}
+                      onChange={(e) =>
+                        updateScheduleRow(
+                          index,
+                          'start_time',
+                          e.target.value
+                        )
+                      }
+                    />
+
+                    <input
+                      className="form-input"
+                      type="time"
+                      value={schedule.end_time}
+                      onChange={(e) =>
+                        updateScheduleRow(
+                          index,
+                          'end_time',
+                          e.target.value
+                        )
+                      }
+                    />
+
+                    <button
+                      className="btn-danger"
+                      type="button"
+                      onClick={() =>
+                        removeScheduleRow(index)
+                      }
+                    >
+                      Quitar
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              <div className="modal-actions">
+                <button
+                  className="btn-secondary"
+                  type="button"
+                  onClick={resetDoctorForm}
+                >
+                  Cancelar
+                </button>
+
+                <button
+                  className="btn-success"
+                  type="submit"
+                >
+                  Guardar medico
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {closingDoctor && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <h2 className="modal-title">
+              Cerrar turnera
+            </h2>
+
+            <p>
+              {closingDoctor.specialty} - {closingDoctor.doctor_name}
+            </p>
+
+            <label className="form-label">
+              Proxima apertura
+            </label>
+            <input
+              className="form-input"
+              type="datetime-local"
+              value={closeBookingForm.next_open_at}
+              onChange={(e) => {
+                const nextOpenAt =
+                  e.target.value;
+
+                setCloseBookingForm({
+                  next_open_at: nextOpenAt,
+                  closed_message:
+                    buildClosedBookingMessage(nextOpenAt)
+                });
+              }}
+            />
+
+            <label className="form-label">
+              Mensaje cuando no hay turnos
+            </label>
+            <textarea
+              className="form-input"
+              rows={4}
+              value={closeBookingForm.closed_message}
+              onChange={(e) =>
+                setCloseBookingForm({
+                  ...closeBookingForm,
+                  closed_message: e.target.value
+                })
+              }
+            />
+
+            <div className="modal-actions">
+              <button
+                className="btn-secondary"
+                type="button"
+                onClick={() => {
+                  setClosingDoctor(null);
+                  setCloseBookingForm({
+                    next_open_at: '',
+                    closed_message: ''
+                  });
+                }}
+              >
+                Cancelar
+              </button>
+
+              <button
+                className="btn-danger"
+                type="button"
+                onClick={closeDoctorBooking}
+              >
+                Cerrar turnera
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {confirmingRequest && (
