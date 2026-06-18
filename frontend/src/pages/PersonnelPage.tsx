@@ -383,6 +383,19 @@ const leaveCodeOptions = [
   '43'
 ];
 
+const attendanceCodesOnlyFromLeaves =
+  new Set(leaveCodeOptions);
+
+const singleDayLeaveCodes =
+  new Set([
+    '24',
+    '26',
+    '33',
+    '35',
+    '43',
+    '46'
+  ]);
+
 function toDateInput(
   value: string | null
 ) {
@@ -1383,13 +1396,24 @@ export default function PersonnelPage() {
         ? target.value
         : nextForm.start_date;
 
+    if (
+      singleDayLeaveCodes.has(nextCode) &&
+      nextStartDate
+    ) {
+      nextForm.end_date =
+        nextStartDate;
+    }
+
     const automaticEndDate =
       getAutomaticEndDate(
         nextCode,
         nextStartDate
       );
 
-    if (automaticEndDate) {
+    if (
+      automaticEndDate &&
+      !singleDayLeaveCodes.has(nextCode)
+    ) {
       nextForm.end_date =
         automaticEndDate;
     }
@@ -1446,6 +1470,20 @@ export default function PersonnelPage() {
     setError('');
 
     try {
+      const payload = {
+        ...leaveForm,
+        end_date:
+          singleDayLeaveCodes.has(leaveForm.code)
+            ? leaveForm.start_date
+            : leaveForm.end_date,
+        employee_id:
+          selectedLeaveEmployee?.id ||
+          Number(leaveForm.employee_id),
+        total_hours:
+          leaveForm.total_hours
+            ? Number(leaveForm.total_hours)
+            : 0
+      };
 
       const res =
         await apiFetch(
@@ -1458,16 +1496,7 @@ export default function PersonnelPage() {
               ? 'PUT'
               : 'POST',
           body:
-            JSON.stringify({
-              ...leaveForm,
-              employee_id:
-                selectedLeaveEmployee?.id ||
-                Number(leaveForm.employee_id),
-              total_hours:
-                leaveForm.total_hours
-                  ? Number(leaveForm.total_hours)
-                  : 0
-            })
+            JSON.stringify(payload)
         }
       );
 
@@ -2119,6 +2148,46 @@ export default function PersonnelPage() {
     });
   }
 
+  function validateAttendanceCellOnBlur(
+    employeeId: number,
+    day: number
+  ) {
+    const key =
+      `${employeeId}-${day}`;
+
+    const value =
+      (attendanceEdits[key] || '')
+        .trim()
+        .toUpperCase();
+
+    if (
+      !value ||
+      !attendanceCodesOnlyFromLeaves.has(value)
+    ) {
+      return;
+    }
+
+    const description =
+      codes.find((item) =>
+        item.code.toUpperCase() === value
+      )?.description;
+
+    const message =
+      `La clave ${description ? `${value} - ${description}` : value} debe cargarse desde Licencias, no desde Presentismo.`;
+
+    setAttendanceEdits((current) => {
+      const next =
+        { ...current };
+
+      delete next[key];
+
+      return next;
+    });
+
+    setError(message);
+    showSystemAlert(message);
+  }
+
   function hasPendingAttendanceChanges() {
 
     return Object.keys(attendanceEdits).length > 0;
@@ -2304,6 +2373,41 @@ export default function PersonnelPage() {
         setError(
           `La clave ${invalidCodes.join(', ')} no existe. Claves disponibles: ${Array.from(activeCodes).sort().join(', ')}`
         );
+        return;
+      }
+
+      const leaveOnlyCodes =
+        Array.from(
+          new Set(
+            Object.values(attendanceEdits)
+              .map((code) => code.trim().toUpperCase())
+              .filter((code) =>
+                code &&
+                attendanceCodesOnlyFromLeaves.has(code)
+              )
+          )
+        );
+
+      if (leaveOnlyCodes.length > 0) {
+        const detail =
+          leaveOnlyCodes
+            .map((code) => {
+              const description =
+                codes.find((item) =>
+                  item.code.toUpperCase() === code
+                )?.description;
+
+              return description
+                ? `${code} - ${description}`
+                : code;
+            })
+            .join(', ');
+
+        const message =
+          `La clave ${detail} debe cargarse desde Licencias, no desde Presentismo.`;
+
+        setError(message);
+        showSystemAlert(message);
         return;
       }
 
@@ -4187,6 +4291,13 @@ export default function PersonnelPage() {
                                   e.target.value
                                 )
                               }
+                              onBlur={() =>
+                                !readOnly &&
+                                validateAttendanceCellOnBlur(
+                                  employee.id,
+                                  day
+                                )
+                              }
                               readOnly={readOnly}
                               onKeyDown={(e) =>
                                 handleAttendanceKeyDown(
@@ -4471,21 +4582,36 @@ export default function PersonnelPage() {
                   ))}
               </select>
 
-              <input
-                className="form-input"
-                type="date"
-                name="start_date"
-                value={leaveForm.start_date}
-                onChange={handleLeaveChange}
-              />
+              {singleDayLeaveCodes.has(leaveForm.code) ? (
+                <input
+                  className="form-input"
+                  type="date"
+                  name="start_date"
+                  aria-label="Fecha"
+                  value={leaveForm.start_date}
+                  onChange={handleLeaveChange}
+                />
+              ) : (
+                <>
+                  <input
+                    className="form-input"
+                    type="date"
+                    name="start_date"
+                    aria-label="Fecha desde"
+                    value={leaveForm.start_date}
+                    onChange={handleLeaveChange}
+                  />
 
-              <input
-                className="form-input"
-                type="date"
-                name="end_date"
-                value={leaveForm.end_date}
-                onChange={handleLeaveChange}
-              />
+                  <input
+                    className="form-input"
+                    type="date"
+                    name="end_date"
+                    aria-label="Fecha hasta"
+                    value={leaveForm.end_date}
+                    onChange={handleLeaveChange}
+                  />
+                </>
+              )}
 
               {(
                 ['24', '35', '46'].includes(leaveForm.code) ||

@@ -1,6 +1,33 @@
 import { pool }
   from '../../config/database';
 
+const attendanceCodesOnlyFromLeaves =
+  new Set([
+    '1',
+    '4',
+    '5',
+    '6',
+    '7',
+    '8',
+    '14',
+    '15',
+    '16',
+    '17',
+    '18',
+    '26',
+    '29',
+    '31',
+    '33',
+    '34',
+    '35',
+    '40',
+    '42',
+    '46',
+    '51',
+    '24',
+    '43'
+  ]);
+
 function toDateOnly(
   value: string | Date
 ) {
@@ -663,6 +690,12 @@ export async function saveAttendanceMonth(
         );
 
         continue;
+      }
+
+      if (attendanceCodesOnlyFromLeaves.has(code)) {
+        throw new Error(
+          `La clave ${code} debe cargarse desde Licencias, no desde Presentismo`
+        );
       }
 
       const [codeRows]: any =
