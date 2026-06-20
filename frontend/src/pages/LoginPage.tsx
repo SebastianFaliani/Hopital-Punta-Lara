@@ -77,12 +77,6 @@ export default function LoginPage() {
 
       <div className="auth-card">
 
-        <img
-          className="auth-logo"
-          src="/hospital-logo.jpg"
-          alt="Hospital Municipal de Punta Lara"
-        />
-
         <h1>
           Hospital Punta Lara
         </h1>
