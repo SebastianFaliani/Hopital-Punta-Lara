@@ -722,6 +722,9 @@ export default function PersonnelPage() {
   const [leaveEmployeeSearch, setLeaveEmployeeSearch] =
     useState('');
 
+  const [leaveRequestYearFilter, setLeaveRequestYearFilter] =
+    useState('todos');
+
   const [leaveEmployeePage, setLeaveEmployeePage] =
     useState(0);
 
@@ -2771,11 +2774,41 @@ export default function PersonnelPage() {
         );
       });
 
+  const selectedEmployeeLeaveYears =
+    Array.from(
+      new Set(
+        leaveRequests
+          .filter((request) =>
+            selectedLeaveEmployee &&
+            request.employee_id === selectedLeaveEmployee.id
+          )
+          .map((request) =>
+            toDateInput(request.start_date).slice(0, 4)
+          )
+          .filter(Boolean)
+      )
+    )
+      .sort((a, b) =>
+        Number(b) - Number(a)
+      );
+
   const selectedEmployeeLeaveRequests =
     selectedLeaveEmployee
-      ? leaveRequests.filter((request) =>
-        request.employee_id === selectedLeaveEmployee.id
-      )
+      ? leaveRequests
+        .filter((request) =>
+          request.employee_id === selectedLeaveEmployee.id
+        )
+        .filter((request) =>
+          leaveRequestYearFilter === 'todos' ||
+          toDateInput(request.start_date).slice(0, 4) === leaveRequestYearFilter
+        )
+        .sort((a, b) => {
+          const dateDiff =
+            new Date(toDateInput(b.start_date)).getTime() -
+            new Date(toDateInput(a.start_date)).getTime();
+
+          return dateDiff || b.id - a.id;
+        })
       : [];
 
   const filteredLeaveRequests =
@@ -4771,6 +4804,29 @@ export default function PersonnelPage() {
               )}
             </form>
             )}
+
+            <div className="filter-bar">
+              <select
+                className="form-input"
+                value={leaveRequestYearFilter}
+                onChange={(e) =>
+                  setLeaveRequestYearFilter(e.target.value)
+                }
+                disabled={!selectedLeaveEmployee}
+              >
+                <option value="todos">
+                  Todos los anos
+                </option>
+                {selectedEmployeeLeaveYears.map((year) => (
+                  <option
+                    key={year}
+                    value={year}
+                  >
+                    {year}
+                  </option>
+                ))}
+              </select>
+            </div>
 
             <div className="table-container">
               <table className="data-table">
