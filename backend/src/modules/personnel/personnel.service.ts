@@ -3272,7 +3272,7 @@ export async function createLeaveRequest(
         ['24', '43'].includes(validated.code.code)
           ? data.exit_time || null
           : null,
-        ['24', '43'].includes(validated.code.code)
+        validated.code.code === '43'
           ? data.return_time || null
           : null,
         validated.code.code === '43'
@@ -3390,7 +3390,7 @@ export async function updateLeaveRequest(
         ['24', '43'].includes(validated.code.code)
           ? data.exit_time || null
           : null,
-        ['24', '43'].includes(validated.code.code)
+        validated.code.code === '43'
           ? data.return_time || null
           : null,
         validated.code.code === '43'

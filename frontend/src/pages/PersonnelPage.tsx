@@ -396,6 +396,16 @@ const singleDayLeaveCodes =
     '46'
   ]);
 
+function isSingleDayLeaveCode(
+  code: string
+) {
+  return singleDayLeaveCodes.has(
+    String(code || '')
+      .trim()
+      .toUpperCase()
+  );
+}
+
 function toDateInput(
   value: string | null
 ) {
@@ -1408,11 +1418,10 @@ export default function PersonnelPage() {
         : nextForm.start_date;
 
     if (
-      singleDayLeaveCodes.has(nextCode) &&
-      nextStartDate
+      isSingleDayLeaveCode(nextCode)
     ) {
       nextForm.end_date =
-        nextStartDate;
+        nextStartDate || '';
     }
 
     const automaticEndDate =
@@ -1423,7 +1432,7 @@ export default function PersonnelPage() {
 
     if (
       automaticEndDate &&
-      !singleDayLeaveCodes.has(nextCode)
+      !isSingleDayLeaveCode(nextCode)
     ) {
       nextForm.end_date =
         automaticEndDate;
@@ -1484,9 +1493,13 @@ export default function PersonnelPage() {
       const payload = {
         ...leaveForm,
         end_date:
-          singleDayLeaveCodes.has(leaveForm.code)
+          isSingleDayLeaveCode(leaveForm.code)
             ? leaveForm.start_date
             : leaveForm.end_date,
+        return_time:
+          leaveForm.code === '24'
+            ? ''
+            : leaveForm.return_time,
         employee_id:
           selectedLeaveEmployee?.id ||
           Number(leaveForm.employee_id),
@@ -4624,7 +4637,7 @@ export default function PersonnelPage() {
                   ))}
               </select>
 
-              {singleDayLeaveCodes.has(leaveForm.code) ? (
+              {isSingleDayLeaveCode(leaveForm.code) ? (
                 <input
                   className="form-input"
                   type="date"
@@ -4715,16 +4728,6 @@ export default function PersonnelPage() {
                     </label>
                   )}
 
-                  {(leaveForm.code === '24') && (
-                    <input
-                      className="form-input"
-                      type="time"
-                      name="return_time"
-                      aria-label="Hora salida"
-                      value={leaveForm.return_time}
-                      onChange={handleLeaveChange}
-                    />
-                  )}
                 </>
               )}
 
@@ -4865,7 +4868,11 @@ export default function PersonnelPage() {
                         {request.code} - {request.description}
                       </td>
                       <td>{toDateInput(request.start_date)}</td>
-                      <td>{toDateInput(request.end_date)}</td>
+                      <td>
+                        {isSingleDayLeaveCode(request.code)
+                          ? '-'
+                          : toDateInput(request.end_date)}
+                      </td>
                       <td>{request.total_days || '-'}</td>
                       <td>{request.total_hours || '-'}</td>
                       <td>
