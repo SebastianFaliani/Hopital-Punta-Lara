@@ -1288,6 +1288,14 @@ export default function PersonnelPage() {
     loadLeaveSummary(employee.id);
   }
 
+  function clearSelectedLeaveEmployee() {
+    setSelectedLeaveEmployee(null);
+    setLeaveSummary(null);
+    setEditingLeaveRequest(null);
+    setLeaveRequestYearFilter('todos');
+    setLeaveForm(emptyLeaveForm);
+  }
+
   function resetLeaveForm() {
 
     setEditingLeaveRequest(null);
@@ -4426,7 +4434,8 @@ export default function PersonnelPage() {
                   value={leaveEmployeeSearch}
                   onChange={(e) => {
                     setLeaveEmployeePage(0);
-                    setLeaveEmployeeSearch(e.target.value)
+                    setLeaveEmployeeSearch(e.target.value);
+                    clearSelectedLeaveEmployee();
                   }}
                 />
               </div>
