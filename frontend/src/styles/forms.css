@@ -218,6 +218,11 @@
   margin-bottom: 24px;
 }
 
+.personnel-form {
+
+  align-items: end;
+}
+
 .management-form .form-input,
 .transfer-form .form-input,
 .personnel-form .form-input {

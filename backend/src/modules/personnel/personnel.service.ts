@@ -2443,6 +2443,9 @@ export async function getEmployeeDirectiveSummary(
           e.email,
           e.license_number,
           e.employment_type,
+          e.work_shift,
+          TIME_FORMAT(e.shift_start_time, '%H:%i') AS shift_start_time,
+          TIME_FORMAT(e.shift_end_time, '%H:%i') AS shift_end_time,
           e.is_professional,
           e.notes,
           e.is_active,
@@ -4076,6 +4079,9 @@ export async function getEmployees(
           e.email,
           e.license_number,
           e.employment_type,
+          e.work_shift,
+          TIME_FORMAT(e.shift_start_time, '%H:%i') AS shift_start_time,
+          TIME_FORMAT(e.shift_end_time, '%H:%i') AS shift_end_time,
           e.is_professional,
           e.notes,
           e.is_active,
@@ -4138,10 +4144,13 @@ export async function createEmployee(
           email,
           license_number,
           employment_type,
+          work_shift,
+          shift_start_time,
+          shift_end_time,
           is_professional,
           notes
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
       [
         data.department_id || null,
@@ -4156,6 +4165,9 @@ export async function createEmployee(
         data.email || null,
         data.license_number || null,
         data.employment_type || null,
+        data.work_shift || null,
+        data.shift_start_time || null,
+        data.shift_end_time || null,
         Boolean(data.is_professional),
         data.notes || null
       ]
@@ -4185,6 +4197,9 @@ export async function updateEmployee(
         email = ?,
         license_number = ?,
         employment_type = ?,
+        work_shift = ?,
+        shift_start_time = ?,
+        shift_end_time = ?,
         is_professional = ?,
         notes = ?
       WHERE id = ?
@@ -4202,6 +4217,9 @@ export async function updateEmployee(
       data.email || null,
       data.license_number || null,
       data.employment_type || null,
+      data.work_shift || null,
+      data.shift_start_time || null,
+      data.shift_end_time || null,
       Boolean(data.is_professional),
       data.notes || null,
       id

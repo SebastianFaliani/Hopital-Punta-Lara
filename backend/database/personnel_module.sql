@@ -22,6 +22,14 @@ CREATE TABLE IF NOT EXISTS employees (
   email VARCHAR(150),
   license_number VARCHAR(100),
   employment_type VARCHAR(100),
+  work_shift ENUM(
+    'manana',
+    'tarde',
+    'vespertino',
+    'noche'
+  ) NULL,
+  shift_start_time TIME NULL,
+  shift_end_time TIME NULL,
   is_professional BOOLEAN DEFAULT FALSE,
   notes TEXT,
   is_active BOOLEAN DEFAULT TRUE,

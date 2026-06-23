@@ -34,6 +34,9 @@ type Employee = {
   email: string | null;
   license_number: string | null;
   employment_type: string | null;
+  work_shift: string | null;
+  shift_start_time: string | null;
+  shift_end_time: string | null;
   is_professional: boolean;
   notes: string | null;
   is_active: boolean;
@@ -292,6 +295,35 @@ type LeaveSummary = {
   };
 };
 
+const workShiftLabels: Record<string, string> = {
+  manana: 'Mañana',
+  tarde: 'Tarde',
+  vespertino: 'Vespertino',
+  noche: 'Noche'
+};
+
+function formatEmployeeShift(
+  employee: Pick<Employee, 'work_shift' | 'shift_start_time' | 'shift_end_time'>
+) {
+  const shift =
+    employee.work_shift
+      ? workShiftLabels[employee.work_shift] || employee.work_shift
+      : '';
+
+  const hours =
+    employee.shift_start_time && employee.shift_end_time
+      ? `${employee.shift_start_time} a ${employee.shift_end_time}`
+      : employee.shift_start_time
+        ? `Entrada ${employee.shift_start_time}`
+        : employee.shift_end_time
+          ? `Salida ${employee.shift_end_time}`
+          : '';
+
+  return [shift, hours]
+    .filter(Boolean)
+    .join(' - ') || '-';
+}
+
 const emptyEmployee = {
   department_id: '',
   full_name: '',
@@ -305,6 +337,9 @@ const emptyEmployee = {
   email: '',
   license_number: '',
   employment_type: '',
+  work_shift: '',
+  shift_start_time: '',
+  shift_end_time: '',
   is_professional: false,
   notes: ''
 };
@@ -1052,6 +1087,12 @@ export default function PersonnelPage() {
         employee.license_number || '',
       employment_type:
         employee.employment_type || '',
+      work_shift:
+        employee.work_shift || '',
+      shift_start_time:
+        employee.shift_start_time || '',
+      shift_end_time:
+        employee.shift_end_time || '',
       is_professional:
         employee.is_professional,
       notes:
@@ -1413,6 +1454,9 @@ export default function PersonnelPage() {
         email: null,
         license_number: null,
         employment_type: request.employment_type,
+        work_shift: null,
+        shift_start_time: null,
+        shift_end_time: null,
         is_professional: false,
         notes: null,
         is_active: true
@@ -3473,6 +3517,41 @@ export default function PersonnelPage() {
                 onChange={handleEmployeeChange}
               />
 
+              <select
+                className="form-input"
+                name="work_shift"
+                value={employeeForm.work_shift}
+                onChange={handleEmployeeChange}
+              >
+                <option value="">Turno</option>
+                <option value="manana">Mañana</option>
+                <option value="tarde">Tarde</option>
+                <option value="vespertino">Vespertino</option>
+                <option value="noche">Noche</option>
+              </select>
+
+              <label className="form-field">
+                <span>Hora de entrada</span>
+                <input
+                  className="form-input"
+                  type="time"
+                  name="shift_start_time"
+                  value={employeeForm.shift_start_time}
+                  onChange={handleEmployeeChange}
+                />
+              </label>
+
+              <label className="form-field">
+                <span>Hora de salida</span>
+                <input
+                  className="form-input"
+                  type="time"
+                  name="shift_end_time"
+                  value={employeeForm.shift_end_time}
+                  onChange={handleEmployeeChange}
+                />
+              </label>
+
               <label className="checkbox-row">
                 <input
                   type="checkbox"
@@ -3684,6 +3763,7 @@ export default function PersonnelPage() {
                     <th>Nombre</th>
                     <th>DNI</th>
                     <th>Sector</th>
+                    <th>Turno</th>
                     <th>Ingreso</th>
                     <th>Antiguedad</th>
                     <th>Estado</th>
@@ -3701,6 +3781,7 @@ export default function PersonnelPage() {
                       <td>{employee.full_name}</td>
                       <td>{employee.dni || '-'}</td>
                       <td>{employee.department_name || '-'}</td>
+                      <td>{formatEmployeeShift(employee)}</td>
                       <td>{formatDisplayDate(employee.hire_date)}</td>
                       <td>{getSeniority(employee.hire_date)}</td>
                       <td>
