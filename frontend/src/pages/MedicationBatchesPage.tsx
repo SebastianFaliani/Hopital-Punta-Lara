@@ -12,6 +12,9 @@ import { apiFetch }
   from '../api/api';
 import { useAuth } from '../auth/useAuth';
 import { hasPermission } from '../auth/permissions';
+import {
+  formatDisplayDate
+} from '../utils/dateFormat';
 
 import CreateBatchModal
   from '../components/batches/CreateBatchModal';
@@ -52,8 +55,7 @@ function formatDate(
   value: string
 ) {
 
-  return new Date(value)
-    .toLocaleDateString('es-AR');
+  return formatDisplayDate(value);
 }
 
 function formatMoney(

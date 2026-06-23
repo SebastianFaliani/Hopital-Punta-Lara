@@ -5,6 +5,9 @@ import {
 
 import { apiFetch }
   from '../../api/api';
+import {
+  formatDisplayDateTime
+} from '../../utils/dateFormat';
 
 type Batch = {
   id: number;
@@ -56,8 +59,7 @@ function formatDateTime(
   value: string
 ) {
 
-  return new Date(value)
-    .toLocaleString('es-AR');
+  return formatDisplayDateTime(value);
 }
 
 function formatQuantity(

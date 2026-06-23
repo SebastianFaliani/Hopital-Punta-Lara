@@ -10,6 +10,11 @@ import { useAuth }
   from '../auth/useAuth';
 import { hasPermission }
   from '../auth/permissions';
+import {
+  formatDisplayDate,
+  formatDisplayDateTime,
+  toDateInputValue
+} from '../utils/dateFormat';
 
 import TransfersNav
   from '../components/transfers/TransfersNav';
@@ -184,7 +189,11 @@ const weekdayLabels = [
 ];
 
 function toDate(value: string) {
-  return String(value).slice(0, 10);
+  return toDateInputValue(value);
+}
+
+function formatDate(value: string | null) {
+  return formatDisplayDate(value);
 }
 
 function toLocalDateTimeText(
@@ -222,8 +231,8 @@ function formatDateTime(
     ) || [];
 
   return month
-    ? `${day}/${month} ${hour}:${minute}`
-    : normalized;
+    ? `${day}-${month}-${normalized.slice(0, 4)} ${hour}:${minute}`
+    : formatDisplayDateTime(value, 'Sin horario');
 }
 
 function humanize(value: string) {
@@ -1808,7 +1817,7 @@ export default function TransfersPage() {
                       {transfer.patient_name}
                     </strong>
                     <span>
-                      {toDate(transfer.transfer_date)} · {humanize(transfer.request_type)}
+                      {formatDate(transfer.transfer_date)} · {humanize(transfer.request_type)}
                     </span>
                   </div>
                   <span className={statusClass(transfer.status)}>
@@ -2014,10 +2023,10 @@ export default function TransfersPage() {
                         ` / Vuelta ${item.return_time}`}
                     </td>
                     <td>
-                      {toDate(item.start_date)}
+                      {formatDate(item.start_date)}
                       {' a '}
                       {item.end_date
-                        ? toDate(item.end_date)
+                        ? formatDate(item.end_date)
                         : 'sin fin'}
                     </td>
                     <td>

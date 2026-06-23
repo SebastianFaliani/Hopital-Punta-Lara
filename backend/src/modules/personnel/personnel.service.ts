@@ -2396,6 +2396,53 @@ async function validateLeaveRequest(
     );
   }
 
+  const overlapValues: any[] = [
+    employee.id,
+    endDate,
+    startDate
+  ];
+
+  let overlapExcludeSql = '';
+
+  if (excludeLeaveRequestId) {
+    overlapExcludeSql =
+      'AND lr.id <> ?';
+    overlapValues.push(excludeLeaveRequestId);
+  }
+
+  const [overlapRows]: any =
+    await pool.query(
+      `
+        SELECT
+          lr.id,
+          ac.code,
+          ac.description,
+          lr.start_date,
+          lr.end_date,
+          lr.status
+        FROM leave_requests lr
+        INNER JOIN attendance_codes ac
+          ON ac.id = lr.attendance_code_id
+        WHERE lr.employee_id = ?
+          AND lr.status IN ('pendiente', 'aprobado')
+          AND DATE(lr.start_date) <= DATE(?)
+          AND DATE(lr.end_date) >= DATE(?)
+          ${overlapExcludeSql}
+        ORDER BY lr.start_date ASC, lr.id ASC
+        LIMIT 1
+      `,
+      overlapValues
+    );
+
+  if (overlapRows.length > 0) {
+    const existing =
+      overlapRows[0];
+
+    throw new Error(
+      `No se puede cargar esta licencia porque ya existe la clave ${existing.code} - ${existing.description} entre ${toDateOnly(existing.start_date)} y ${toDateOnly(existing.end_date)} para este empleado`
+    );
+  }
+
   const totalDays =
     ['24', '43', '35', '46'].includes(code.code)
       ? 0

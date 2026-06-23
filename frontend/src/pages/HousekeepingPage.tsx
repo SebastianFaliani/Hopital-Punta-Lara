@@ -11,6 +11,9 @@ import type {
 import { apiFetch } from '../api/api';
 import { hasPermission } from '../auth/permissions';
 import { useAuth } from '../auth/useAuth';
+import {
+  formatDisplayDate
+} from '../utils/dateFormat';
 
 type Item = {
   id: number;
@@ -119,14 +122,7 @@ function showSystemAlert(
 }
 
 function formatDate(value?: string | null) {
-  if (!value) {
-    return '-';
-  }
-
-  return new Date(value).toLocaleDateString(
-    'es-AR',
-    { timeZone: 'UTC' }
-  );
+  return formatDisplayDate(value);
 }
 
 function boolValue(value: boolean | number) {

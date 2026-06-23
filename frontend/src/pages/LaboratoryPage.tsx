@@ -10,6 +10,9 @@ import type {
 
 import { apiFetch } from '../api/api';
 import { useAuth } from '../auth/useAuth';
+import {
+  formatDisplayDate
+} from '../utils/dateFormat';
 
 type LaboratoryRecord = {
   id: number;
@@ -79,16 +82,7 @@ function toDateInput(
 function formatDate(
   value?: string | null
 ) {
-  if (!value) {
-    return '-';
-  }
-
-  return new Date(value).toLocaleDateString(
-    'es-AR',
-    {
-      timeZone: 'UTC'
-    }
-  );
+  return formatDisplayDate(value);
 }
 
 function yesNo(

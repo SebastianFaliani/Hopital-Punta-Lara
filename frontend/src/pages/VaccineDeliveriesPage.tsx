@@ -13,6 +13,9 @@ import {
 } from '../auth/useAuth';
 import { hasPermission } from '../auth/permissions';
 import VaccineModuleTabs from '../components/vaccines/VaccineModuleTabs';
+import {
+  formatDisplayDate
+} from '../utils/dateFormat';
 
 type Facility = {
   id: number;
@@ -89,8 +92,7 @@ function formatDate(
   value: string
 ) {
 
-  return new Date(value)
-    .toLocaleDateString('es-AR');
+  return formatDisplayDate(value);
 }
 
 function stockLabel(

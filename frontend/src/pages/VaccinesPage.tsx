@@ -11,6 +11,9 @@ import { apiFetch } from '../api/api';
 import { useAuth } from '../auth/useAuth';
 import { hasPermission } from '../auth/permissions';
 import VaccineModuleTabs from '../components/vaccines/VaccineModuleTabs';
+import {
+  formatDisplayDate
+} from '../utils/dateFormat';
 
 type Vaccine = {
   id: number;
@@ -440,7 +443,7 @@ export default function VaccinesPage() {
                 key={batch.id}
               >
                 <strong>{batch.vaccineName} - lote {batch.batch_number}</strong>
-                <span>Vence: {new Date(batch.expiration_date).toLocaleDateString('es-AR')}</span>
+                <span>Vence: {formatDisplayDate(batch.expiration_date)}</span>
                 <span>Stock: {Number(batch.current_stock)}</span>
               </div>
             ))}

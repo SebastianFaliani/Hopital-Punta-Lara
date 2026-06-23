@@ -9,6 +9,10 @@ import { getApiUrl }
   from '../api/api';
 import { useAuth }
   from '../auth/useAuth';
+import {
+  formatDisplayDate,
+  formatDisplayDateTime
+} from '../utils/dateFormat';
 
 type WebStatus = {
   status: string;
@@ -1123,10 +1127,9 @@ export default function WhatsappPage() {
             <p>
               <strong>Actualizado:</strong>{' '}
               {
-                webStatus?.lastEventAt
-                  ? new Date(webStatus.lastEventAt)
-                    .toLocaleString('es-AR')
-                  : '-'
+                formatDisplayDateTime(
+                  webStatus?.lastEventAt
+                )
               }
             </p>
 
@@ -1252,10 +1255,9 @@ export default function WhatsappPage() {
                     </span>
                   </td>
                   <td>
-                    {doctor.next_open_at
-                      ? new Date(doctor.next_open_at)
-                        .toLocaleString('es-AR')
-                      : '-'}
+                    {formatDisplayDateTime(
+                      doctor.next_open_at
+                    )}
                   </td>
                   <td>
                     <div className="table-actions">
@@ -1380,8 +1382,9 @@ export default function WhatsappPage() {
               {requests.map((request) => (
                 <tr key={request.id}>
                   <td>
-                    {new Date(request.created_at)
-                      .toLocaleString('es-AR')}
+                    {formatDisplayDateTime(
+                      request.created_at
+                    )}
                   </td>
                   <td>{request.patient_name}</td>
                   <td>{request.patient_document}</td>
@@ -1394,8 +1397,7 @@ export default function WhatsappPage() {
                   <td>{request.status}</td>
                   <td>
                     {request.assigned_date
-                      ? `${new Date(request.assigned_date)
-                        .toLocaleDateString('es-AR')} ${request.assigned_time || ''}`
+                      ? `${formatDisplayDate(request.assigned_date)} ${request.assigned_time || ''}`
                       : '-'}
                   </td>
                   <td>
@@ -1902,10 +1904,9 @@ export default function WhatsappPage() {
                     {conversation.last_message || 'Sin mensajes'}
                   </span>
                   <small>
-                    {conversation.last_message_at
-                      ? new Date(conversation.last_message_at)
-                        .toLocaleString('es-AR')
-                      : '-'}
+                    {formatDisplayDateTime(
+                      conversation.last_message_at
+                    )}
                   </small>
                 </div>
               </button>
@@ -1963,8 +1964,9 @@ export default function WhatsappPage() {
                 >
                   <p>{message.message}</p>
                   <small>
-                    {new Date(message.created_at)
-                      .toLocaleString('es-AR')}
+                    {formatDisplayDateTime(
+                      message.created_at
+                    )}
                     {message.source === 'manual'
                       ? ' · manual'
                       : ''}

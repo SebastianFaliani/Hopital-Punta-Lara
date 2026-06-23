@@ -11,6 +11,9 @@ import type {
 import { apiFetch } from '../api/api';
 import { useAuth } from '../auth/useAuth';
 import { hasPermission } from '../auth/permissions';
+import {
+  formatDisplayDate
+} from '../utils/dateFormat';
 
 type Patient = {
   id: number;
@@ -115,16 +118,7 @@ function showSystemAlert(
 function formatDate(
   value?: string | null
 ) {
-  if (!value) {
-    return '-';
-  }
-
-  return new Date(value).toLocaleDateString(
-    'es-AR',
-    {
-      timeZone: 'UTC'
-    }
-  );
+  return formatDisplayDate(value);
 }
 
 function numeric(

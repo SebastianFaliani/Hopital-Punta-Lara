@@ -11,6 +11,10 @@ import {
 import { apiFetch } from '../api/api';
 import { useAuth } from '../auth/useAuth';
 import { hasPermission } from '../auth/permissions';
+import {
+  formatDisplayDate,
+  formatDisplayDateTime
+} from '../utils/dateFormat';
 
 type Vaccine = {
   id: number;
@@ -70,15 +74,13 @@ const movementLabels: Record<string, string> = {
 function formatDate(
   value: string
 ) {
-  return new Date(value)
-    .toLocaleDateString('es-AR');
+  return formatDisplayDate(value);
 }
 
 function formatDateTime(
   value: string
 ) {
-  return new Date(value)
-    .toLocaleString('es-AR');
+  return formatDisplayDateTime(value);
 }
 
 function formatMoney(

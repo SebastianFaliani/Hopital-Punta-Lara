@@ -8,6 +8,10 @@ import { apiFetch }
 
 import { useAuth }
   from '../auth/useAuth';
+import {
+  formatDisplayDate,
+  formatDisplayDateTime
+} from '../utils/dateFormat';
 
 type DashboardStats = {
   users: {
@@ -89,15 +93,13 @@ function formatDateTime(
     return 'Sin horario';
   }
 
-  return new Date(value)
-    .toLocaleString('es-AR');
+  return formatDisplayDateTime(value, 'Sin horario');
 }
 
 function formatDate(
   value: string
 ) {
-  return new Date(value)
-    .toLocaleDateString('es-AR');
+  return formatDisplayDate(value);
 }
 
 export default function DashboardPage() {

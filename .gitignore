@@ -26,6 +26,7 @@ npm-debug.log*
 # Local temp
 .tmp_*/
 .tmp_clave26_xlsx/
+backups/
 backend/storage/
 backend/.wwebjs_cache/
 

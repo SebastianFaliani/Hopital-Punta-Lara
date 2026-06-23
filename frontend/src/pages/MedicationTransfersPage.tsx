@@ -13,6 +13,10 @@ import {
 } from '../auth/useAuth';
 import { hasPermission } from '../auth/permissions';
 import MedicationModuleTabs from '../components/medications/MedicationModuleTabs';
+import {
+  formatDisplayDate,
+  formatDisplayDateTime
+} from '../utils/dateFormat';
 
 type Facility = {
   id: number;
@@ -82,8 +86,7 @@ function formatDate(
   value: string
 ) {
 
-  return new Date(value)
-    .toLocaleDateString('es-AR');
+  return formatDisplayDate(value);
 }
 
 function formatDateTime(
@@ -94,8 +97,7 @@ function formatDateTime(
     return '-';
   }
 
-  return new Date(value)
-    .toLocaleString('es-AR');
+  return formatDisplayDateTime(value);
 }
 
 function stockLabel(

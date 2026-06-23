@@ -8,6 +8,9 @@ import { apiFetch }
   from '../api/api';
 import { useAuth } from '../auth/useAuth';
 import { hasPermission } from '../auth/permissions';
+import {
+  formatDisplayDate
+} from '../utils/dateFormat';
 
 type Department = {
   id: number;
@@ -817,6 +820,7 @@ export default function PersonnelPage() {
     } catch (error: any) {
 
       setError(error.message);
+      showSystemAlert(error.message);
     }
   }
 
@@ -3431,7 +3435,7 @@ export default function PersonnelPage() {
                       <td>{employee.full_name}</td>
                       <td>{employee.dni || '-'}</td>
                       <td>{employee.department_name || '-'}</td>
-                      <td>{toDateInput(employee.hire_date) || '-'}</td>
+                      <td>{formatDisplayDate(employee.hire_date)}</td>
                       <td>{getSeniority(employee.hire_date)}</td>
                       <td>
                         <span
@@ -3543,7 +3547,7 @@ export default function PersonnelPage() {
                     <div className="dashboard-card">
                       <h3>Antiguedad</h3>
                       <p>{directiveSummary.employee.seniority_years}</p>
-                      <span>Ingreso {toDateInput(directiveSummary.employee.hire_date) || '-'}</span>
+                      <span>Ingreso {formatDisplayDate(directiveSummary.employee.hire_date)}</span>
                     </div>
 
                     <div className="dashboard-card">
@@ -3620,7 +3624,7 @@ export default function PersonnelPage() {
                             key={item.id}
                           >
                             <strong>{item.code} - {item.description}</strong>
-                            <span>{toDateInput(item.start_date)} al {toDateInput(item.end_date)}</span>
+                            <span>{formatDisplayDate(item.start_date)} al {formatDisplayDate(item.end_date)}</span>
                             <span>{item.status}</span>
                           </div>
                         ))}
@@ -3641,7 +3645,7 @@ export default function PersonnelPage() {
                             key={`${item.attendance_date}-${item.code}`}
                           >
                             <strong>{item.code} - {item.description}</strong>
-                            <span>{toDateInput(item.attendance_date)}</span>
+                            <span>{formatDisplayDate(item.attendance_date)}</span>
                             <span>{item.category}</span>
                           </div>
                         ))}
@@ -4483,7 +4487,7 @@ export default function PersonnelPage() {
                         <td>{employee.dni || '-'}</td>
                         <td>{employee.file_number || '-'}</td>
                         <td>{employee.department_name || '-'}</td>
-                        <td>{toDateInput(employee.hire_date) || '-'}</td>
+                        <td>{formatDisplayDate(employee.hire_date)}</td>
                         <td>
                           <button
                             className="btn-primary"
@@ -4867,11 +4871,11 @@ export default function PersonnelPage() {
                       <td>
                         {request.code} - {request.description}
                       </td>
-                      <td>{toDateInput(request.start_date)}</td>
+                      <td>{formatDisplayDate(request.start_date)}</td>
                       <td>
                         {isSingleDayLeaveCode(request.code)
                           ? '-'
-                          : toDateInput(request.end_date)}
+                          : formatDisplayDate(request.end_date)}
                       </td>
                       <td>{request.total_days || '-'}</td>
                       <td>{request.total_hours || '-'}</td>
@@ -5271,8 +5275,8 @@ export default function PersonnelPage() {
                       <td>
                         {request.code} - {request.description}
                       </td>
-                      <td>{toDateInput(request.start_date)}</td>
-                      <td>{toDateInput(request.end_date)}</td>
+                      <td>{formatDisplayDate(request.start_date)}</td>
+                      <td>{formatDisplayDate(request.end_date)}</td>
                       <td>{request.total_days || '-'}</td>
                       <td>{request.total_hours || '-'}</td>
                       <td>
@@ -5788,7 +5792,7 @@ function MinistryLicensePrint({
           />
           <PrintField
             label="Fecha de ingreso"
-            value={toDateInput(request.hire_date)}
+          value={formatDisplayDate(request.hire_date)}
           />
           <PrintField
             label="Cargo / regimen"
@@ -5918,11 +5922,11 @@ function MinistryLicenseBlock({
             <div className="ministry-grid ministry-grid-2 ministry-date-range">
               <PrintField
                 label="Desde"
-                value={checked ? toDateInput(request.start_date) : ''}
+                value={checked ? formatDisplayDate(request.start_date) : ''}
               />
               <PrintField
                 label="Hasta"
-                value={checked ? toDateInput(request.end_date) : ''}
+                value={checked ? formatDisplayDate(request.end_date) : ''}
               />
             </div>
           </>
@@ -5946,7 +5950,7 @@ function MinistryLicenseBlock({
                   label="Ultima licencia anual"
                   value={
                     checked
-                      ? toDateInput(request.last_annual_leave_date)
+                      ? formatDisplayDate(request.last_annual_leave_date)
                       : ''
                   }
                 />
@@ -5955,11 +5959,11 @@ function MinistryLicenseBlock({
             <div className="ministry-grid ministry-grid-3">
               <PrintField
                 label="Desde"
-                value={checked ? toDateInput(request.start_date) : ''}
+                value={checked ? formatDisplayDate(request.start_date) : ''}
               />
               <PrintField
                 label="Hasta"
-                value={checked ? toDateInput(request.end_date) : ''}
+                value={checked ? formatDisplayDate(request.end_date) : ''}
               />
               {!showLastAnnualLeave && (
                 <PrintField
@@ -6036,11 +6040,11 @@ function ExamLicenseBlock({
       <div className="ministry-grid ministry-grid-2 ministry-date-range">
         <PrintField
           label="Desde"
-          value={checked ? toDateInput(request.start_date) : ''}
+          value={checked ? formatDisplayDate(request.start_date) : ''}
         />
         <PrintField
           label="Hasta"
-          value={checked ? toDateInput(request.end_date) : ''}
+          value={checked ? formatDisplayDate(request.end_date) : ''}
         />
       </div>
     </>
@@ -6145,7 +6149,7 @@ function Code26PrintCopy({
       <div className="code26-print-grid">
         <div className="code26-print-row">
           <span>Fecha:</span>
-          <strong>{toDateInput(request.start_date)}</strong>
+          <strong>{formatDisplayDate(request.start_date)}</strong>
         </div>
         <div className="code26-print-row">
           <span>Turno:</span>
@@ -6229,7 +6233,7 @@ function PermissionPrintCopy({
 
       <div className="permission-print-row">
         <span>Fecha:</span>
-        <strong>{toDateInput(request.start_date)}</strong>
+        <strong>{formatDisplayDate(request.start_date)}</strong>
       </div>
 
       <div className="permission-print-row permission-print-hours">

@@ -4,6 +4,9 @@ import {
 } from 'react';
 
 import { apiFetch } from '../api/api';
+import {
+  formatDisplayDateTime
+} from '../utils/dateFormat';
 
 type AuditLog = {
   id: number;
@@ -343,12 +346,5 @@ function formatDateTime(
     return '-';
   }
 
-  return new Date(value)
-    .toLocaleString(
-      'es-AR',
-      {
-        dateStyle: 'short',
-        timeStyle: 'short'
-      }
-    );
+  return formatDisplayDateTime(value);
 }

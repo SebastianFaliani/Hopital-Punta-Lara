@@ -83,7 +83,7 @@ function formatDateTime(
     minute = '00'
   ] = timePart.split(':');
 
-  return `${day}/${month}/${year}, ${hour}:${minute}`;
+  return `${day}-${month}-${year} ${hour}:${minute}`;
 }
 
 export default function DriverShiftsPage() {
