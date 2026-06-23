@@ -550,11 +550,34 @@ export async function getAttendanceMonth(
       ]
     );
 
+  const [plannedOffRows]: any =
+    await pool.query(
+      `
+        SELECT
+          id,
+          employee_id,
+          DAY(off_date) AS day,
+          notes
+        FROM employee_planned_days_off
+        WHERE off_date BETWEEN ? AND ?
+        ORDER BY
+          employee_id ASC,
+          off_date ASC
+      `,
+      [
+        getDateKey(year, month, 1),
+        getDateKey(year, month, getDaysInMonth(year, month))
+      ]
+    );
+
   const recordMap =
     new Map<string, any>();
 
   const permissionMap =
     new Map<string, any[]>();
+
+  const plannedOffMap =
+    new Map<string, any>();
 
   for (const record of records) {
     recordMap.set(
@@ -584,6 +607,16 @@ export async function getAttendanceMonth(
     permissionMap.set(key, current);
   }
 
+  for (const plannedOff of plannedOffRows) {
+    plannedOffMap.set(
+      `${plannedOff.employee_id}-${plannedOff.day}`,
+      {
+        id: plannedOff.id,
+        notes: plannedOff.notes || null
+      }
+    );
+  }
+
   const days =
     getDaysInMonth(
       year,
@@ -608,6 +641,8 @@ export async function getAttendanceMonth(
         attendance[day] =
           {
             ...baseRecord,
+            planned_off:
+              plannedOffMap.get(key) || null,
             permissions:
               permissionMap.get(key) || []
           };
@@ -624,6 +659,184 @@ export async function getAttendanceMonth(
     days,
     employees: rows
   };
+}
+
+export async function getPlannedDaysOffMonth(
+  year: number,
+  month: number,
+  departmentId: number | null
+) {
+
+  const params: any[] = [];
+
+  let departmentFilter = '';
+
+  if (departmentId) {
+    departmentFilter =
+      'AND e.department_id = ?';
+    params.push(departmentId);
+  }
+
+  const [employees]: any =
+    await pool.query(
+      `
+        SELECT
+          e.id,
+          e.full_name,
+          e.dni,
+          e.file_number,
+          e.department_id,
+          d.name AS department_name
+        FROM employees e
+        LEFT JOIN employee_departments d
+          ON d.id = e.department_id
+        WHERE e.is_active = TRUE
+          ${departmentFilter}
+        ORDER BY
+          d.name ASC,
+          e.full_name ASC
+      `,
+      params
+    );
+
+  const [plannedRows]: any =
+    await pool.query(
+      `
+        SELECT
+          id,
+          employee_id,
+          DAY(off_date) AS day,
+          notes
+        FROM employee_planned_days_off
+        WHERE off_date BETWEEN ? AND ?
+        ORDER BY
+          employee_id ASC,
+          off_date ASC
+      `,
+      [
+        getDateKey(year, month, 1),
+        getDateKey(year, month, getDaysInMonth(year, month))
+      ]
+    );
+
+  const plannedMap =
+    new Map<string, any>();
+
+  for (const planned of plannedRows) {
+    plannedMap.set(
+      `${planned.employee_id}-${planned.day}`,
+      {
+        id: planned.id,
+        notes: planned.notes || null
+      }
+    );
+  }
+
+  const days =
+    getDaysInMonth(
+      year,
+      month
+    );
+
+  return {
+    days,
+    employees:
+      employees.map((employee: any) => {
+        const planned_days: Record<string, any> = {};
+
+        for (let day = 1; day <= days; day += 1) {
+          planned_days[day] =
+            plannedMap.get(`${employee.id}-${day}`) || null;
+        }
+
+        return {
+          ...employee,
+          planned_days
+        };
+      })
+  };
+}
+
+export async function savePlannedDaysOffMonth(
+  year: number,
+  month: number,
+  records: any[],
+  userId?: number
+) {
+
+  const days =
+    getDaysInMonth(
+      year,
+      month
+    );
+
+  const connection =
+    await pool.getConnection();
+
+  try {
+    await connection.beginTransaction();
+
+    for (const record of records) {
+      const employeeId =
+        Number(record.employee_id);
+
+      const day =
+        Number(record.day);
+
+      if (!employeeId || !day || day < 1 || day > days) {
+        continue;
+      }
+
+      const offDate =
+        getDateKey(
+          year,
+          month,
+          day
+        );
+
+      if (record.is_planned) {
+        await connection.query(
+          `
+            INSERT INTO employee_planned_days_off (
+              employee_id,
+              off_date,
+              notes,
+              created_by
+            )
+            VALUES (?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE
+              notes = VALUES(notes),
+              updated_at = CURRENT_TIMESTAMP
+          `,
+          [
+            employeeId,
+            offDate,
+            record.notes || null,
+            userId || null
+          ]
+        );
+      } else {
+        await connection.query(
+          `
+            DELETE FROM employee_planned_days_off
+            WHERE employee_id = ?
+              AND off_date = ?
+          `,
+          [
+            employeeId,
+            offDate
+          ]
+        );
+      }
+    }
+
+    await connection.commit();
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
 }
 
 export async function saveAttendanceMonth(
@@ -1949,6 +2162,26 @@ async function getCompensatoryBalance(
       ]
     );
 
+  const [workedPlannedOffRows]: any =
+    await pool.query(
+      `
+        SELECT COUNT(*) AS total
+        FROM employee_planned_days_off epdo
+        INNER JOIN attendance_records ar
+          ON ar.employee_id = epdo.employee_id
+          AND ar.attendance_date = epdo.off_date
+        INNER JOIN attendance_codes ac
+          ON ac.id = ar.attendance_code_id
+        WHERE epdo.employee_id = ?
+          AND ac.code = 'P'
+          AND YEAR(epdo.off_date) = ?
+      `,
+      [
+        employeeId,
+        year
+      ]
+    );
+
   const [usedAdjustments]: any =
     await pool.query(
       `
@@ -1968,7 +2201,8 @@ async function getCompensatoryBalance(
 
   const earnedDays =
     Number(creditRows[0].total || 0) +
-    Number(creditAdjustments[0].total || 0);
+    Number(creditAdjustments[0].total || 0) +
+    Number(workedPlannedOffRows[0].total || 0);
 
   const usedDays =
     Number(usedRows[0].total || 0) +

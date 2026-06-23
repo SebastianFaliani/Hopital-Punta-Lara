@@ -72,7 +72,27 @@ type AttendanceEmployee = {
         permission_kind: string | null;
         total_hours: number;
       }>;
+      planned_off?: {
+        id: number;
+        notes: string | null;
+      } | null;
     }
+  >;
+};
+
+type PlannedDaysOffEmployee = {
+  id: number;
+  full_name: string;
+  dni: string | null;
+  file_number: string | null;
+  department_id: number | null;
+  department_name: string | null;
+  planned_days: Record<
+    string,
+    {
+      id: number;
+      notes: string | null;
+    } | null
   >;
 };
 
@@ -696,6 +716,18 @@ export default function PersonnelPage() {
   const [showFillPresentModal, setShowFillPresentModal] =
     useState(false);
 
+  const [plannedOffRows, setPlannedOffRows] =
+    useState<PlannedDaysOffEmployee[]>([]);
+
+  const [plannedOffDays, setPlannedOffDays] =
+    useState(0);
+
+  const [plannedOffEdits, setPlannedOffEdits] =
+    useState<Record<string, boolean>>({});
+
+  const [savingPlannedOff, setSavingPlannedOff] =
+    useState(false);
+
   const [savingAttendance, setSavingAttendance] =
     useState(false);
 
@@ -903,6 +935,36 @@ export default function PersonnelPage() {
     } catch (error: any) {
 
       setError(error.message);
+    }
+  }
+
+  async function loadPlannedDaysOff() {
+
+    try {
+      const params =
+        new URLSearchParams({
+          year: attendanceFilters.year,
+          month: attendanceFilters.month
+        });
+
+      if (attendanceFilters.department !== 'todos') {
+        params.set(
+          'department_id',
+          attendanceFilters.department
+        );
+      }
+
+      const res =
+        await apiFetch(
+          `/personnel/planned-days-off?${params.toString()}`
+        );
+
+      setPlannedOffRows(res.data.employees);
+      setPlannedOffDays(res.data.days);
+      setPlannedOffEdits({});
+    } catch (error: any) {
+      setError(error.message);
+      showSystemAlert(error.message);
     }
   }
 
@@ -1766,7 +1828,7 @@ export default function PersonnelPage() {
     if (code === '34') {
       return {
         unit: 'days',
-        title: '34 - Franco compensatorio',
+        title: '34 / FC - Franco compensatorio',
         allowedLabel: 'Dias disponibles',
         allowed: Number(balanceSummary.compensatory.earned_days || 0),
         currentLabel: 'Dias tomados',
@@ -2099,8 +2161,21 @@ export default function PersonnelPage() {
       employee.attendance[String(day)]
         ?.permissions || [];
 
+    const plannedOff =
+      employee.attendance[String(day)]
+        ?.planned_off;
+
+    const plannedOffText =
+      plannedOff
+        ? hasWorkedPlannedDayOff(employee, day)
+          ? 'Franco programado trabajado: suma 1 compensatorio'
+          : 'Franco programado'
+        : '';
+
     if (permissions.length === 0) {
-      return baseDescription;
+      return plannedOffText
+        ? `${baseDescription} | ${plannedOffText}`
+        : baseDescription;
     }
 
     const permissionText =
@@ -2110,7 +2185,13 @@ export default function PersonnelPage() {
         )
         .join(' | ');
 
-    return `${baseDescription} | ${permissionText}`;
+    return [
+      baseDescription,
+      plannedOffText,
+      permissionText
+    ]
+      .filter(Boolean)
+      .join(' | ');
   }
 
   function hasAttendancePermissionMarker(
@@ -2131,6 +2212,26 @@ export default function PersonnelPage() {
         employee.attendance[String(day)]
           ?.permissions?.length || 0
       ) > 0;
+  }
+
+  function hasPlannedDayOff(
+    employee: AttendanceEmployee,
+    day: number
+  ) {
+    return Boolean(
+      employee.attendance[String(day)]
+        ?.planned_off
+    );
+  }
+
+  function hasWorkedPlannedDayOff(
+    employee: AttendanceEmployee,
+    day: number
+  ) {
+    return hasPlannedDayOff(employee, day) &&
+      getAttendanceValue(employee, day)
+        .trim()
+        .toUpperCase() === 'P';
   }
 
   function getAttendanceInputClass(
@@ -2160,7 +2261,43 @@ export default function PersonnelPage() {
       classes.push('attendance-code-permission');
     }
 
+    if (
+      hasPlannedDayOff(
+        employee,
+        day
+      )
+    ) {
+      classes.push('attendance-code-planned-off');
+    }
+
     return classes.join(' ');
+  }
+
+  function getPlannedOffValue(
+    employee: PlannedDaysOffEmployee,
+    day: number
+  ) {
+    const key =
+      `${employee.id}-${day}`;
+
+    if (key in plannedOffEdits) {
+      return plannedOffEdits[key];
+    }
+
+    return Boolean(
+      employee.planned_days[String(day)]
+    );
+  }
+
+  function updatePlannedOffCell(
+    employeeId: number,
+    day: number,
+    checked: boolean
+  ) {
+    setPlannedOffEdits({
+      ...plannedOffEdits,
+      [`${employeeId}-${day}`]: checked
+    });
   }
 
   function updateAttendanceCell(
@@ -2469,14 +2606,78 @@ export default function PersonnelPage() {
       );
 
       await loadAttendance();
+      if (selectedLeaveEmployee) {
+        await loadLeaveSummary(
+          selectedLeaveEmployee.id
+        );
+      }
 
     } catch (error: any) {
 
       setError(error.message);
+      showSystemAlert(error.message);
 
     } finally {
 
       setSavingAttendance(false);
+    }
+  }
+
+  async function savePlannedDaysOff() {
+
+    setSavingPlannedOff(true);
+    setError('');
+
+    try {
+      const records =
+        Object.entries(plannedOffEdits)
+          .map(([key, isPlanned]) => {
+            const [
+              employeeId,
+              day
+            ] = key.split('-');
+
+            return {
+              employee_id: Number(employeeId),
+              day: Number(day),
+              is_planned: isPlanned
+            };
+          });
+
+      await apiFetch(
+        '/personnel/planned-days-off',
+        {
+          method: 'PUT',
+          body:
+            JSON.stringify({
+              year: Number(attendanceFilters.year),
+              month: Number(attendanceFilters.month),
+              records
+            })
+        }
+      );
+
+      await Promise.all([
+        loadPlannedDaysOff(),
+        loadAttendance()
+      ]);
+
+      if (selectedLeaveEmployee) {
+        await loadLeaveSummary(
+          selectedLeaveEmployee.id
+        );
+      }
+
+      showSystemAlert(
+        'Francos programados guardados correctamente.',
+        'Listo',
+        'success'
+      );
+    } catch (error: any) {
+      setError(error.message);
+      showSystemAlert(error.message);
+    } finally {
+      setSavingPlannedOff(false);
     }
   }
 
@@ -2539,6 +2740,11 @@ export default function PersonnelPage() {
         );
 
       await loadAttendance();
+      if (selectedLeaveEmployee) {
+        await loadLeaveSummary(
+          selectedLeaveEmployee.id
+        );
+      }
       setShowFillPresentModal(false);
 
       showSystemAlert(
@@ -2639,6 +2845,10 @@ export default function PersonnelPage() {
 
     if (activeTab === 'attendance') {
       loadAttendance();
+    }
+
+    if (activeTab === 'planned-days-off') {
+      loadPlannedDaysOff();
     }
 
     if (
@@ -2767,6 +2977,47 @@ export default function PersonnelPage() {
     attendanceSummary.filter((item) =>
       filteredAttendanceIds.has(item.employee_id)
     );
+
+  const plannedOffDayNumbers =
+    Array.from(
+      { length: plannedOffDays },
+      (_, index) => index + 1
+    );
+
+  const filteredPlannedOffRows =
+    plannedOffRows.filter((employee) => {
+      const search =
+        attendanceFilters.search
+          .toLowerCase()
+          .trim();
+
+      const matchesDepartment =
+        !attendanceFilters.departmentSearch ||
+        (employee.department_name || '')
+          .toLowerCase()
+          .includes(
+            attendanceFilters.departmentSearch
+              .toLowerCase()
+              .trim()
+          );
+
+      if (!search) {
+        return matchesDepartment;
+      }
+
+      return (
+        matchesDepartment &&
+        (
+          matchesNameSearch(employee.full_name, search) ||
+          (employee.dni || '')
+            .toLowerCase()
+            .includes(search) ||
+          (employee.file_number || '')
+            .toLowerCase()
+            .includes(search)
+        )
+      );
+    });
 
   const attendanceMonthValue =
     `${attendanceFilters.year}-${attendanceFilters.month.padStart(2, '0')}`;
@@ -3052,6 +3303,21 @@ export default function PersonnelPage() {
         >
           Presentismo
         </button>
+
+        {!readOnly && (
+          <button
+            className={
+              activeTab === 'planned-days-off'
+                ? 'module-tab module-tab-active'
+                : 'module-tab'
+            }
+            onClick={() =>
+              changeTab('planned-days-off')
+            }
+          >
+            Francos
+          </button>
+        )}
 
         <button
           className={
@@ -4163,6 +4429,180 @@ export default function PersonnelPage() {
       }
 
       {
+        activeTab === 'planned-days-off' && (
+          <>
+            <div className="attendance-toolbar">
+              <input
+                className="form-input attendance-filter-small"
+                type="month"
+                value={attendanceMonthValue}
+                onChange={(e) => {
+                  if (!e.target.value) {
+                    return;
+                  }
+
+                  const [
+                    year,
+                    month
+                  ] = e.target.value.split('-');
+
+                  updateAttendanceFilters({
+                    year,
+                    month
+                  });
+                }}
+              />
+
+              <select
+                className="form-input attendance-filter-wide"
+                value={attendanceFilters.department}
+                onChange={(e) =>
+                  updateAttendanceFilters({
+                    department: e.target.value
+                  })
+                }
+              >
+                <option value="todos">Todos los sectores</option>
+                {departments.map((department) => (
+                  <option
+                    key={department.id}
+                    value={department.id}
+                  >
+                    {department.name}
+                  </option>
+                ))}
+              </select>
+
+              <input
+                className="form-input attendance-filter-wide"
+                placeholder="Filtrar sector"
+                value={attendanceFilters.departmentSearch}
+                onChange={(e) =>
+                  updateAttendanceFilters({
+                    departmentSearch: e.target.value
+                  })
+                }
+              />
+
+              <input
+                className="form-input attendance-filter-search"
+                placeholder="Buscar nombre, DNI o legajo"
+                value={attendanceFilters.search}
+                onChange={(e) =>
+                  updateAttendanceFilters({
+                    search: e.target.value
+                  })
+                }
+              />
+
+              <button
+                className="btn-success"
+                type="button"
+                disabled={
+                  savingPlannedOff ||
+                  Object.keys(plannedOffEdits).length === 0
+                }
+                onClick={savePlannedDaysOff}
+              >
+                {
+                  savingPlannedOff
+                    ? 'Guardando...'
+                    : 'Guardar francos'
+                }
+              </button>
+            </div>
+
+            <p className="results-summary">
+              {filteredPlannedOffRows.length} de {plannedOffRows.length} empleados activos. Cambios pendientes: {Object.keys(plannedOffEdits).length}
+            </p>
+
+            <div className="attendance-grid-wrap">
+              <table className="data-table attendance-grid planned-off-grid">
+                <colgroup>
+                  <col className="attendance-employee-col" />
+                  {plannedOffDayNumbers.map((day) => (
+                    <col
+                      key={day}
+                      className="attendance-day-col"
+                    />
+                  ))}
+                </colgroup>
+                <thead>
+                  <tr>
+                    <th className="attendance-employee-cell">
+                      Empleado
+                    </th>
+                    {plannedOffDayNumbers.map((day) => (
+                      <th
+                        key={day}
+                        className={
+                          isSunday(day)
+                            ? 'attendance-sunday'
+                            : ''
+                        }
+                      >
+                        {day}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredPlannedOffRows.map((employee) => (
+                    <tr key={employee.id}>
+                      <td className="attendance-employee-cell">
+                        <strong>{employee.full_name}</strong>
+                        <span>
+                          {employee.department_name || 'Sin sector'}
+                        </span>
+                      </td>
+                      {plannedOffDayNumbers.map((day) => (
+                        <td
+                          key={day}
+                          className={
+                            isSunday(day)
+                              ? 'attendance-sunday-cell'
+                              : ''
+                          }
+                        >
+                          <label
+                            className="planned-off-cell"
+                            title="Franco programado"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={getPlannedOffValue(
+                                employee,
+                                day
+                              )}
+                              onChange={(e) =>
+                                updatePlannedOffCell(
+                                  employee.id,
+                                  day,
+                                  e.target.checked
+                                )
+                              }
+                            />
+                          </label>
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+
+                  {filteredPlannedOffRows.length === 0 && (
+                    <tr>
+                      <td colSpan={plannedOffDays + 1}>
+                        No hay empleados activos para esos filtros.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )
+      }
+
+      {
         activeTab === 'attendance' && (
           <>
             <div className="attendance-toolbar">
@@ -4337,6 +4777,11 @@ export default function PersonnelPage() {
                                 employee,
                                 day
                               )}
+                              placeholder={
+                                hasPlannedDayOff(employee, day)
+                                  ? 'F'
+                                  : ''
+                              }
                               title={getAttendanceCodeDescription(
                                 employee,
                                 day

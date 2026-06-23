@@ -26,11 +26,13 @@ import {
   getEmployeeDirectiveSummary,
   getAttendanceSummary,
   getEmployeeLeaveSummary,
+  getPlannedDaysOffMonth,
   fillPresentAttendanceDay,
   getLeaveBalanceAdjustments,
   getLeaveRequests,
   getVacationBalances,
   getVacationRules,
+  savePlannedDaysOffMonth,
   saveAttendanceMonth,
   toggleEmployee,
   updateAttendanceCode,
@@ -340,6 +342,94 @@ export async function handleFillPresentAttendanceDay(
       data: result,
       message:
         `Se completaron ${result.completed} presente(s)`
+    });
+
+  } catch (error: any) {
+    return res.status(400).json({
+      success: false,
+      message: error.message
+    });
+  }
+}
+
+export async function handleGetPlannedDaysOffMonth(
+  req: Request,
+  res: Response
+) {
+
+  try {
+
+    const {
+      year,
+      month,
+      departmentId
+    } = readMonthParams(req);
+
+    return res.json({
+      success: true,
+      data:
+        await getPlannedDaysOffMonth(
+          year,
+          month,
+          departmentId
+        )
+    });
+
+  } catch (error: any) {
+    return res.status(400).json({
+      success: false,
+      message: error.message
+    });
+  }
+}
+
+export async function handleSavePlannedDaysOffMonth(
+  req: AuthRequest,
+  res: Response
+) {
+
+  try {
+    const year =
+      Number(req.body.year);
+
+    const month =
+      Number(req.body.month);
+
+    if (
+      !year ||
+      !month ||
+      month < 1 ||
+      month > 12 ||
+      !Array.isArray(req.body.records)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          'Mes, anio y registros son obligatorios'
+      });
+    }
+
+    await savePlannedDaysOffMonth(
+      year,
+      month,
+      req.body.records,
+      req.user?.id
+    );
+
+    await logAudit({
+      user: req.user,
+      module: 'personal',
+      action: 'guardar_francos_programados',
+      entityType: 'employee_planned_days_off',
+      description:
+        `Guardo francos programados ${month}/${year}`,
+      newData: req.body,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'] || null
+    });
+
+    return res.json({
+      success: true
     });
 
   } catch (error: any) {

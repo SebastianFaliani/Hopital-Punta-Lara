@@ -19,6 +19,7 @@ import {
   handleGetAttendanceSummary,
   handleGetEmployeeDirectiveSummary,
   handleFillPresentAttendanceDay,
+  handleGetPlannedDaysOffMonth,
   handleGetDepartments,
   handleGetEmployeeLeaveSummary,
   handleGetEmployees,
@@ -27,6 +28,7 @@ import {
   handleGetVacationBalances,
   handleGetVacationRules,
   handleSaveAttendanceMonth,
+  handleSavePlannedDaysOffMonth,
   handleToggleEmployee,
   handleUpdateAttendanceCode,
   handleCompleteLeaveReturn,
@@ -87,6 +89,16 @@ router.post(
 router.get(
   '/attendance/summary',
   handleGetAttendanceSummary
+);
+
+router.get(
+  '/planned-days-off',
+  handleGetPlannedDaysOffMonth
+);
+
+router.put(
+  '/planned-days-off',
+  handleSavePlannedDaysOffMonth
 );
 
 router.get(
