@@ -626,6 +626,157 @@ const leaveCodeOptions = [
 const attendanceCodesOnlyFromLeaves =
   new Set(leaveCodeOptions);
 
+const leaveRuleSummaryCards = [
+  {
+    title: 'Reglas duras',
+    text: 'Se validan en el servidor antes de guardar. Si una regla falla, la licencia no se registra.'
+  },
+  {
+    title: 'Presentismo',
+    text: 'Las claves de licencia no se cargan manualmente en presentismo. Deben salir desde Licencias.'
+  },
+  {
+    title: 'Excepciones',
+    text: 'Algunas claves permiten excepcion, pero queda registrada la marca y el motivo.'
+  }
+];
+
+const leaveRuleSummaryRows = [
+  {
+    code: 'Todas',
+    title: 'Superposicion',
+    rule: 'No permite cargar otra licencia pendiente o aprobada si se cruza con una ya existente del mismo empleado.',
+    unit: 'Dias/rango',
+    exception: 'No'
+  },
+  {
+    code: '8',
+    title: 'Licencia anual',
+    rule: 'Del 1 al 15, requiere 15 dias de anticipacion, hasta agosto, descuenta saldo anual y solo puede partirse hasta 2 veces.',
+    unit: 'Dias',
+    exception: 'Si'
+  },
+  {
+    code: '8',
+    title: 'Segunda parte anual',
+    rule: 'Si ya uso una parte de vacaciones, la segunda solicitud debe tomar todo el saldo disponible.',
+    unit: 'Dias',
+    exception: 'Si'
+  },
+  {
+    code: '29',
+    title: 'Anual complementaria',
+    rule: 'Solo desde agosto y debe tomarse completa de una sola vez segun el saldo disponible.',
+    unit: 'Dias',
+    exception: 'Si'
+  },
+  {
+    code: '26',
+    title: 'Asuntos particulares',
+    rule: 'Requiere 48 hs de anticipacion, maximo 6 dias anuales y una solicitud por mes.',
+    unit: 'Dias',
+    exception: 'Si'
+  },
+  {
+    code: '24 / 43',
+    title: 'Permisos por horas',
+    rule: 'Maximo 2 hs por dia, 5 hs mensuales y 30 hs anuales acumuladas entre ambas claves.',
+    unit: 'Horas',
+    exception: 'Si'
+  },
+  {
+    code: '43',
+    title: 'Permiso de salida',
+    rule: 'Puede quedar abierto con regreso pendiente. Al completar el regreso vuelve a validar limites de horas.',
+    unit: 'Horas',
+    exception: 'No'
+  },
+  {
+    code: '46',
+    title: 'Permiso gremial',
+    rule: 'Requiere horas, maximo 5 hs semanales.',
+    unit: 'Horas',
+    exception: 'Si'
+  },
+  {
+    code: '34',
+    title: 'Franco compensatorio',
+    rule: 'Solo permite tomar dias si el empleado tiene compensatorios disponibles.',
+    unit: 'Dias',
+    exception: 'Si'
+  },
+  {
+    code: '5',
+    title: 'Limite anual',
+    rule: 'Maximo 20 dias por anio.',
+    unit: 'Dias',
+    exception: 'Si'
+  },
+  {
+    code: '6 / 42',
+    title: 'Maternidad / adopcion',
+    rule: 'Maximo 90 dias.',
+    unit: 'Dias',
+    exception: 'Si'
+  },
+  {
+    code: '14',
+    title: 'Duelo',
+    rule: 'Maximo 3 dias corridos.',
+    unit: 'Dias',
+    exception: 'Si'
+  },
+  {
+    code: '15',
+    title: 'Duelo',
+    rule: 'Permite 1 dia.',
+    unit: 'Dias',
+    exception: 'Si'
+  },
+  {
+    code: '16',
+    title: 'Matrimonio',
+    rule: 'Maximo 10 dias corridos.',
+    unit: 'Dias',
+    exception: 'Si'
+  },
+  {
+    code: '17',
+    title: 'Pre examen',
+    rule: 'Maximo 2 dias por materia.',
+    unit: 'Dias',
+    exception: 'Si'
+  },
+  {
+    code: '18',
+    title: 'Examen',
+    rule: 'Permite 1 dia por examen.',
+    unit: 'Dias',
+    exception: 'Si'
+  },
+  {
+    code: '31',
+    title: 'Nacimiento',
+    rule: 'Maximo 3 dias.',
+    unit: 'Dias',
+    exception: 'Si'
+  },
+  {
+    code: '33',
+    title: 'Donacion de sangre',
+    rule: 'Permite 1 dia.',
+    unit: 'Dias',
+    exception: 'Si'
+  },
+  {
+    code: '35',
+    title: 'Permiso por horas',
+    rule: 'Requiere horas y permite hasta 2 hs diarias.',
+    unit: 'Horas',
+    exception: 'Si'
+  }
+];
+
 const singleDayLeaveCodes =
   new Set([
     '24',
@@ -3671,6 +3822,19 @@ export default function PersonnelPage() {
           Licencias pendientes
         </button>
 
+        <button
+          className={
+            activeTab === 'leave-rules'
+              ? 'module-tab module-tab-active'
+              : 'module-tab'
+          }
+          onClick={() =>
+            changeTab('leave-rules')
+          }
+        >
+          Reglas licencias
+        </button>
+
         {!readOnly && (
           <button
             className={
@@ -5935,6 +6099,56 @@ export default function PersonnelPage() {
                   }
                 </tbody>
               </table>
+            </div>
+          </>
+        )
+      }
+
+      {
+        activeTab === 'leave-rules' && (
+          <>
+            <div className="dashboard-grid">
+              {leaveRuleSummaryCards.map((card) => (
+                <div
+                  className="dashboard-card"
+                  key={card.title}
+                >
+                  <h3>{card.title}</h3>
+                  <span>{card.text}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="dashboard-panel">
+              <h2>Mapa actual de validaciones</h2>
+              <p className="panel-description">
+                Esta pantalla documenta las reglas que hoy aplica el sistema. No modifica el comportamiento, sirve para revisar antes de cambiar validaciones.
+              </p>
+
+              <div className="table-container">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Clave</th>
+                      <th>Regla</th>
+                      <th>Detalle</th>
+                      <th>Unidad</th>
+                      <th>Excepcion</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {leaveRuleSummaryRows.map((rule, index) => (
+                      <tr key={`${rule.code}-${rule.title}-${index}`}>
+                        <td>{rule.code}</td>
+                        <td>{rule.title}</td>
+                        <td>{rule.rule}</td>
+                        <td>{rule.unit}</td>
+                        <td>{rule.exception}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </>
         )
