@@ -3487,10 +3487,22 @@ export async function getLeaveRequests() {
           lr.exception_reason,
           lr.status,
           lr.requested_at,
+          lr.requested_by,
+          COALESCE(
+            NULLIF(
+              TRIM(CONCAT_WS(' ', u.first_name, u.last_name)),
+              ''
+            ),
+            u.username,
+            u.email,
+            '-'
+          ) AS requested_by_name,
           lr.notes
         FROM leave_requests lr
         INNER JOIN employees e
           ON e.id = lr.employee_id
+        LEFT JOIN users u
+          ON u.id = lr.requested_by
         LEFT JOIN employee_departments d
           ON d.id = e.department_id
         INNER JOIN attendance_codes ac

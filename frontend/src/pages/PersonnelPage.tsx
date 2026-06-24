@@ -144,6 +144,8 @@ type LeaveRequest = {
   exception_reason: string | null;
   status: string;
   requested_at: string;
+  requested_by: number | null;
+  requested_by_name: string | null;
   notes: string | null;
 };
 
@@ -2963,6 +2965,10 @@ export default function PersonnelPage() {
   const filteredEmployees =
     employeeList;
 
+  const canSeeLeaveCreator =
+    user?.role === 'admin' ||
+    user?.role === 'dir';
+
   const dayNumbers =
     Array.from(
       { length: attendanceDays },
@@ -5381,6 +5387,9 @@ export default function PersonnelPage() {
                     <th>Dias</th>
                     <th>Horas</th>
                     <th>Estado</th>
+                    {canSeeLeaveCreator && (
+                      <th>Cargada por</th>
+                    )}
                     {!readOnly && (
                       <th>Acciones</th>
                     )}
@@ -5418,6 +5427,11 @@ export default function PersonnelPage() {
                           {request.status}
                         </span>
                       </td>
+                      {canSeeLeaveCreator && (
+                        <td>
+                          {request.requested_by_name || '-'}
+                        </td>
+                      )}
                       {!readOnly && (
                         <td>
                         <div className="table-actions">
