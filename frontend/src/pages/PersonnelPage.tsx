@@ -304,6 +304,13 @@ const workShiftLabels: Record<string, string> = {
   noche: 'Noche'
 };
 
+const workShiftOptions = [
+  'manana',
+  'tarde',
+  'vespertino',
+  'noche'
+];
+
 function formatEmployeeShift(
   employee: Pick<Employee, 'work_shift' | 'shift_start_time' | 'shift_end_time'>
 ) {
@@ -324,6 +331,179 @@ function formatEmployeeShift(
   return [shift, hours]
     .filter(Boolean)
     .join(' - ') || '-';
+}
+
+function formatEmployeeLeaveSchedule(
+  employee?: Pick<Employee, 'work_shift' | 'shift_start_time' | 'shift_end_time'> | null
+) {
+  if (!employee) {
+    return 'Seleccione un empleado para ver su turno y horario.';
+  }
+
+  return [
+    `Turno: ${
+      employee.work_shift
+        ? workShiftLabels[employee.work_shift] || employee.work_shift
+        : 'Sin cargar'
+    }`,
+    `Entrada: ${employee.shift_start_time || 'Sin cargar'}`,
+    `Salida: ${employee.shift_end_time || 'Sin cargar'}`
+  ].join(' | ');
+}
+
+function getEmployeeWorkShiftLabel(
+  employee?: Pick<Employee, 'work_shift'> | null
+) {
+  return employee?.work_shift
+    ? workShiftLabels[employee.work_shift] || ''
+    : '';
+}
+
+function timeToMinutes(
+  value?: string | null
+) {
+  if (!value) {
+    return null;
+  }
+
+  const [
+    hours,
+    minutes
+  ] =
+    value.split(':').map(Number);
+
+  if (
+    Number.isNaN(hours) ||
+    Number.isNaN(minutes)
+  ) {
+    return null;
+  }
+
+  return hours * 60 + minutes;
+}
+
+function roundClockMinutes(
+  totalMinutes: number
+) {
+  const hours =
+    Math.floor(totalMinutes / 60);
+
+  const minutes =
+    totalMinutes % 60;
+
+  if (minutes <= 15) {
+    return hours * 60;
+  }
+
+  if (minutes <= 45) {
+    return hours * 60 + 30;
+  }
+
+  return (hours + 1) * 60;
+}
+
+function formatAutoHours(
+  hours: number
+) {
+  return Number.isInteger(hours)
+    ? String(hours)
+    : String(hours);
+}
+
+function calculateLateArrivalHours(
+  scheduledStart?: string | null,
+  arrivalTime?: string | null
+) {
+  const start =
+    timeToMinutes(scheduledStart);
+
+  const arrival =
+    timeToMinutes(arrivalTime);
+
+  if (start === null || arrival === null) {
+    return '';
+  }
+
+  const normalizedArrival =
+    arrival < start && start >= 12 * 60
+      ? arrival + 24 * 60
+      : arrival;
+
+  return formatAutoHours(
+    Math.max(
+      0,
+      (roundClockMinutes(normalizedArrival) - start) / 60
+    )
+  );
+}
+
+function calculateEarlyExitHours(
+  scheduledStart?: string | null,
+  scheduledEnd?: string | null,
+  exitTime?: string | null
+) {
+  const start =
+    timeToMinutes(scheduledStart);
+
+  const end =
+    timeToMinutes(scheduledEnd);
+
+  const exit =
+    timeToMinutes(exitTime);
+
+  if (start === null || end === null || exit === null) {
+    return '';
+  }
+
+  const shiftEnd =
+    end <= start
+      ? end + 24 * 60
+      : end;
+
+  const shiftExit =
+    end <= start && exit < start
+      ? exit + 24 * 60
+      : exit;
+
+  return formatAutoHours(
+    Math.max(
+      0,
+      (shiftEnd - roundClockMinutes(shiftExit)) / 60
+    )
+  );
+}
+
+function calculateReturnPermissionHours(
+  exitTime?: string | null,
+  returnTime?: string | null
+) {
+  const exit =
+    timeToMinutes(exitTime);
+
+  const returnMinutes =
+    timeToMinutes(returnTime);
+
+  if (exit === null || returnMinutes === null) {
+    return '';
+  }
+
+  const roundedExit =
+    roundClockMinutes(exit);
+
+  const roundedReturn =
+    roundClockMinutes(returnMinutes);
+
+  const normalizedReturn =
+    roundedReturn < roundedExit
+      ? roundedReturn + 24 * 60
+      : roundedReturn;
+
+  return formatAutoHours(
+    Math.max(
+      0,
+      (normalizedReturn - roundedExit) / 60
+    )
+  );
 }
 
 const emptyEmployee = {
@@ -1406,12 +1586,38 @@ export default function PersonnelPage() {
     employee: Employee
   ) {
 
+    const nextForm: any = {
+      ...leaveForm,
+      employee_id: String(employee.id),
+      shift_label:
+        leaveForm.code === '26'
+          ? getEmployeeWorkShiftLabel(employee)
+          : leaveForm.shift_label
+    };
+
+    if (leaveForm.code === '24') {
+      nextForm.total_hours =
+        calculateLateArrivalHours(
+          employee.shift_start_time,
+          leaveForm.exit_time
+        );
+    }
+
+    if (
+      leaveForm.code === '43' &&
+      leaveForm.no_return
+    ) {
+      nextForm.total_hours =
+        calculateEarlyExitHours(
+          employee.shift_start_time,
+          employee.shift_end_time,
+          leaveForm.exit_time
+        );
+    }
+
     setSelectedLeaveEmployee(employee);
     setEditingLeaveRequest(null);
-    setLeaveForm({
-      ...leaveForm,
-      employee_id: String(employee.id)
-    });
+    setLeaveForm(nextForm);
     loadLeaveSummary(employee.id);
   }
 
@@ -1498,7 +1704,12 @@ export default function PersonnelPage() {
       no_return:
         Boolean(request.no_return),
       shift_label:
-        request.shift_label || '',
+        request.shift_label ||
+        (
+          request.code === '26'
+            ? getEmployeeWorkShiftLabel(employee)
+            : ''
+        ),
       exam_type:
         request.exam_type || '',
       is_exception:
@@ -1533,6 +1744,60 @@ export default function PersonnelPage() {
       target.name === 'code'
         ? target.value
         : nextForm.code;
+
+    if (
+      target.name === 'code' &&
+      target.value === '26'
+    ) {
+      nextForm.shift_label =
+        getEmployeeWorkShiftLabel(selectedLeaveEmployee);
+    }
+
+    if (
+      target.name === 'code' &&
+      target.value !== '26'
+    ) {
+      nextForm.shift_label = '';
+    }
+
+    if (
+      nextCode === '24' &&
+      (
+        target.name === 'code' ||
+        target.name === 'exit_time'
+      )
+    ) {
+      nextForm.total_hours =
+        calculateLateArrivalHours(
+          selectedLeaveEmployee?.shift_start_time,
+          nextForm.exit_time
+        );
+    }
+
+    if (
+      nextCode === '43' &&
+      nextForm.no_return &&
+      (
+        target.name === 'code' ||
+        target.name === 'exit_time' ||
+        target.name === 'no_return'
+      )
+    ) {
+      nextForm.total_hours =
+        calculateEarlyExitHours(
+          selectedLeaveEmployee?.shift_start_time,
+          selectedLeaveEmployee?.shift_end_time,
+          nextForm.exit_time
+        );
+    }
+
+    if (
+      nextCode === '43' &&
+      !nextForm.no_return &&
+      target.name === 'no_return'
+    ) {
+      nextForm.total_hours = '';
+    }
 
     const nextStartDate =
       target.name === 'start_date'
@@ -3569,10 +3834,14 @@ export default function PersonnelPage() {
                 onChange={handleEmployeeChange}
               >
                 <option value="">Turno</option>
-                <option value="manana">Mañana</option>
-                <option value="tarde">Tarde</option>
-                <option value="vespertino">Vespertino</option>
-                <option value="noche">Noche</option>
+                {workShiftOptions.map((shift) => (
+                  <option
+                    key={shift}
+                    value={shift}
+                  >
+                    {workShiftLabels[shift]}
+                  </option>
+                ))}
               </select>
 
               <label className="form-field">
@@ -4160,12 +4429,20 @@ export default function PersonnelPage() {
                   className="form-input"
                   type="time"
                   value={returnForm.return_time}
-                  onChange={(e) =>
+                  onChange={(e) => {
+                    const returnTime =
+                      e.target.value;
+
                     setReturnForm({
                       ...returnForm,
-                      return_time: e.target.value
-                    })
-                  }
+                      return_time: returnTime,
+                      total_hours:
+                        calculateReturnPermissionHours(
+                          returnLeaveRequest.exit_time,
+                          returnTime
+                        )
+                    });
+                  }}
                 />
                 <input
                   className="form-input"
@@ -5186,7 +5463,8 @@ export default function PersonnelPage() {
                       employee_id:
                         selectedLeaveEmployee
                           ? String(selectedLeaveEmployee.id)
-                          : ''
+                          : '',
+                      shift_label: ''
                     });
                     setShowLeaveFormModal(true);
                   }}
@@ -5232,6 +5510,10 @@ export default function PersonnelPage() {
                 }
                 disabled
               />
+
+              <div className="form-info-line">
+                {formatEmployeeLeaveSchedule(selectedLeaveEmployee)}
+              </div>
 
               <select
                 className="form-input"
@@ -5356,13 +5638,24 @@ export default function PersonnelPage() {
               )}
 
               {leaveForm.code === '26' && (
-                <input
+                <select
                   className="form-input"
                   name="shift_label"
-                  placeholder="Turno"
                   value={leaveForm.shift_label}
                   onChange={handleLeaveChange}
-                />
+                >
+                  <option value="">
+                    Seleccione turno
+                  </option>
+                  {workShiftOptions.map((shift) => (
+                    <option
+                      key={shift}
+                      value={workShiftLabels[shift]}
+                    >
+                      {workShiftLabels[shift]}
+                    </option>
+                  ))}
+                </select>
               )}
 
               {['17', '18'].includes(leaveForm.code) && (
@@ -5556,12 +5849,18 @@ export default function PersonnelPage() {
                                 className="btn-primary"
                                 type="button"
                                 onClick={() => {
+                                  const returnTime =
+                                    request.return_time || '';
+
                                   setReturnLeaveRequest(request);
                                   setReturnForm({
-                                    return_time: request.return_time || '',
+                                    return_time: returnTime,
                                     total_hours: request.total_hours
                                       ? String(request.total_hours)
-                                      : ''
+                                      : calculateReturnPermissionHours(
+                                        request.exit_time,
+                                        returnTime
+                                      )
                                   });
                                 }}
                               >
@@ -5956,12 +6255,18 @@ export default function PersonnelPage() {
                                 className="btn-primary"
                                 type="button"
                                 onClick={() => {
+                                  const returnTime =
+                                    request.return_time || '';
+
                                   setReturnLeaveRequest(request);
                                   setReturnForm({
-                                    return_time: request.return_time || '',
+                                    return_time: returnTime,
                                     total_hours: request.total_hours
                                       ? String(request.total_hours)
-                                      : ''
+                                      : calculateReturnPermissionHours(
+                                        request.exit_time,
+                                        returnTime
+                                      )
                                   });
                                 }}
                               >

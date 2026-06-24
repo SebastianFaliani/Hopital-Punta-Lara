@@ -58,6 +58,27 @@
   font-weight: 700;
 }
 
+.form-info-line {
+
+  grid-column: 1 / -1;
+
+  margin: -4px 0 14px;
+
+  padding: 10px 12px;
+
+  border: 1px solid var(--color-border);
+
+  border-radius: 8px;
+
+  background: #f8fafc;
+
+  color: var(--color-muted);
+
+  font-size: 13px;
+
+  font-weight: 700;
+}
+
 .modal-content.access-modal {
 
   width: min(1120px, calc(100vw - 40px));
