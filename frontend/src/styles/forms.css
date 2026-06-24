@@ -253,6 +253,11 @@
   gap: 10px;
 }
 
+.page-actions {
+
+  margin: 18px 0 20px;
+}
+
 .checkbox-row {
 
   display: flex;
@@ -369,7 +374,7 @@
   flex-wrap: wrap;
   gap: 12px;
   align-items: end;
-  margin-bottom: 18px;
+  margin: 18px 0 20px;
 }
 
 .transfer-toolbar .form-field {

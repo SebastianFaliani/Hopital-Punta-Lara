@@ -844,6 +844,12 @@ export default function PersonnelPage() {
   const [editingEmployee, setEditingEmployee] =
     useState<Employee | null>(null);
 
+  const [showEmployeeFormModal, setShowEmployeeFormModal] =
+    useState(false);
+
+  const [showLeaveFormModal, setShowLeaveFormModal] =
+    useState(false);
+
   const [departmentForm, setDepartmentForm] =
     useState({
       name: '',
@@ -1058,6 +1064,7 @@ export default function PersonnelPage() {
 
     setEditingEmployee(null);
     setEmployeeForm(emptyEmployee);
+    setShowEmployeeFormModal(false);
   }
 
   function startEditEmployee(
@@ -1100,6 +1107,7 @@ export default function PersonnelPage() {
       notes:
         employee.notes || ''
     });
+    setShowEmployeeFormModal(true);
   }
 
   async function handleEmployeeSubmit(
@@ -1418,6 +1426,7 @@ export default function PersonnelPage() {
   function resetLeaveForm() {
 
     setEditingLeaveRequest(null);
+    setShowLeaveFormModal(false);
 
     setLeaveForm({
       ...emptyLeaveForm,
@@ -1467,6 +1476,7 @@ export default function PersonnelPage() {
     }
 
     setEditingLeaveRequest(request);
+    setShowLeaveFormModal(true);
     setActiveTab('leaves');
     setLeaveForm({
       employee_id: String(request.employee_id),
@@ -1643,6 +1653,7 @@ export default function PersonnelPage() {
         Boolean(editingLeaveRequest);
 
       setEditingLeaveRequest(null);
+      setShowLeaveFormModal(false);
       setLeaveForm(emptyLeaveForm);
       if (selectedLeaveEmployee) {
         setLeaveForm({
@@ -3438,10 +3449,38 @@ export default function PersonnelPage() {
         activeTab === 'employees' && (
           <>
             {!readOnly && (
-            <form
-              className="personnel-form"
-              onSubmit={handleEmployeeSubmit}
-            >
+              <div className="management-actions page-actions">
+                <button
+                  className="btn-primary"
+                  type="button"
+                  onClick={() => {
+                    setEditingEmployee(null);
+                    setEmployeeForm(emptyEmployee);
+                    setShowEmployeeFormModal(true);
+                  }}
+                >
+                  + Nuevo empleado
+                </button>
+              </div>
+            )}
+
+            {!readOnly && showEmployeeFormModal && (
+            <div className="modal-overlay">
+              <div className="modal-content modal-content-wide">
+                <button
+                  className="modal-close-button"
+                  type="button"
+                  onClick={resetEmployeeForm}
+                >
+                  x
+                </button>
+                <h2 className="modal-title">
+                  {editingEmployee ? 'Editar empleado' : 'Nuevo empleado'}
+                </h2>
+                <form
+                  className="personnel-form"
+                  onSubmit={handleEmployeeSubmit}
+                >
               <input
                 className="form-input"
                 name="full_name"
@@ -3634,6 +3673,8 @@ export default function PersonnelPage() {
                 }
               </div>
             </form>
+              </div>
+            </div>
             )}
 
             <div className="filter-bar">
@@ -5133,10 +5174,49 @@ export default function PersonnelPage() {
             }
 
             {!readOnly && (
-            <form
-              className="personnel-form"
-              onSubmit={handleLeaveSubmit}
-            >
+              <div className="management-actions page-actions">
+                <button
+                  className="btn-primary"
+                  type="button"
+                  disabled={!selectedLeaveEmployee}
+                  onClick={() => {
+                    setEditingLeaveRequest(null);
+                    setLeaveForm({
+                      ...emptyLeaveForm,
+                      employee_id:
+                        selectedLeaveEmployee
+                          ? String(selectedLeaveEmployee.id)
+                          : ''
+                    });
+                    setShowLeaveFormModal(true);
+                  }}
+                >
+                  + Nueva solicitud de licencia
+                </button>
+              </div>
+            )}
+
+            {!readOnly && showLeaveFormModal && (
+            <div className="modal-overlay">
+              <div className="modal-content modal-content-wide">
+                <button
+                  className="modal-close-button"
+                  type="button"
+                  onClick={resetLeaveForm}
+                >
+                  x
+                </button>
+                <h2 className="modal-title">
+                  {
+                    editingLeaveRequest
+                      ? 'Editar solicitud de licencia'
+                      : 'Nueva solicitud de licencia'
+                  }
+                </h2>
+                <form
+                  className="personnel-form"
+                  onSubmit={handleLeaveSubmit}
+                >
               {editingLeaveRequest && (
                 <div className="form-note">
                   Editando licencia #{editingLeaveRequest.id}. Al guardar se recalculan los dias y el presentismo si corresponde.
@@ -5359,6 +5439,8 @@ export default function PersonnelPage() {
                 </button>
               )}
             </form>
+              </div>
+            </div>
             )}
 
             <div className="filter-bar">

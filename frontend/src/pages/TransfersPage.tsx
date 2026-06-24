@@ -1504,13 +1504,13 @@ export default function TransfersPage() {
 
         {canEdit && (
           <button
-            className="btn-success"
+            className="btn-primary"
             type="button"
             onClick={() =>
               setShowRequestForm(true)
             }
           >
-            Nueva solicitud
+            + Nueva solicitud
           </button>
         )}
       </div>
@@ -1974,13 +1974,13 @@ export default function TransfersPage() {
           {canEdit && (
             <div className="transfer-toolbar">
               <button
-                className="btn-success"
+                className="btn-primary"
                 type="button"
                 onClick={() =>
                   setShowRecurringForm(true)
                 }
               >
-                Nuevo traslado recurrente
+                + Nuevo traslado recurrente
               </button>
             </div>
           )}

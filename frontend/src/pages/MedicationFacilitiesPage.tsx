@@ -50,6 +50,9 @@ export default function MedicationFacilitiesPage() {
   const [selectedFacility, setSelectedFacility] =
     useState<Facility | null>(null);
 
+  const [showFormModal, setShowFormModal] =
+    useState(false);
+
   const [loading, setLoading] =
     useState(false);
 
@@ -91,12 +94,15 @@ export default function MedicationFacilitiesPage() {
       phone: facility.phone || '',
       notes: facility.notes || ''
     });
+
+    setShowFormModal(true);
   }
 
   function clearForm() {
 
     setSelectedFacility(null);
     setForm(emptyForm);
+    setShowFormModal(false);
   }
 
   async function handleSubmit(
@@ -180,6 +186,20 @@ export default function MedicationFacilitiesPage() {
 
         </div>
 
+        {canEdit && (
+          <button
+            className="btn-primary"
+            type="button"
+            onClick={() => {
+              setSelectedFacility(null);
+              setForm(emptyForm);
+              setShowFormModal(true);
+            }}
+          >
+            + Nueva dependencia
+          </button>
+        )}
+
       </div>
 
       {error && (
@@ -188,20 +208,30 @@ export default function MedicationFacilitiesPage() {
         </p>
       )}
 
-      {canEdit && (
+      {canEdit && showFormModal && (
+
+        <div className="modal-overlay">
+          <div className="modal-content modal-content-wide">
+            <button
+              className="modal-close-button"
+              type="button"
+              onClick={clearForm}
+            >
+              x
+            </button>
+
+            <h2 className="modal-title">
+              {
+                selectedFacility
+                  ? 'Editar dependencia'
+                  : 'Nueva dependencia'
+              }
+            </h2>
 
         <form
-          className="dashboard-panel auth-form"
+          className="personnel-form"
           onSubmit={handleSubmit}
         >
-
-          <h2>
-            {
-              selectedFacility
-                ? 'Editar punto'
-                : 'Nueva dependencia'
-            }
-          </h2>
 
           <input
             className="form-input"
@@ -303,6 +333,8 @@ export default function MedicationFacilitiesPage() {
           </div>
 
         </form>
+          </div>
+        </div>
       )}
 
       <div className="table-container">
