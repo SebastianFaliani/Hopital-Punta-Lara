@@ -157,6 +157,24 @@ type VacationRule = {
   is_active: boolean;
 };
 
+type LeaveRule = {
+  id: number;
+  attendance_code_id: number;
+  code: string;
+  description: string;
+  name: string;
+  min_advance_days: number | null;
+  max_days_per_request: number | null;
+  max_days_per_year: number | null;
+  requires_documentation: boolean;
+  requires_medical_order: boolean;
+  gender_condition: string;
+  seniority_min_years: number | null;
+  seniority_max_years: number | null;
+  rule_notes: string | null;
+  is_active: boolean;
+};
+
 type LeaveBalanceAdjustment = {
   id: number;
   employee_id: number;
@@ -641,142 +659,6 @@ const leaveRuleSummaryCards = [
   }
 ];
 
-const leaveRuleSummaryRows = [
-  {
-    code: 'Todas',
-    title: 'Superposicion',
-    rule: 'No permite cargar otra licencia pendiente o aprobada si se cruza con una ya existente del mismo empleado.',
-    unit: 'Dias/rango',
-    exception: 'No'
-  },
-  {
-    code: '8',
-    title: 'Licencia anual',
-    rule: 'Del 1 al 15, requiere 15 dias de anticipacion, hasta agosto, descuenta saldo anual y solo puede partirse hasta 2 veces.',
-    unit: 'Dias',
-    exception: 'Si'
-  },
-  {
-    code: '8',
-    title: 'Segunda parte anual',
-    rule: 'Si ya uso una parte de vacaciones, la segunda solicitud debe tomar todo el saldo disponible.',
-    unit: 'Dias',
-    exception: 'Si'
-  },
-  {
-    code: '29',
-    title: 'Anual complementaria',
-    rule: 'Solo desde agosto y debe tomarse completa de una sola vez segun el saldo disponible.',
-    unit: 'Dias',
-    exception: 'Si'
-  },
-  {
-    code: '26',
-    title: 'Asuntos particulares',
-    rule: 'Requiere 48 hs de anticipacion, maximo 6 dias anuales y una solicitud por mes.',
-    unit: 'Dias',
-    exception: 'Si'
-  },
-  {
-    code: '24 / 43',
-    title: 'Permisos por horas',
-    rule: 'Maximo 2 hs por dia, 5 hs mensuales y 30 hs anuales acumuladas entre ambas claves.',
-    unit: 'Horas',
-    exception: 'Si'
-  },
-  {
-    code: '43',
-    title: 'Permiso de salida',
-    rule: 'Puede quedar abierto con regreso pendiente. Al completar el regreso vuelve a validar limites de horas.',
-    unit: 'Horas',
-    exception: 'No'
-  },
-  {
-    code: '46',
-    title: 'Permiso gremial',
-    rule: 'Requiere horas, maximo 5 hs semanales.',
-    unit: 'Horas',
-    exception: 'Si'
-  },
-  {
-    code: '34',
-    title: 'Franco compensatorio',
-    rule: 'Solo permite tomar dias si el empleado tiene compensatorios disponibles.',
-    unit: 'Dias',
-    exception: 'Si'
-  },
-  {
-    code: '5',
-    title: 'Limite anual',
-    rule: 'Maximo 20 dias por anio.',
-    unit: 'Dias',
-    exception: 'Si'
-  },
-  {
-    code: '6 / 42',
-    title: 'Maternidad / adopcion',
-    rule: 'Maximo 90 dias.',
-    unit: 'Dias',
-    exception: 'Si'
-  },
-  {
-    code: '14',
-    title: 'Duelo',
-    rule: 'Maximo 3 dias corridos.',
-    unit: 'Dias',
-    exception: 'Si'
-  },
-  {
-    code: '15',
-    title: 'Duelo',
-    rule: 'Permite 1 dia.',
-    unit: 'Dias',
-    exception: 'Si'
-  },
-  {
-    code: '16',
-    title: 'Matrimonio',
-    rule: 'Maximo 10 dias corridos.',
-    unit: 'Dias',
-    exception: 'Si'
-  },
-  {
-    code: '17',
-    title: 'Pre examen',
-    rule: 'Maximo 2 dias por materia.',
-    unit: 'Dias',
-    exception: 'Si'
-  },
-  {
-    code: '18',
-    title: 'Examen',
-    rule: 'Permite 1 dia por examen.',
-    unit: 'Dias',
-    exception: 'Si'
-  },
-  {
-    code: '31',
-    title: 'Nacimiento',
-    rule: 'Maximo 3 dias.',
-    unit: 'Dias',
-    exception: 'Si'
-  },
-  {
-    code: '33',
-    title: 'Donacion de sangre',
-    rule: 'Permite 1 dia.',
-    unit: 'Dias',
-    exception: 'Si'
-  },
-  {
-    code: '35',
-    title: 'Permiso por horas',
-    rule: 'Requiere horas y permite hasta 2 hs diarias.',
-    unit: 'Horas',
-    exception: 'Si'
-  }
-];
-
 const singleDayLeaveCodes =
   new Set([
     '24',
@@ -1123,6 +1005,12 @@ export default function PersonnelPage() {
   const [vacationRules, setVacationRules] =
     useState<VacationRule[]>([]);
 
+  const [leaveRules, setLeaveRules] =
+    useState<LeaveRule[]>([]);
+
+  const [editingLeaveRuleId, setEditingLeaveRuleId] =
+    useState<number | null>(null);
+
   const [vacationYear] =
     useState(String(new Date().getFullYear()));
 
@@ -1212,16 +1100,22 @@ export default function PersonnelPage() {
       const [
         employeesRes,
         departmentsRes,
-        codesRes
+        codesRes,
+        leaveRulesRes
       ] = await Promise.all([
         apiFetch('/personnel/employees'),
         apiFetch('/personnel/departments'),
-        apiFetch('/personnel/attendance-codes')
+        apiFetch('/personnel/attendance-codes'),
+        apiFetch('/personnel/leave-rules')
+          .catch(() => ({
+            data: []
+          }))
       ]);
 
       setEmployees(employeesRes.data);
       setDepartments(departmentsRes.data);
       setCodes(codesRes.data);
+      setLeaveRules(leaveRulesRes.data);
 
     } catch (error: any) {
 
@@ -2167,6 +2061,47 @@ export default function PersonnelPage() {
     } catch (error: any) {
 
       setError(error.message);
+    }
+  }
+
+  function updateLeaveRuleDraft(
+    id: number,
+    data: Partial<LeaveRule>
+  ) {
+
+    setLeaveRules((current) =>
+      current.map((rule) =>
+        rule.id === id
+          ? {
+            ...rule,
+            ...data
+          }
+          : rule
+      )
+    );
+  }
+
+  async function saveLeaveRule(
+    rule: LeaveRule
+  ) {
+
+    setError('');
+
+    try {
+      await apiFetch(
+        `/personnel/leave-rules/${rule.id}`,
+        {
+          method: 'PUT',
+          body:
+            JSON.stringify(rule)
+        }
+      );
+
+      setEditingLeaveRuleId(null);
+      await loadData();
+    } catch (error: any) {
+      setError(error.message);
+      showSystemAlert(error.message);
     }
   }
 
@@ -6131,21 +6066,204 @@ export default function PersonnelPage() {
                     <tr>
                       <th>Clave</th>
                       <th>Regla</th>
+                      <th>Anticipacion</th>
+                      <th>Max. solicitud</th>
+                      <th>Max. anual</th>
                       <th>Detalle</th>
-                      <th>Unidad</th>
-                      <th>Excepcion</th>
+                      <th>Estado</th>
+                      {!readOnly && (
+                        <th>Acciones</th>
+                      )}
                     </tr>
                   </thead>
                   <tbody>
-                    {leaveRuleSummaryRows.map((rule, index) => (
-                      <tr key={`${rule.code}-${rule.title}-${index}`}>
-                        <td>{rule.code}</td>
-                        <td>{rule.title}</td>
-                        <td>{rule.rule}</td>
-                        <td>{rule.unit}</td>
-                        <td>{rule.exception}</td>
+                    {leaveRules.map((rule) => {
+                      const isEditing =
+                        editingLeaveRuleId === rule.id;
+
+                      return (
+                        <tr key={rule.id}>
+                          <td>
+                            {rule.code} - {rule.description}
+                          </td>
+                          <td>
+                            {isEditing ? (
+                              <input
+                                className="attendance-code-input"
+                                value={rule.name}
+                                onChange={(e) =>
+                                  updateLeaveRuleDraft(
+                                    rule.id,
+                                    {
+                                      name: e.target.value
+                                    }
+                                  )
+                                }
+                              />
+                            ) : (
+                              rule.name
+                            )}
+                          </td>
+                          <td>
+                            {isEditing ? (
+                              <input
+                                className="attendance-code-input"
+                                type="number"
+                                min="0"
+                                step="1"
+                                value={rule.min_advance_days ?? ''}
+                                onChange={(e) =>
+                                  updateLeaveRuleDraft(
+                                    rule.id,
+                                    {
+                                      min_advance_days:
+                                        e.target.value
+                                          ? Number(e.target.value)
+                                          : null
+                                    }
+                                  )
+                                }
+                              />
+                            ) : (
+                              rule.min_advance_days ?? '-'
+                            )}
+                          </td>
+                          <td>
+                            {isEditing ? (
+                              <input
+                                className="attendance-code-input"
+                                type="number"
+                                min="0"
+                                step="1"
+                                value={rule.max_days_per_request ?? ''}
+                                onChange={(e) =>
+                                  updateLeaveRuleDraft(
+                                    rule.id,
+                                    {
+                                      max_days_per_request:
+                                        e.target.value
+                                          ? Number(e.target.value)
+                                          : null
+                                    }
+                                  )
+                                }
+                              />
+                            ) : (
+                              rule.max_days_per_request ?? '-'
+                            )}
+                          </td>
+                          <td>
+                            {isEditing ? (
+                              <input
+                                className="attendance-code-input"
+                                type="number"
+                                min="0"
+                                step="1"
+                                value={rule.max_days_per_year ?? ''}
+                                onChange={(e) =>
+                                  updateLeaveRuleDraft(
+                                    rule.id,
+                                    {
+                                      max_days_per_year:
+                                        e.target.value
+                                          ? Number(e.target.value)
+                                          : null
+                                    }
+                                  )
+                                }
+                              />
+                            ) : (
+                              rule.max_days_per_year ?? '-'
+                            )}
+                          </td>
+                          <td>
+                            {isEditing ? (
+                              <textarea
+                                className="form-input"
+                                value={rule.rule_notes || ''}
+                                onChange={(e) =>
+                                  updateLeaveRuleDraft(
+                                    rule.id,
+                                    {
+                                      rule_notes: e.target.value
+                                    }
+                                  )
+                                }
+                              />
+                            ) : (
+                              rule.rule_notes || '-'
+                            )}
+                          </td>
+                          <td>
+                            {isEditing ? (
+                              <label className="checkbox-row">
+                                <input
+                                  type="checkbox"
+                                  checked={rule.is_active}
+                                  onChange={(e) =>
+                                    updateLeaveRuleDraft(
+                                      rule.id,
+                                      {
+                                        is_active: e.target.checked
+                                      }
+                                    )
+                                  }
+                                />
+                                Activa
+                              </label>
+                            ) : (
+                              rule.is_active
+                                ? 'Activa'
+                                : 'Inactiva'
+                            )}
+                          </td>
+                          {!readOnly && (
+                            <td>
+                              {isEditing ? (
+                                <div className="action-buttons">
+                                  <button
+                                    className="btn-success"
+                                    type="button"
+                                    onClick={() =>
+                                      saveLeaveRule(rule)
+                                    }
+                                  >
+                                    Guardar
+                                  </button>
+                                  <button
+                                    className="btn-secondary"
+                                    type="button"
+                                    onClick={() => {
+                                      setEditingLeaveRuleId(null);
+                                      loadData();
+                                    }}
+                                  >
+                                    Cancelar
+                                  </button>
+                                </div>
+                              ) : (
+                                <button
+                                  className="btn-secondary"
+                                  type="button"
+                                  onClick={() =>
+                                    setEditingLeaveRuleId(rule.id)
+                                  }
+                                >
+                                  Editar
+                                </button>
+                              )}
+                            </td>
+                          )}
+                        </tr>
+                      );
+                    })}
+                    {leaveRules.length === 0 && (
+                      <tr>
+                        <td colSpan={readOnly ? 7 : 8}>
+                          No hay reglas cargadas. Aplique el script de reglas de licencias para inicializarlas.
+                        </td>
                       </tr>
-                    ))}
+                    )}
                   </tbody>
                 </table>
               </div>

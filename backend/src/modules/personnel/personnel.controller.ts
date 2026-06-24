@@ -27,6 +27,7 @@ import {
   getAttendanceSummary,
   getEmployeeLeaveSummary,
   getLeaveRequestAuditDetail,
+  getLeaveRules,
   getPlannedDaysOffMonth,
   formatLeaveAuditDetail,
   fillPresentAttendanceDay,
@@ -42,6 +43,7 @@ import {
   updateEmployee,
   updateLeaveRequest,
   updateLeaveRequestStatus,
+  updateLeaveRule,
   updateVacationBalance,
   updateVacationRule
 } from './personnel.service';
@@ -159,6 +161,70 @@ export async function handleUpdateAttendanceCode(
       success: true
     });
 
+  } catch (error: any) {
+    return res.status(400).json({
+      success: false,
+      message: error.message
+    });
+  }
+}
+
+export async function handleGetLeaveRules(
+  req: Request,
+  res: Response
+) {
+
+  try {
+    return res.json({
+      success: true,
+      data: await getLeaveRules()
+    });
+  } catch (error: any) {
+    return res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+}
+
+export async function handleUpdateLeaveRule(
+  req: AuthRequest,
+  res: Response
+) {
+
+  try {
+    const id =
+      Number(req.params.id);
+
+    if (!id || !req.body.name) {
+      return res.status(400).json({
+        success: false,
+        message:
+          'Regla y nombre son obligatorios'
+      });
+    }
+
+    await updateLeaveRule(
+      id,
+      req.body
+    );
+
+    await logAudit({
+      user: req.user,
+      module: 'personal',
+      action: 'editar_regla_licencia',
+      entityType: 'leave_rule',
+      entityId: id,
+      description:
+        `Edito regla de licencia ${req.body.name}`,
+      newData: req.body,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'] || null
+    });
+
+    return res.json({
+      success: true
+    });
   } catch (error: any) {
     return res.status(400).json({
       success: false,

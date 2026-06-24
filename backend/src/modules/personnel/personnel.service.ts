@@ -372,6 +372,81 @@ export async function createAttendanceCode(
   return result.insertId;
 }
 
+export async function getLeaveRules() {
+
+  const [rows]: any =
+    await pool.query(
+      `
+        SELECT
+          lr.id,
+          lr.attendance_code_id,
+          ac.code,
+          ac.description,
+          lr.name,
+          lr.min_advance_days,
+          lr.max_days_per_request,
+          lr.max_days_per_year,
+          lr.requires_documentation,
+          lr.requires_medical_order,
+          lr.gender_condition,
+          lr.seniority_min_years,
+          lr.seniority_max_years,
+          lr.rule_notes,
+          lr.is_active
+        FROM leave_rules lr
+        INNER JOIN attendance_codes ac
+          ON ac.id = lr.attendance_code_id
+        ORDER BY
+          CAST(ac.code AS UNSIGNED),
+          ac.code,
+          lr.name
+      `
+    );
+
+  return rows;
+}
+
+export async function updateLeaveRule(
+  id: number,
+  data: any
+) {
+
+  await pool.query(
+    `
+      UPDATE leave_rules
+      SET
+        name = ?,
+        min_advance_days = ?,
+        max_days_per_request = ?,
+        max_days_per_year = ?,
+        requires_documentation = ?,
+        requires_medical_order = ?,
+        gender_condition = ?,
+        seniority_min_years = ?,
+        seniority_max_years = ?,
+        rule_notes = ?,
+        is_active = ?
+      WHERE id = ?
+    `,
+    [
+      data.name,
+      data.min_advance_days || null,
+      data.max_days_per_request || null,
+      data.max_days_per_year || null,
+      Boolean(data.requires_documentation),
+      Boolean(data.requires_medical_order),
+      data.gender_condition || 'cualquiera',
+      data.seniority_min_years || null,
+      data.seniority_max_years || null,
+      data.rule_notes || null,
+      data.is_active ?? true,
+      id
+    ]
+  );
+
+  return true;
+}
+
 function getPeriodName(
   year: number,
   month: number

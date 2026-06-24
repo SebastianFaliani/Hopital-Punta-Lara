@@ -25,6 +25,7 @@ import {
   handleGetEmployees,
   handleGetLeaveBalanceAdjustments,
   handleGetLeaveRequests,
+  handleGetLeaveRules,
   handleGetVacationBalances,
   handleGetVacationRules,
   handleSaveAttendanceMonth,
@@ -35,6 +36,7 @@ import {
   handleUpdateEmployee,
   handleUpdateLeaveRequest,
   handleUpdateLeaveRequestStatus,
+  handleUpdateLeaveRule,
   handleUpdateVacationBalance,
   handleUpdateVacationRule
 } from './personnel.controller';
@@ -69,6 +71,16 @@ router.post(
 router.put(
   '/attendance-codes/:id',
   handleUpdateAttendanceCode
+);
+
+router.get(
+  '/leave-rules',
+  handleGetLeaveRules
+);
+
+router.put(
+  '/leave-rules/:id',
+  handleUpdateLeaveRule
 );
 
 router.get(
