@@ -5204,13 +5204,7 @@ export default function PersonnelPage() {
                 </>
               )}
 
-              {(
-                ['24', '35', '46'].includes(leaveForm.code) ||
-                (
-                  leaveForm.code === '43' &&
-                  leaveForm.no_return
-                )
-              ) && (
+              {['24', '35', '46'].includes(leaveForm.code) && (
                 <input
                   className="form-input"
                   type="number"
@@ -5262,6 +5256,20 @@ export default function PersonnelPage() {
                       />
                       Sin retorno
                     </label>
+                  )}
+
+                  {leaveForm.code === '43' &&
+                    leaveForm.no_return && (
+                    <input
+                      className="form-input"
+                      type="number"
+                      min="0"
+                      step="0.5"
+                      name="total_hours"
+                      placeholder="Horas a descontar"
+                      value={leaveForm.total_hours}
+                      onChange={handleLeaveChange}
+                    />
                   )}
 
                 </>
