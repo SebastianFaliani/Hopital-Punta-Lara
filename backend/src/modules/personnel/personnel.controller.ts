@@ -26,7 +26,9 @@ import {
   getEmployeeDirectiveSummary,
   getAttendanceSummary,
   getEmployeeLeaveSummary,
+  getLeaveRequestAuditDetail,
   getPlannedDaysOffMonth,
+  formatLeaveAuditDetail,
   fillPresentAttendanceDay,
   getLeaveBalanceAdjustments,
   getLeaveRequests,
@@ -591,6 +593,9 @@ export async function handleCreateLeaveRequest(
         req.user?.id
       );
 
+    const detail =
+      await getLeaveRequestAuditDetail(id);
+
     await logAudit({
       user: req.user,
       module: 'personal',
@@ -598,7 +603,7 @@ export async function handleCreateLeaveRequest(
       entityType: 'leave_request',
       entityId: id,
       description:
-        `Creo licencia clave ${req.body.code} para empleado ${req.body.employee_id}`,
+        `Creo licencia ${formatLeaveAuditDetail(detail)}`,
       newData: req.body,
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'] || null
@@ -642,6 +647,11 @@ export async function handleUpdateLeaveRequest(
       req.user?.id
     );
 
+    const detail =
+      await getLeaveRequestAuditDetail(
+        Number(req.params.id)
+      );
+
     await logAudit({
       user: req.user,
       module: 'personal',
@@ -649,7 +659,7 @@ export async function handleUpdateLeaveRequest(
       entityType: 'leave_request',
       entityId: Number(req.params.id),
       description:
-        `Edito licencia clave ${req.body.code} del empleado ${req.body.employee_id}`,
+        `Edito licencia ${formatLeaveAuditDetail(detail)}`,
       newData: req.body,
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'] || null
@@ -681,6 +691,11 @@ export async function handleUpdateLeaveRequestStatus(
       req.body.rejected_reason
     );
 
+    const detail =
+      await getLeaveRequestAuditDetail(
+        Number(req.params.id)
+      );
+
     await logAudit({
       user: req.user,
       module: 'personal',
@@ -688,7 +703,7 @@ export async function handleUpdateLeaveRequestStatus(
       entityType: 'leave_request',
       entityId: Number(req.params.id),
       description:
-        `Cambio estado de licencia a ${req.body.status}`,
+        `Cambio estado de licencia a ${req.body.status}: ${formatLeaveAuditDetail(detail)}`,
       newData: req.body,
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'] || null
@@ -718,6 +733,11 @@ export async function handleCompleteLeaveReturn(
       req.body
     );
 
+    const detail =
+      await getLeaveRequestAuditDetail(
+        Number(req.params.id)
+      );
+
     await logAudit({
       user: req.user,
       module: 'personal',
@@ -725,7 +745,7 @@ export async function handleCompleteLeaveReturn(
       entityType: 'leave_request',
       entityId: Number(req.params.id),
       description:
-        'Completo regreso de permiso de salida clave 43',
+        `Completo regreso de permiso de salida: ${formatLeaveAuditDetail(detail)}`,
       newData: req.body,
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'] || null

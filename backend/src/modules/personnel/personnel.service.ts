@@ -3520,6 +3520,74 @@ export async function getLeaveRequests() {
   return rows;
 }
 
+export async function getLeaveRequestAuditDetail(
+  id: number
+) {
+
+  const [rows]: any =
+    await pool.query(
+      `
+        SELECT
+          lr.id,
+          e.full_name,
+          e.dni,
+          e.file_number,
+          ac.code,
+          ac.description,
+          lr.start_date,
+          lr.end_date,
+          lr.total_days,
+          lr.total_hours,
+          lr.status
+        FROM leave_requests lr
+        INNER JOIN employees e
+          ON e.id = lr.employee_id
+        INNER JOIN attendance_codes ac
+          ON ac.id = lr.attendance_code_id
+        WHERE lr.id = ?
+        LIMIT 1
+      `,
+      [id]
+    );
+
+  if (!rows.length) {
+    return null;
+  }
+
+  return rows[0];
+}
+
+export function formatLeaveAuditDetail(
+  detail: any
+) {
+
+  if (!detail) {
+    return 'licencia sin detalle disponible';
+  }
+
+  const dateRange =
+    detail.start_date === detail.end_date
+      ? `fecha ${toDateOnly(detail.start_date)}`
+      : `desde ${toDateOnly(detail.start_date)} hasta ${toDateOnly(detail.end_date)}`;
+
+  const legajo =
+    detail.file_number
+      ? `, legajo ${detail.file_number}`
+      : '';
+
+  const dni =
+    detail.dni
+      ? `, DNI ${detail.dni}`
+      : '';
+
+  const amount =
+    Number(detail.total_hours || 0) > 0
+      ? `${detail.total_hours} hora(s)`
+      : `${detail.total_days} dia(s)`;
+
+  return `clave ${detail.code} - ${detail.description}, empleado ${detail.full_name}${dni}${legajo}, ${dateRange}, ${amount}`;
+}
+
 export async function createLeaveRequest(
   data: any,
   userId?: number
