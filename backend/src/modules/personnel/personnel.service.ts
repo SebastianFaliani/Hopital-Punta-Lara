@@ -976,6 +976,37 @@ export async function saveAttendanceMonth(
           day
         );
 
+      const [existingRows]: any =
+        await connection.query(
+          `
+            SELECT
+              ac.code,
+              ac.description
+            FROM attendance_records ar
+            INNER JOIN attendance_codes ac
+              ON ac.id = ar.attendance_code_id
+            WHERE ar.employee_id = ?
+              AND ar.attendance_date = ?
+            LIMIT 1
+          `,
+          [
+            employeeId,
+            attendanceDate
+          ]
+        );
+
+      if (
+        existingRows.length > 0 &&
+        attendanceCodesOnlyFromLeaves.has(
+          String(existingRows[0].code || '')
+            .toUpperCase()
+        )
+      ) {
+        throw new Error(
+          `No se puede modificar el dia ${attendanceDate} desde Presentismo porque tiene la clave ${existingRows[0].code} - ${existingRows[0].description} cargada desde Licencias`
+        );
+      }
+
       if (!code) {
         await connection.query(
           `
@@ -2524,7 +2555,7 @@ async function getCompensatoryBalance(
   const earnedDays =
     Number(creditRows[0].total || 0) +
     Number(creditAdjustments[0].total || 0) +
-    Number(workedPlannedOffRows[0].total || 0);
+    Number(workedPlannedOffRows[0].total || 0) * 2;
 
   const usedDays =
     Number(usedRows[0].total || 0) +
