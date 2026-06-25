@@ -99,21 +99,6 @@ type PlannedDaysOffEmployee = {
   >;
 };
 
-type AttendanceSummary = {
-  employee_id: number;
-  full_name: string;
-  department_name: string | null;
-  presente: number;
-  franco: number;
-  licencia: number;
-  vacaciones: number;
-  maternidad: number;
-  gremial: number;
-  ausencia: number;
-  otro: number;
-  sin_cargar: number;
-};
-
 type LeaveRequest = {
   id: number;
   employee_id: number;
@@ -926,17 +911,8 @@ export default function PersonnelPage() {
   const [attendanceDays, setAttendanceDays] =
     useState(0);
 
-  const [attendanceSummary, setAttendanceSummary] =
-    useState<AttendanceSummary[]>([]);
-
   const attendanceGridRef =
     useRef<HTMLDivElement | null>(null);
-
-  const attendanceSummaryRef =
-    useRef<HTMLDivElement | null>(null);
-
-  const syncingAttendanceScroll =
-    useRef(false);
 
   const [attendanceFilters, setAttendanceFilters] =
     useState(() => {
@@ -1181,26 +1157,16 @@ export default function PersonnelPage() {
         );
       }
 
-      const [
-        attendanceRes,
-        summaryRes
-      ] = await Promise.all([
-        apiFetch(
+      const attendanceRes =
+        await apiFetch(
           `/personnel/attendance?${params.toString()}`
-        ),
-        apiFetch(
-          `/personnel/attendance/summary?${params.toString()}`
-        )
-      ]);
+        );
 
       setAttendanceRows(
         attendanceRes.data.employees
       );
       setAttendanceDays(
         attendanceRes.data.days
-      );
-      setAttendanceSummary(
-        summaryRes.data
       );
       setAttendanceEdits({});
 
@@ -2845,43 +2811,6 @@ export default function PersonnelPage() {
     });
   }
 
-  function syncAttendanceScroll(
-    source: 'grid' | 'summary'
-  ) {
-
-    if (syncingAttendanceScroll.current) {
-      return;
-    }
-
-    const grid =
-      attendanceGridRef.current;
-
-    const summary =
-      attendanceSummaryRef.current;
-
-    if (!grid || !summary) {
-      return;
-    }
-
-    const sourceElement =
-      source === 'grid'
-        ? grid
-        : summary;
-
-    const targetElement =
-      source === 'grid'
-        ? summary
-        : grid;
-
-    syncingAttendanceScroll.current = true;
-    targetElement.scrollTop =
-      sourceElement.scrollTop;
-
-    window.requestAnimationFrame(() => {
-      syncingAttendanceScroll.current = false;
-    });
-  }
-
   function focusNextEditableAttendanceInput(
     rowIndex: number,
     day: number,
@@ -3435,16 +3364,6 @@ export default function PersonnelPage() {
         )
       );
     });
-
-  const filteredAttendanceIds =
-    new Set(
-      filteredAttendanceRows.map((employee) => employee.id)
-    );
-
-  const filteredAttendanceSummary =
-    attendanceSummary.filter((item) =>
-      filteredAttendanceIds.has(item.employee_id)
-    );
 
   const plannedOffDayNumbers =
     Array.from(
@@ -5275,9 +5194,6 @@ export default function PersonnelPage() {
               <div
                 className="attendance-grid-wrap"
                 ref={attendanceGridRef}
-                onScroll={() =>
-                  syncAttendanceScroll('grid')
-                }
               >
                 <table className="data-table attendance-grid">
                   <colgroup>
@@ -5391,57 +5307,6 @@ export default function PersonnelPage() {
                         <tr>
                           <td colSpan={attendanceDays + 1}>
                             No hay empleados activos para esos filtros.
-                          </td>
-                        </tr>
-                      )
-                    }
-                  </tbody>
-                </table>
-              </div>
-
-              <div
-                className="table-container leave-employee-picker attendance-summary-wrap"
-                ref={attendanceSummaryRef}
-                onScroll={() =>
-                  syncAttendanceScroll('summary')
-                }
-              >
-                <table className="data-table attendance-summary-table">
-                  <thead>
-                    <tr>
-                      <th>Empleado</th>
-                      <th>Pres.</th>
-                      <th>Francos</th>
-                      <th>Lic.</th>
-                      <th>Vac.</th>
-                      <th>Aus.</th>
-                      <th>Otros</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredAttendanceSummary.map((item) => (
-                      <tr key={item.employee_id}>
-                        <td>{item.full_name}</td>
-                        <td>{item.presente}</td>
-                        <td>{item.franco}</td>
-                        <td>
-                          {
-                            item.licencia +
-                            item.maternidad +
-                            item.gremial
-                          }
-                        </td>
-                        <td>{item.vacaciones}</td>
-                        <td>{item.ausencia}</td>
-                        <td>{item.otro}</td>
-                      </tr>
-                    ))}
-
-                    {
-                      filteredAttendanceSummary.length === 0 && (
-                        <tr>
-                          <td colSpan={7}>
-                            Todavia no hay resumen para mostrar.
                           </td>
                         </tr>
                       )

@@ -292,8 +292,26 @@
   }
 
   .attendance-grid-wrap {
-    height: 230px;
-    max-height: 230px;
+    height: min(560px, calc(100vh - 250px));
+    max-height: min(560px, calc(100vh - 270px));
+  }
+
+  .attendance-grid {
+    min-width: 1040px;
+  }
+
+  .attendance-employee-col,
+  .attendance-employee-cell {
+    width: 210px;
+    min-width: 210px;
+    max-width: 210px;
+  }
+
+  .attendance-day-col,
+  .attendance-grid th,
+  .attendance-grid td {
+    width: 26px;
+    min-width: 26px;
   }
 
   .attendance-grid tbody tr,
@@ -301,22 +319,69 @@
   .attendance-grid tbody td,
   .attendance-summary-table tbody td,
   .attendance-grid thead th {
-    height: 32px;
+    height: 28px;
+  }
+
+  .attendance-grid thead th {
+    padding: 0;
+    font-weight: 600;
+  }
+
+  .attendance-grid th,
+  .attendance-grid td,
+  .attendance-summary-table th,
+  .attendance-summary-table td {
+    padding: 0;
+  }
+
+  .attendance-employee-cell {
+    padding: 0 7px !important;
   }
 
   .attendance-employee-cell strong {
-    font-size: 10px;
+    font-size: 9px;
+    font-weight: 600;
+    line-height: 1.12;
   }
 
   .attendance-employee-cell span,
   .attendance-grid thead th {
-    font-size: 9px;
+    font-size: 8px;
+  }
+
+  .attendance-grid thead th,
+  .attendance-summary-table thead th {
+    letter-spacing: 0;
+    text-transform: none;
+    font-weight: 600;
+  }
+
+  .attendance-summary-table td,
+  .attendance-summary-table th {
+    font-weight: 500;
   }
 
   .attendance-code-input {
-    height: 26px;
-    font-size: 9px;
-    line-height: 26px;
+    width: 100%;
+    height: 100%;
+    min-height: 28px;
+    font-size: 8px;
+    font-weight: 500;
+    line-height: 28px;
+  }
+
+  .attendance-summary-wrap {
+    max-height: 230px;
+  }
+
+  .attendance-summary-table {
+    min-width: 640px;
+  }
+
+  .attendance-summary-table th,
+  .attendance-summary-table td {
+    padding: 6px 7px;
+    font-size: 10px;
   }
 
   .leave-employee-picker tbody tr {
