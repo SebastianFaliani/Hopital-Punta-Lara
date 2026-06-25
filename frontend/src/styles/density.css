@@ -1,0 +1,385 @@
+@media screen {
+  html,
+  body {
+    font-size: 12px;
+  }
+
+  input,
+  select,
+  textarea,
+  button {
+    font-size: 12px;
+  }
+
+  input {
+    padding: 9px 11px;
+    border-radius: 7px;
+  }
+
+  .app-sidebar {
+    width: 188px;
+    flex-basis: 188px;
+    padding: 15px;
+    gap: 9px;
+  }
+
+  .app-sidebar-brand {
+    gap: 8px;
+  }
+
+  .app-sidebar-brand img {
+    width: 32px;
+    height: 32px;
+  }
+
+  .app-sidebar-identity strong {
+    font-size: 11px;
+  }
+
+  .app-sidebar-identity span,
+  .app-sidebar-user {
+    font-size: 10px;
+  }
+
+  .app-nav-link {
+    padding: 7px 9px;
+    border-radius: 6px;
+    font-size: 11px;
+  }
+
+  .app-topbar {
+    min-height: 45px;
+    gap: 12px;
+    padding: 0 15px;
+  }
+
+  .app-topbar-user {
+    font-size: 11px;
+  }
+
+  .app-main {
+    padding: 18px;
+  }
+
+  .page-header {
+    margin-bottom: 18px;
+  }
+
+  .page-title {
+    font-size: 22px;
+    line-height: 1.15;
+  }
+
+  .page-subtitle {
+    margin-top: 5px;
+    font-size: 11px;
+  }
+
+  .page-back-link {
+    margin-bottom: 8px;
+    font-size: 11px;
+  }
+
+  .btn-primary,
+  .btn-secondary,
+  .btn-success,
+  .btn-danger {
+    min-height: 30px;
+    padding: 7px 13px;
+    border-radius: 7px;
+    font-size: 11px;
+  }
+
+  .form-input,
+  .auth-input {
+    min-height: 30px;
+    padding: 8px 9px;
+    margin-bottom: 10px;
+    border-radius: 6px;
+    font-size: 11px;
+  }
+
+  .form-error,
+  .form-success,
+  .form-note {
+    font-size: 11px;
+  }
+
+  .form-success,
+  .form-note {
+    padding: 8px 10px;
+    border-radius: 6px;
+  }
+
+  .form-info-line {
+    margin: -3px 0 10px;
+    padding: 7px 9px;
+    border-radius: 6px;
+    font-size: 10px;
+  }
+
+  .management-form,
+  .transfer-form,
+  .personnel-form,
+  .transfer-request-form,
+  .transfer-filter-grid,
+  .filter-bar {
+    gap: 10px;
+  }
+
+  .data-table {
+    border-radius: 8px;
+  }
+
+  .data-table th,
+  .data-table td {
+    padding: 9px 10px;
+    font-size: 11px;
+  }
+
+  .table-actions,
+  .management-actions,
+  .modal-actions,
+  .pagination-bar,
+  .action-buttons {
+    gap: 8px;
+  }
+
+  .module-tabs {
+    gap: 7px;
+    margin-bottom: 18px;
+  }
+
+  .module-tab {
+    min-height: 32px;
+    padding: 0 10px;
+    border-bottom-width: 2px;
+    font-size: 11px;
+  }
+
+  .dashboard-grid {
+    gap: 15px;
+    margin-bottom: 18px;
+  }
+
+  .dashboard-sections {
+    gap: 15px;
+  }
+
+  .dashboard-card,
+  .dashboard-panel {
+    padding: 15px;
+    border-radius: 6px;
+  }
+
+  .dashboard-card {
+    border-left-width: 4px;
+  }
+
+  .dashboard-card h3 {
+    margin-bottom: 7px;
+    font-size: 11px;
+  }
+
+  .dashboard-card p {
+    font-size: 23px;
+  }
+
+  .dashboard-card span,
+  .dashboard-list-item span,
+  .panel-description {
+    font-size: 11px;
+  }
+
+  .dashboard-panel h2 {
+    margin-bottom: 12px;
+    font-size: 15px;
+  }
+
+  .dashboard-list {
+    gap: 9px;
+  }
+
+  .dashboard-list-item {
+    gap: 4px;
+    padding: 9px;
+    border-radius: 6px;
+  }
+
+  .modal-content {
+    width: 330px;
+    padding: 22px;
+    border-radius: 10px;
+  }
+
+  .modal-content-wide {
+    width: min(760px, calc(100% - 30px));
+    padding-top: 34px;
+    max-height: calc(100vh - 30px);
+  }
+
+  .modal-title {
+    margin-bottom: 14px;
+    font-size: 18px;
+  }
+
+  .modal-subtitle {
+    margin-top: -7px;
+    margin-bottom: 13px;
+    font-size: 11px;
+  }
+
+  .modal-close-button {
+    top: 10px;
+    right: 10px;
+    width: 26px;
+    height: 26px;
+    font-size: 18px;
+  }
+
+  .system-alert-overlay {
+    padding: 15px;
+  }
+
+  .system-alert-modal {
+    width: min(340px, 100%);
+    padding: 20px;
+    border-radius: 9px;
+  }
+
+  .system-alert-modal h2 {
+    font-size: 15px;
+  }
+
+  .system-alert-modal p {
+    font-size: 11px;
+  }
+
+  .auth-container {
+    padding: 18px;
+  }
+
+  .auth-card {
+    max-width: 315px;
+    padding: 30px;
+    border-radius: 12px;
+  }
+
+  .auth-logo {
+    width: 69px;
+    height: 69px;
+    margin-bottom: 13px;
+  }
+
+  .auth-card h1 {
+    font-size: 21px;
+  }
+
+  .auth-card p,
+  .auth-link,
+  .auth-error {
+    font-size: 11px;
+  }
+
+  .auth-form {
+    gap: 12px;
+  }
+
+  .attendance-toolbar .form-input {
+    min-height: 29px;
+    padding: 6px 8px;
+    font-size: 11px;
+  }
+
+  .attendance-grid-wrap {
+    height: 230px;
+    max-height: 230px;
+  }
+
+  .attendance-grid tbody tr,
+  .attendance-summary-table tbody tr,
+  .attendance-grid tbody td,
+  .attendance-summary-table tbody td,
+  .attendance-grid thead th {
+    height: 32px;
+  }
+
+  .attendance-employee-cell strong {
+    font-size: 10px;
+  }
+
+  .attendance-employee-cell span,
+  .attendance-grid thead th {
+    font-size: 9px;
+  }
+
+  .attendance-code-input {
+    height: 26px;
+    font-size: 9px;
+    line-height: 26px;
+  }
+
+  .leave-employee-picker tbody tr {
+    height: 33px;
+  }
+
+  .badge,
+  .status-badge,
+  .table-link-button {
+    font-size: 10px;
+  }
+}
+
+@media screen and (max-width: 760px) {
+  .app-sidebar {
+    height: 58px;
+    padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
+    gap: 5px;
+  }
+
+  .app-nav-link {
+    min-width: 58px;
+    padding: 7px 6px;
+    font-size: 10px;
+  }
+
+  .app-topbar {
+    min-height: 42px;
+    padding: 7px 10px;
+  }
+
+  .app-main {
+    padding: 11px 8px 16px;
+  }
+
+  .page-title {
+    font-size: 18px;
+  }
+
+  .module-tab {
+    min-height: 30px;
+    padding: 7px 9px;
+    font-size: 10px;
+  }
+
+  .form-input,
+  .auth-input {
+    min-height: 34px;
+    font-size: 13px;
+  }
+
+  .btn-primary,
+  .btn-secondary,
+  .btn-success,
+  .btn-danger {
+    min-height: 32px;
+    padding: 8px 10px;
+    font-size: 11px;
+  }
+
+  .data-table th,
+  .data-table td {
+    padding: 7px 7px;
+    font-size: 10px;
+  }
+}

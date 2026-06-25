@@ -10,6 +10,7 @@ import './styles/modal.css';
 import './styles/auth.css';
 import './styles/table.css';
 import './styles/mobile.css';
+import './styles/density.css';
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <App />
