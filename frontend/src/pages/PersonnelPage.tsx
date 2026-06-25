@@ -14,13 +14,26 @@ import {
 
 type Department = {
   id: number;
+  facility_id: number | null;
+  facility_name: string | null;
+  facility_type: string | null;
   name: string;
   description: string | null;
   is_active: boolean;
 };
 
+type Facility = {
+  id: number;
+  name: string;
+  facility_type: string;
+  is_active: boolean;
+};
+
 type Employee = {
   id: number;
+  facility_id: number | null;
+  facility_name: string | null;
+  facility_type: string | null;
   department_id: number | null;
   department_name: string | null;
   full_name: string;
@@ -514,6 +527,7 @@ function calculateReturnPermissionHours(
 }
 
 const emptyEmployee = {
+  facility_id: '',
   department_id: '',
   full_name: '',
   dni: '',
@@ -882,6 +896,30 @@ export default function PersonnelPage() {
       ['admin', 'user']
     );
 
+  const canSelectFacility =
+    user?.role === 'admin' ||
+    Boolean(user?.access_all_facilities) ||
+    user?.facility_type === 'secretaria' ||
+    Number(user?.facility_ids?.length || 0) > 1 ||
+    !user?.facility_id;
+
+  const defaultFacilityId =
+    user?.facility_id
+      ? String(user.facility_id)
+      : '';
+
+  function departmentsForFacility(
+    facilityId: string
+  ) {
+    if (!facilityId || facilityId === 'todos') {
+      return departments;
+    }
+
+    return departments.filter((department) =>
+      String(department.facility_id || '') === facilityId
+    );
+  }
+
   const [activeTab, setActiveTab] =
     useState('employees');
 
@@ -890,6 +928,9 @@ export default function PersonnelPage() {
 
   const [employeeList, setEmployeeList] =
     useState<Employee[]>([]);
+
+  const [facilities, setFacilities] =
+    useState<Facility[]>([]);
 
   const [employeePagination, setEmployeePagination] =
     useState({
@@ -935,6 +976,7 @@ export default function PersonnelPage() {
             : yesterday.getDate()
         ),
         department: 'todos',
+        facility_id: defaultFacilityId || 'todos',
         departmentSearch: '',
         search: ''
       };
@@ -1051,6 +1093,7 @@ export default function PersonnelPage() {
 
   const [departmentForm, setDepartmentForm] =
     useState({
+      facility_id: defaultFacilityId,
       name: '',
       description: ''
     });
@@ -1058,6 +1101,7 @@ export default function PersonnelPage() {
   const [filters, setFilters] =
     useState({
       search: '',
+      facility_id: defaultFacilityId || 'todos',
       department: 'todos',
       status: 'todos',
       page: 1,
@@ -1081,11 +1125,13 @@ export default function PersonnelPage() {
         employeesRes,
         departmentsRes,
         codesRes,
+        facilitiesRes,
         leaveRulesRes
       ] = await Promise.all([
         apiFetch('/personnel/employees'),
         apiFetch('/personnel/departments'),
         apiFetch('/personnel/attendance-codes'),
+        apiFetch('/health-facilities'),
         apiFetch('/personnel/leave-rules')
           .catch(() => ({
             data: []
@@ -1095,6 +1141,7 @@ export default function PersonnelPage() {
       setEmployees(employeesRes.data);
       setDepartments(departmentsRes.data);
       setCodes(codesRes.data);
+      setFacilities(facilitiesRes.data);
       setLeaveRules(leaveRulesRes.data);
 
     } catch (error: any) {
@@ -1157,6 +1204,13 @@ export default function PersonnelPage() {
         );
       }
 
+      if (attendanceFilters.facility_id !== 'todos') {
+        params.set(
+          'facility_id',
+          attendanceFilters.facility_id
+        );
+      }
+
       const attendanceRes =
         await apiFetch(
           `/personnel/attendance?${params.toString()}`
@@ -1189,6 +1243,13 @@ export default function PersonnelPage() {
         params.set(
           'department_id',
           attendanceFilters.department
+        );
+      }
+
+      if (attendanceFilters.facility_id !== 'todos') {
+        params.set(
+          'facility_id',
+          attendanceFilters.facility_id
         );
       }
 
@@ -1246,6 +1307,15 @@ export default function PersonnelPage() {
     const target =
       e.target as HTMLInputElement;
 
+    if (target.name === 'facility_id') {
+      setEmployeeForm({
+        ...employeeForm,
+        facility_id: target.value,
+        department_id: ''
+      });
+      return;
+    }
+
     setEmployeeForm({
       ...employeeForm,
       [target.name]:
@@ -1268,6 +1338,10 @@ export default function PersonnelPage() {
 
     setEditingEmployee(employee);
     setEmployeeForm({
+      facility_id:
+        employee.facility_id
+          ? String(employee.facility_id)
+          : defaultFacilityId,
       department_id:
         employee.department_id
           ? String(employee.department_id)
@@ -1326,6 +1400,12 @@ export default function PersonnelPage() {
           body:
             JSON.stringify({
               ...employeeForm,
+              facility_id:
+                employeeForm.facility_id
+                  ? Number(employeeForm.facility_id)
+                  : defaultFacilityId
+                    ? Number(defaultFacilityId)
+                    : null,
               department_id:
                 employeeForm.department_id
                   ? Number(employeeForm.department_id)
@@ -1377,11 +1457,22 @@ export default function PersonnelPage() {
         {
           method: 'POST',
           body:
-            JSON.stringify(departmentForm)
+            JSON.stringify({
+              ...departmentForm,
+              facility_id:
+                departmentForm.facility_id
+                  ? Number(departmentForm.facility_id)
+                  : defaultFacilityId
+                    ? Number(defaultFacilityId)
+                    : null
+            })
         }
       );
 
       setDepartmentForm({
+        facility_id:
+          departmentForm.facility_id ||
+          defaultFacilityId,
         name: '',
         description: ''
       });
@@ -1482,10 +1573,19 @@ export default function PersonnelPage() {
   async function loadLeaveRequests() {
 
     try {
+      const params =
+        new URLSearchParams();
+
+      if (filters.facility_id !== 'todos') {
+        params.set(
+          'facility_id',
+          filters.facility_id
+        );
+      }
 
       const res =
         await apiFetch(
-          '/personnel/leave-requests'
+          `/personnel/leave-requests?${params.toString()}`
         );
 
       setLeaveRequests(res.data);
@@ -1673,6 +1773,9 @@ export default function PersonnelPage() {
     } else {
       setSelectedLeaveEmployee({
         id: request.employee_id,
+        facility_id: null,
+        facility_name: null,
+        facility_type: null,
         department_id: null,
         department_name: request.department_name,
         full_name: request.full_name,
@@ -1944,7 +2047,13 @@ export default function PersonnelPage() {
         loadLeaveSummary(selectedLeaveEmployee.id);
       }
       const requestsRes =
-        await apiFetch('/personnel/leave-requests');
+        await apiFetch(
+          `/personnel/leave-requests${
+            filters.facility_id !== 'todos'
+              ? `?facility_id=${filters.facility_id}`
+              : ''
+          }`
+        );
 
       setLeaveRequests(requestsRes.data);
 
@@ -3127,6 +3236,10 @@ export default function PersonnelPage() {
               department_id:
                 attendanceFilters.department !== 'todos'
                   ? Number(attendanceFilters.department)
+                  : null,
+              facility_id:
+                attendanceFilters.facility_id !== 'todos'
+                  ? Number(attendanceFilters.facility_id)
                   : null
             })
           }
@@ -3268,6 +3381,8 @@ export default function PersonnelPage() {
     attendanceFilters.year,
     attendanceFilters.month,
     attendanceFilters.department,
+    attendanceFilters.facility_id,
+    filters.facility_id,
     vacationYear
   ]);
 
@@ -3278,6 +3393,7 @@ export default function PersonnelPage() {
   }, [
     activeTab,
     filters.search,
+    filters.facility_id,
     filters.department,
     filters.status,
     filters.page,
@@ -3412,6 +3528,10 @@ export default function PersonnelPage() {
   const filteredLeaveEmployees =
     employees
       .filter((employee) => employee.is_active)
+      .filter((employee) =>
+        filters.facility_id === 'todos' ||
+        String(employee.facility_id || '') === filters.facility_id
+      )
       .filter((employee) => {
 
         const search =
@@ -3432,6 +3552,9 @@ export default function PersonnelPage() {
             .toLowerCase()
             .includes(search) ||
           (employee.department_name || '')
+            .toLowerCase()
+            .includes(search) ||
+          (employee.facility_name || '')
             .toLowerCase()
             .includes(search)
         );
@@ -3794,7 +3917,10 @@ export default function PersonnelPage() {
                   type="button"
                   onClick={() => {
                     setEditingEmployee(null);
-                    setEmployeeForm(emptyEmployee);
+                    setEmployeeForm({
+                      ...emptyEmployee,
+                      facility_id: defaultFacilityId
+                    });
                     setShowEmployeeFormModal(true);
                   }}
                 >
@@ -3876,6 +4002,26 @@ export default function PersonnelPage() {
 
               <select
                 className="form-input"
+                name="facility_id"
+                value={employeeForm.facility_id}
+                onChange={handleEmployeeChange}
+                disabled={!canSelectFacility}
+              >
+                <option value="">
+                  Dependencia
+                </option>
+                {facilities.map((facility) => (
+                  <option
+                    key={facility.id}
+                    value={facility.id}
+                  >
+                    {facility.name}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                className="form-input"
                 name="department_id"
                 value={employeeForm.department_id}
                 onChange={handleEmployeeChange}
@@ -3883,7 +4029,9 @@ export default function PersonnelPage() {
                 <option value="">
                   Sector
                 </option>
-                {departments.map((department) => (
+                {departmentsForFacility(
+                  employeeForm.facility_id || defaultFacilityId
+                ).map((department) => (
                   <option
                     key={department.id}
                     value={department.id}
@@ -4036,6 +4184,34 @@ export default function PersonnelPage() {
 
               <select
                 className="form-input"
+                value={filters.facility_id}
+                onChange={(e) =>
+                  setFilters({
+                    ...filters,
+                    facility_id: e.target.value,
+                    department: 'todos',
+                    page: 1
+                  })
+                }
+                disabled={!canSelectFacility}
+              >
+                {canSelectFacility && (
+                  <option value="todos">
+                    Todas las dependencias
+                  </option>
+                )}
+                {facilities.map((facility) => (
+                  <option
+                    key={facility.id}
+                    value={facility.id}
+                  >
+                    {facility.name}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                className="form-input"
                 value={filters.department}
                 onChange={(e) =>
                   setFilters({
@@ -4048,7 +4224,9 @@ export default function PersonnelPage() {
                 <option value="todos">
                   Todos los sectores
                 </option>
-                {departments.map((department) => (
+                {departmentsForFacility(
+                  filters.facility_id
+                ).map((department) => (
                   <option
                     key={department.id}
                     value={department.id}
@@ -4152,6 +4330,7 @@ export default function PersonnelPage() {
                   <tr>
                     <th>Nombre</th>
                     <th>DNI</th>
+                    <th>Dependencia</th>
                     <th>Sector</th>
                     <th>Turno</th>
                     <th>Ingreso</th>
@@ -4170,6 +4349,7 @@ export default function PersonnelPage() {
                     <tr key={employee.id}>
                       <td>{employee.full_name}</td>
                       <td>{employee.dni || '-'}</td>
+                      <td>{employee.facility_name || '-'}</td>
                       <td>{employee.department_name || '-'}</td>
                       <td>{formatEmployeeShift(employee)}</td>
                       <td>{formatDisplayDate(employee.hire_date)}</td>
@@ -4239,7 +4419,17 @@ export default function PersonnelPage() {
                   {
                     filteredEmployees.length === 0 && (
                       <tr>
-                        <td colSpan={readOnly ? 7 : user?.role === 'admin' ? 8 : 7}>
+                        <td
+                          colSpan={
+                            8 +
+                            (
+                              readOnly || user?.role === 'admin'
+                                ? 1
+                                : 0
+                            ) +
+                            (!readOnly ? 1 : 0)
+                          }
+                        >
                           No hay empleados para esos filtros.
                         </td>
                       </tr>
@@ -4562,6 +4752,30 @@ export default function PersonnelPage() {
               className="management-form"
               onSubmit={handleDepartmentSubmit}
             >
+              <select
+                className="form-input"
+                value={departmentForm.facility_id}
+                onChange={(e) =>
+                  setDepartmentForm({
+                    ...departmentForm,
+                    facility_id: e.target.value
+                  })
+                }
+                disabled={!canSelectFacility}
+              >
+                <option value="">
+                  Dependencia
+                </option>
+                {facilities.map((facility) => (
+                  <option
+                    key={facility.id}
+                    value={facility.id}
+                  >
+                    {facility.name}
+                  </option>
+                ))}
+              </select>
+
               <input
                 className="form-input"
                 placeholder="Nombre del sector"
@@ -4598,6 +4812,7 @@ export default function PersonnelPage() {
               <table className="data-table">
                 <thead>
                   <tr>
+                    <th>Dependencia</th>
                     <th>Sector</th>
                     <th>Descripcion</th>
                     <th>Estado</th>
@@ -4606,6 +4821,7 @@ export default function PersonnelPage() {
                 <tbody>
                   {departments.map((department) => (
                     <tr key={department.id}>
+                      <td>{department.facility_name || '-'}</td>
                       <td>{department.name}</td>
                       <td>{department.description || '-'}</td>
                       <td>
@@ -4934,6 +5150,32 @@ export default function PersonnelPage() {
 
               <select
                 className="form-input attendance-filter-wide"
+                value={attendanceFilters.facility_id}
+                onChange={(e) =>
+                  updateAttendanceFilters({
+                    facility_id: e.target.value,
+                    department: 'todos'
+                  })
+                }
+                disabled={!canSelectFacility}
+              >
+                {canSelectFacility && (
+                  <option value="todos">
+                    Todas las dependencias
+                  </option>
+                )}
+                {facilities.map((facility) => (
+                  <option
+                    key={facility.id}
+                    value={facility.id}
+                  >
+                    {facility.name}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                className="form-input attendance-filter-wide"
                 value={attendanceFilters.department}
                 onChange={(e) =>
                   updateAttendanceFilters({
@@ -4942,7 +5184,9 @@ export default function PersonnelPage() {
                 }
               >
                 <option value="todos">Todos los sectores</option>
-                {departments.map((department) => (
+                {departmentsForFacility(
+                  attendanceFilters.facility_id
+                ).map((department) => (
                   <option
                     key={department.id}
                     value={department.id}
@@ -5116,6 +5360,32 @@ export default function PersonnelPage() {
                   }, true);
                 }}
               />
+
+              <select
+                className="form-input attendance-filter-wide"
+                value={attendanceFilters.facility_id}
+                onChange={(e) =>
+                  updateAttendanceFilters({
+                    facility_id: e.target.value,
+                    department: 'todos'
+                  })
+                }
+                disabled={!canSelectFacility}
+              >
+                {canSelectFacility && (
+                  <option value="todos">
+                    Todas las dependencias
+                  </option>
+                )}
+                {facilities.map((facility) => (
+                  <option
+                    key={facility.id}
+                    value={facility.id}
+                  >
+                    {facility.name}
+                  </option>
+                ))}
+              </select>
 
               <input
                 className="form-input attendance-filter-wide"
@@ -5328,7 +5598,7 @@ export default function PersonnelPage() {
               <div className="filter-bar">
                 <input
                   className="form-input"
-                  placeholder="Buscar por empleado, DNI, legajo o sector"
+                  placeholder="Buscar por empleado, DNI, legajo, sector o dependencia"
                   value={leaveEmployeeSearch}
                   onChange={(e) => {
                     setLeaveEmployeePage(0);
@@ -5336,6 +5606,35 @@ export default function PersonnelPage() {
                     clearSelectedLeaveEmployee();
                   }}
                 />
+
+                <select
+                  className="form-input"
+                  value={filters.facility_id}
+                  onChange={(e) => {
+                    setLeaveEmployeePage(0);
+                    clearSelectedLeaveEmployee();
+                    setFilters({
+                      ...filters,
+                      facility_id: e.target.value,
+                      page: 1
+                    });
+                  }}
+                  disabled={!canSelectFacility}
+                >
+                  {canSelectFacility && (
+                    <option value="todos">
+                      Todas las dependencias
+                    </option>
+                  )}
+                  {facilities.map((facility) => (
+                    <option
+                      key={facility.id}
+                      value={facility.id}
+                    >
+                      {facility.name}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <p className="results-summary">
@@ -5349,6 +5648,7 @@ export default function PersonnelPage() {
                       <th>Empleado</th>
                       <th>DNI</th>
                       <th>Legajo</th>
+                      <th>Dependencia</th>
                       <th>Sector</th>
                       <th>Ingreso</th>
                       <th></th>
@@ -5367,6 +5667,7 @@ export default function PersonnelPage() {
                         <td>{employee.full_name}</td>
                         <td>{employee.dni || '-'}</td>
                         <td>{employee.file_number || '-'}</td>
+                        <td>{employee.facility_name || '-'}</td>
                         <td>{employee.department_name || '-'}</td>
                         <td>{formatDisplayDate(employee.hire_date)}</td>
                         <td>

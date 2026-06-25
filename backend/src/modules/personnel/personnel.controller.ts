@@ -49,14 +49,20 @@ import {
 } from './personnel.service';
 
 export async function handleGetDepartments(
-  req: Request,
+  req: AuthRequest,
   res: Response
 ) {
 
   try {
     return res.json({
       success: true,
-      data: await getDepartments()
+      data:
+        await getDepartments(
+          req.user,
+          req.query.facility_id
+            ? Number(req.query.facility_id)
+            : null
+        )
     });
   } catch (error: any) {
     return res.status(500).json({
@@ -67,7 +73,7 @@ export async function handleGetDepartments(
 }
 
 export async function handleCreateDepartment(
-  req: Request,
+  req: AuthRequest,
   res: Response
 ) {
 
@@ -81,7 +87,10 @@ export async function handleCreateDepartment(
     }
 
     const id =
-      await createDepartment(req.body);
+      await createDepartment(
+        req.body,
+        req.user
+      );
 
     return res.status(201).json({
       success: true,
@@ -270,7 +279,7 @@ function readMonthParams(
 }
 
 export async function handleGetAttendanceMonth(
-  req: Request,
+  req: AuthRequest,
   res: Response
 ) {
 
@@ -288,7 +297,11 @@ export async function handleGetAttendanceMonth(
         await getAttendanceMonth(
           year,
           month,
-          departmentId
+          departmentId,
+          req.user,
+          req.query.facility_id
+            ? Number(req.query.facility_id)
+            : null
         )
     });
 
@@ -331,7 +344,8 @@ export async function handleSaveAttendanceMonth(
       year,
       month,
       req.body.records,
-      req.user?.id
+      req.user?.id,
+      req.user
     );
 
     return res.json({
@@ -387,7 +401,11 @@ export async function handleFillPresentAttendanceDay(
         month,
         day,
         departmentId,
-        req.user?.id
+        req.user?.id,
+        req.user,
+        req.body.facility_id
+          ? Number(req.body.facility_id)
+          : null
       );
 
     await logAudit({
@@ -421,7 +439,7 @@ export async function handleFillPresentAttendanceDay(
 }
 
 export async function handleGetPlannedDaysOffMonth(
-  req: Request,
+  req: AuthRequest,
   res: Response
 ) {
 
@@ -439,7 +457,11 @@ export async function handleGetPlannedDaysOffMonth(
         await getPlannedDaysOffMonth(
           year,
           month,
-          departmentId
+          departmentId,
+          req.user,
+          req.query.facility_id
+            ? Number(req.query.facility_id)
+            : null
         )
     });
 
@@ -481,7 +503,8 @@ export async function handleSavePlannedDaysOffMonth(
       year,
       month,
       req.body.records,
-      req.user?.id
+      req.user?.id,
+      req.user
     );
 
     await logAudit({
@@ -509,7 +532,7 @@ export async function handleSavePlannedDaysOffMonth(
 }
 
 export async function handleGetAttendanceSummary(
-  req: Request,
+  req: AuthRequest,
   res: Response
 ) {
 
@@ -527,7 +550,11 @@ export async function handleGetAttendanceSummary(
         await getAttendanceSummary(
           year,
           month,
-          departmentId
+          departmentId,
+          req.user,
+          req.query.facility_id
+            ? Number(req.query.facility_id)
+            : null
         )
     });
 
@@ -540,14 +567,20 @@ export async function handleGetAttendanceSummary(
 }
 
 export async function handleGetLeaveRequests(
-  req: Request,
+  req: AuthRequest,
   res: Response
 ) {
 
   try {
     return res.json({
       success: true,
-      data: await getLeaveRequests()
+      data:
+        await getLeaveRequests(
+          req.user,
+          req.query.facility_id
+            ? Number(req.query.facility_id)
+            : null
+        )
     });
   } catch (error: any) {
     return res.status(500).json({
@@ -558,7 +591,7 @@ export async function handleGetLeaveRequests(
 }
 
 export async function handleGetEmployeeLeaveSummary(
-  req: Request,
+  req: AuthRequest,
   res: Response
 ) {
 
@@ -582,7 +615,8 @@ export async function handleGetEmployeeLeaveSummary(
         await getEmployeeLeaveSummary(
           Number(req.params.employeeId),
           year,
-          month
+          month,
+          req.user
         )
     });
 
@@ -595,7 +629,7 @@ export async function handleGetEmployeeLeaveSummary(
 }
 
 export async function handleGetEmployeeDirectiveSummary(
-  req: Request,
+  req: AuthRequest,
   res: Response
 ) {
 
@@ -622,7 +656,8 @@ export async function handleGetEmployeeDirectiveSummary(
         await getEmployeeDirectiveSummary(
           Number(req.params.employeeId),
           year,
-          month
+          month,
+          req.user
         )
     });
 
@@ -656,7 +691,8 @@ export async function handleCreateLeaveRequest(
     const id =
       await createLeaveRequest(
         req.body,
-        req.user?.id
+        req.user?.id,
+        req.user
       );
 
     const detail =
@@ -710,7 +746,8 @@ export async function handleUpdateLeaveRequest(
     await updateLeaveRequest(
       Number(req.params.id),
       req.body,
-      req.user?.id
+      req.user?.id,
+      req.user
     );
 
     const detail =
@@ -754,7 +791,8 @@ export async function handleUpdateLeaveRequestStatus(
       Number(req.params.id),
       req.body.status,
       req.user?.id,
-      req.body.rejected_reason
+      req.body.rejected_reason,
+      req.user
     );
 
     const detail =
@@ -796,7 +834,8 @@ export async function handleCompleteLeaveReturn(
 
     await completeLeaveReturn(
       Number(req.params.id),
-      req.body
+      req.body,
+      req.user
     );
 
     const detail =
@@ -1002,13 +1041,16 @@ export async function handleDeleteLeaveBalanceAdjustment(
 }
 
 export async function handleGetEmployees(
-  req: Request,
+  req: AuthRequest,
   res: Response
 ) {
 
   try {
     const result =
-      await getEmployees(req.query);
+      await getEmployees(
+        req.query,
+        req.user
+      );
 
     if (!Array.isArray(result)) {
       return res.json({
@@ -1031,7 +1073,7 @@ export async function handleGetEmployees(
 }
 
 export async function handleCreateEmployee(
-  req: Request,
+  req: AuthRequest,
   res: Response
 ) {
 
@@ -1046,7 +1088,10 @@ export async function handleCreateEmployee(
     }
 
     const id =
-      await createEmployee(req.body);
+      await createEmployee(
+        req.body,
+        req.user
+      );
 
     return res.status(201).json({
       success: true,
@@ -1062,7 +1107,7 @@ export async function handleCreateEmployee(
 }
 
 export async function handleUpdateEmployee(
-  req: Request,
+  req: AuthRequest,
   res: Response
 ) {
 
@@ -1078,7 +1123,8 @@ export async function handleUpdateEmployee(
 
     await updateEmployee(
       Number(req.params.id),
-      req.body
+      req.body,
+      req.user
     );
 
     return res.json({

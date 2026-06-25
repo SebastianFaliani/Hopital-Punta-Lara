@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useMemo,
   useState
 } from 'react';
 
@@ -27,6 +28,14 @@ type Role = {
   id: number;
   name: string;
   description: string;
+  is_system?: boolean;
+};
+
+type RolePermission = {
+  permission_key: string;
+  module_name: string;
+  description: string;
+  allowed: boolean;
 };
 
 export default function UsersPage() {
@@ -53,6 +62,24 @@ export default function UsersPage() {
 
   const [roleError, setRoleError] =
     useState('');
+
+  const [editingRole, setEditingRole] =
+    useState<Role | null>(null);
+
+  const [editingRoleForm, setEditingRoleForm] =
+    useState({
+      name: '',
+      description: ''
+    });
+
+  const [rolePermissions, setRolePermissions] =
+    useState<RolePermission[]>([]);
+
+  const [selectedRolePermissions, setSelectedRolePermissions] =
+    useState<string[]>([]);
+
+  const [loadingRoleAccess, setLoadingRoleAccess] =
+    useState(false);
 
   const [openModal, setOpenModal] =
     useState(false);
@@ -173,9 +200,114 @@ export default function UsersPage() {
     }
   }
 
-  if (user?.role !== 'admin') {
+  async function openRoleEditor(
+    role: Role
+  ) {
+    setRoleError('');
+    setEditingRole(role);
+    setEditingRoleForm({
+      name: role.name,
+      description: role.description || role.name
+    });
+    setRolePermissions([]);
+    setSelectedRolePermissions([]);
+    setLoadingRoleAccess(true);
 
-    return <h2>No autorizado</h2>;
+    try {
+      const res =
+        await apiFetch(`/roles/${role.id}/access`);
+
+      setEditingRole(res.data.role);
+      setEditingRoleForm({
+        name: res.data.role.name,
+        description:
+          res.data.role.description ||
+          res.data.role.name
+      });
+      setRolePermissions(res.data.permissions);
+      setSelectedRolePermissions(
+        res.data.permissions
+          .filter((permission: RolePermission) =>
+            permission.allowed
+          )
+          .map((permission: RolePermission) =>
+            permission.permission_key
+          )
+      );
+    } catch (error: any) {
+      setRoleError(error.message);
+      setEditingRole(null);
+    } finally {
+      setLoadingRoleAccess(false);
+    }
+  }
+
+  function closeRoleEditor() {
+    setEditingRole(null);
+    setRolePermissions([]);
+    setSelectedRolePermissions([]);
+    setEditingRoleForm({
+      name: '',
+      description: ''
+    });
+  }
+
+  function toggleRolePermission(
+    permissionKey: string
+  ) {
+    setSelectedRolePermissions((current) =>
+      current.includes(permissionKey)
+        ? current.filter((item) => item !== permissionKey)
+        : [
+            ...current,
+            permissionKey
+          ]
+    );
+  }
+
+  async function handleUpdateRole(
+    e: React.FormEvent
+  ) {
+    e.preventDefault();
+
+    if (!editingRole) {
+      return;
+    }
+
+    setRoleError('');
+    setRoleSaving(true);
+
+    try {
+      await apiFetch(
+        `/roles/${editingRole.id}`,
+        {
+          method: 'PUT',
+          body:
+            JSON.stringify(editingRoleForm)
+        }
+      );
+
+      await apiFetch(
+        `/roles/${editingRole.id}/permissions`,
+        {
+          method: 'PUT',
+          body:
+            JSON.stringify({
+              permission_keys: selectedRolePermissions
+            })
+        }
+      );
+
+      closeRoleEditor();
+      await Promise.all([
+        loadRoles(),
+        loadUsers()
+      ]);
+    } catch (error: any) {
+      setRoleError(error.message);
+    } finally {
+      setRoleSaving(false);
+    }
   }
 
   const filteredUsers =
@@ -216,6 +348,26 @@ export default function UsersPage() {
         matchesStatus
       );
     });
+
+  const groupedRolePermissions =
+    useMemo(() => {
+      return rolePermissions.reduce(
+        (
+          groups: Record<string, RolePermission[]>,
+          permission
+        ) => {
+          groups[permission.module_name] ||= [];
+          groups[permission.module_name].push(permission);
+          return groups;
+        },
+        {}
+      );
+    }, [rolePermissions]);
+
+  if (user?.role !== 'admin') {
+
+    return <h2>No autorizado</h2>;
+  }
 
   return (
 
@@ -588,7 +740,7 @@ export default function UsersPage() {
             }
 
             <p className="results-summary">
-              Los permisos concretos se asignan desde el boton Permisos de cada usuario.
+              Los permisos del rol son la base para todos los usuarios de ese rol. Los permisos de cada usuario pueden ajustarse desde el boton Permisos.
             </p>
 
             <div className="table-container">
@@ -604,6 +756,8 @@ export default function UsersPage() {
                     <th>Nombre interno</th>
 
                     <th>Descripcion</th>
+
+                    <th>Acciones</th>
 
                   </tr>
 
@@ -621,6 +775,18 @@ export default function UsersPage() {
 
                       <td>{role.description || role.name}</td>
 
+                      <td>
+                        <button
+                          className="btn-primary"
+                          type="button"
+                          onClick={() =>
+                            openRoleEditor(role)
+                          }
+                        >
+                          Editar
+                        </button>
+                      </td>
+
                     </tr>
                   ))}
 
@@ -629,7 +795,7 @@ export default function UsersPage() {
 
                       <tr>
 
-                        <td colSpan={3}>
+                        <td colSpan={4}>
                           No hay roles cargados.
                         </td>
 
@@ -644,6 +810,127 @@ export default function UsersPage() {
             </div>
 
           </section>
+        )
+      }
+
+      {
+        editingRole && (
+          <div className="modal-overlay">
+            <div className="modal-content modal-content-wide">
+              <button
+                className="modal-close-button"
+                type="button"
+                onClick={closeRoleEditor}
+              >
+                x
+              </button>
+
+              <h2 className="modal-title">
+                Editar rol
+              </h2>
+
+              <form onSubmit={handleUpdateRole}>
+                <div className="personnel-form">
+                  <label className="form-field">
+                    <span>Nombre interno</span>
+                    <input
+                      className="form-input"
+                      value={editingRoleForm.name}
+                      disabled={Boolean(editingRole.is_system)}
+                      onChange={(e) =>
+                        setEditingRoleForm({
+                          ...editingRoleForm,
+                          name: e.target.value
+                        })
+                      }
+                    />
+                  </label>
+
+                  <label className="form-field">
+                    <span>Nombre visible</span>
+                    <input
+                      className="form-input"
+                      value={editingRoleForm.description}
+                      onChange={(e) =>
+                        setEditingRoleForm({
+                          ...editingRoleForm,
+                          description: e.target.value
+                        })
+                      }
+                    />
+                  </label>
+                </div>
+
+                {editingRole.is_system && (
+                  <p className="results-summary">
+                    Este rol es del sistema. Se puede cambiar el nombre visible y sus permisos base, pero no el nombre interno.
+                  </p>
+                )}
+
+                {loadingRoleAccess ? (
+                  <p>Cargando permisos...</p>
+                ) : (
+                  <div className="permissions-grid">
+                    {Object.entries(groupedRolePermissions).map((
+                      [
+                        moduleName,
+                        items
+                      ]
+                    ) => (
+                      <section
+                        className="permission-group"
+                        key={moduleName}
+                      >
+                        <h3>{moduleName}</h3>
+
+                        {items.map((permission) => (
+                          <label
+                            className="permission-row"
+                            key={permission.permission_key}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selectedRolePermissions.includes(
+                                permission.permission_key
+                              )}
+                              onChange={() =>
+                                toggleRolePermission(
+                                  permission.permission_key
+                                )
+                              }
+                            />
+                            <span>{permission.description}</span>
+                          </label>
+                        ))}
+                      </section>
+                    ))}
+                  </div>
+                )}
+
+                <div className="management-actions">
+                  <button
+                    className="btn-success"
+                    type="submit"
+                    disabled={roleSaving}
+                  >
+                    {
+                      roleSaving
+                        ? 'Guardando...'
+                        : 'Guardar rol'
+                    }
+                  </button>
+
+                  <button
+                    className="btn-secondary"
+                    type="button"
+                    onClick={closeRoleEditor}
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
         )
       }
 

@@ -95,7 +95,6 @@ export function getAvailableNavigation(
   }
 
   if (
-    hospitalModules &&
     hasPermission(
       user,
       'personnel.view',

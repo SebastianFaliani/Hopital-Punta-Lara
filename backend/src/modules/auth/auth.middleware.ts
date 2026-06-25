@@ -340,7 +340,8 @@ export function authorizeRoles(
       (
         hasEffectivePermission(user, 'medications.view') ||
         hasEffectivePermission(user, 'vaccines.view') ||
-        hasEffectivePermission(user, 'transfers.view')
+        hasEffectivePermission(user, 'transfers.view') ||
+        hasEffectivePermission(user, 'personnel.view')
       );
 
     const authorized =

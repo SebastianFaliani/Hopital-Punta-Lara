@@ -1,6 +1,12 @@
 import { pool }
   from '../../config/database';
 
+import {
+  assertFacilityAccess,
+  canAccessAllFacilities,
+  getScopedFacilityId
+} from '../health-facilities/facility-access';
+
 const attendanceCodesOnlyFromLeaves =
   new Set([
     '1',
@@ -27,6 +33,133 @@ const attendanceCodesOnlyFromLeaves =
     '24',
     '43'
   ]);
+
+function getPersonnelFacilityFilter(
+  user: any,
+  requestedFacilityId?: number | null,
+  tableAlias = 'e'
+) {
+  if (canAccessAllFacilities(user)) {
+    if (requestedFacilityId) {
+      return {
+        sql: `AND ${tableAlias}.facility_id = ?`,
+        params: [Number(requestedFacilityId)]
+      };
+    }
+
+    return {
+      sql: '',
+      params: []
+    };
+  }
+
+  const allowedFacilityIds =
+    Array.isArray(user?.facility_ids) &&
+    user.facility_ids.length > 0
+      ? user.facility_ids.map(Number)
+      : user?.facility_id
+        ? [Number(user.facility_id)]
+        : [];
+
+  if (requestedFacilityId) {
+    assertFacilityAccess(
+      user,
+      Number(requestedFacilityId)
+    );
+
+    return {
+      sql: `AND ${tableAlias}.facility_id = ?`,
+      params: [Number(requestedFacilityId)]
+    };
+  }
+
+  if (allowedFacilityIds.length === 0) {
+    return {
+      sql: 'AND 1 = 0',
+      params: []
+    };
+  }
+
+  return {
+    sql:
+      `AND ${tableAlias}.facility_id IN (${allowedFacilityIds
+        .map(() => '?')
+        .join(', ')})`,
+    params: allowedFacilityIds
+  };
+}
+
+async function assertEmployeeAccess(
+  employeeId: number,
+  user: any
+) {
+  if (canAccessAllFacilities(user)) {
+    return;
+  }
+
+  const [rows]: any =
+    await pool.query(
+      `
+        SELECT facility_id
+        FROM employees
+        WHERE id = ?
+        LIMIT 1
+      `,
+      [employeeId]
+    );
+
+  const facilityId =
+    rows[0]?.facility_id;
+
+  if (
+    !facilityId ||
+    !Array.isArray(user?.facility_ids) ||
+    !user.facility_ids
+      .map(Number)
+      .includes(Number(facilityId))
+  ) {
+    throw new Error(
+      'No tenes permiso para operar sobre este empleado'
+    );
+  }
+}
+
+async function assertLeaveRequestAccess(
+  leaveRequestId: number,
+  user: any
+) {
+  if (canAccessAllFacilities(user)) {
+    return;
+  }
+
+  const [rows]: any =
+    await pool.query(
+      `
+        SELECT e.facility_id
+        FROM leave_requests lr
+        INNER JOIN employees e
+          ON e.id = lr.employee_id
+        WHERE lr.id = ?
+        LIMIT 1
+      `,
+      [leaveRequestId]
+    );
+
+  const facilityId =
+    rows[0]?.facility_id;
+
+  if (
+    !facilityId ||
+    !Array.isArray(user?.facility_ids) ||
+    !user.facility_ids
+      .map(Number)
+      .includes(Number(facilityId))
+  ) {
+    throw new Error(
+      'No tenes permiso para operar sobre esta licencia'
+    );
+  }
+}
 
 function toDateOnly(
   value: string | Date
@@ -219,38 +352,77 @@ function getWeekBounds(
   };
 }
 
-export async function getDepartments() {
+export async function getDepartments(
+  user?: any,
+  facilityId?: number | null
+) {
+
+  const facilityFilter =
+    getPersonnelFacilityFilter(
+      user,
+      facilityId,
+      'd'
+    );
 
   const [rows]: any =
     await pool.query(
       `
         SELECT
-          id,
-          name,
-          description,
-          is_active
-        FROM employee_departments
-        ORDER BY name ASC
-      `
+          d.id,
+          d.facility_id,
+          hf.name AS facility_name,
+          hf.facility_type,
+          d.name,
+          d.description,
+          d.is_active
+        FROM employee_departments d
+        LEFT JOIN health_facilities hf
+          ON hf.id = d.facility_id
+        WHERE 1 = 1
+          ${facilityFilter.sql}
+        ORDER BY
+          hf.name ASC,
+          d.name ASC
+      `,
+      facilityFilter.params
     );
 
   return rows;
 }
 
 export async function createDepartment(
-  data: any
+  data: any,
+  user?: any
 ) {
+  const facilityId =
+    Number(
+      data.facility_id ||
+        getScopedFacilityId(user, null)
+    );
+
+  if (!facilityId) {
+    throw new Error(
+      'La dependencia del sector es obligatoria'
+    );
+  }
+
+  assertFacilityAccess(
+    user,
+    facilityId
+  );
 
   const [result]: any =
     await pool.query(
       `
         INSERT INTO employee_departments (
+          facility_id,
           name,
           description
         )
-        VALUES (?, ?)
+        VALUES (?, ?, ?)
       `,
       [
+        facilityId,
         data.name,
         data.description || null
       ]
@@ -550,7 +722,9 @@ export async function getOrCreateAttendancePeriod(
 export async function getAttendanceMonth(
   year: number,
   month: number,
-  departmentId: number | null
+  departmentId: number | null,
+  user?: any,
+  facilityId?: number | null
 ) {
 
   const period =
@@ -569,6 +743,13 @@ export async function getAttendanceMonth(
     params.push(departmentId);
   }
 
+  const facilityFilter =
+    getPersonnelFacilityFilter(
+      user,
+      facilityId,
+      'e'
+    );
+
   const [employees]: any =
     await pool.query(
       `
@@ -584,11 +765,15 @@ export async function getAttendanceMonth(
           ON d.id = e.department_id
         WHERE e.is_active = TRUE
           ${departmentFilter}
+          ${facilityFilter.sql}
         ORDER BY
           d.name ASC,
           e.full_name ASC
       `,
-      params
+      [
+        ...params,
+        ...facilityFilter.params
+      ]
     );
 
   const [records]: any =
@@ -751,7 +936,9 @@ export async function getAttendanceMonth(
 export async function getPlannedDaysOffMonth(
   year: number,
   month: number,
-  departmentId: number | null
+  departmentId: number | null,
+  user?: any,
+  facilityId?: number | null
 ) {
 
   const params: any[] = [];
@@ -763,6 +950,13 @@ export async function getPlannedDaysOffMonth(
       'AND e.department_id = ?';
     params.push(departmentId);
   }
+
+  const facilityFilter =
+    getPersonnelFacilityFilter(
+      user,
+      facilityId,
+      'e'
+    );
 
   const [employees]: any =
     await pool.query(
@@ -779,11 +973,15 @@ export async function getPlannedDaysOffMonth(
           ON d.id = e.department_id
         WHERE e.is_active = TRUE
           ${departmentFilter}
+          ${facilityFilter.sql}
         ORDER BY
           d.name ASC,
           e.full_name ASC
       `,
-      params
+      [
+        ...params,
+        ...facilityFilter.params
+      ]
     );
 
   const [plannedRows]: any =
@@ -848,7 +1046,8 @@ export async function savePlannedDaysOffMonth(
   year: number,
   month: number,
   records: any[],
-  userId?: number
+  userId?: number,
+  user?: any
 ) {
 
   const days =
@@ -873,6 +1072,11 @@ export async function savePlannedDaysOffMonth(
       if (!employeeId || !day || day < 1 || day > days) {
         continue;
       }
+
+      await assertEmployeeAccess(
+        employeeId,
+        user
+      );
 
       const offDate =
         getDateKey(
@@ -930,7 +1134,8 @@ export async function saveAttendanceMonth(
   year: number,
   month: number,
   records: any[],
-  userId?: number
+  userId?: number,
+  user?: any
 ) {
 
   const period =
@@ -968,6 +1173,11 @@ export async function saveAttendanceMonth(
       if (!employeeId || !day || day < 1 || day > days) {
         continue;
       }
+
+      await assertEmployeeAccess(
+        employeeId,
+        user
+      );
 
       const attendanceDate =
         getDateKey(
@@ -1097,7 +1307,9 @@ export async function fillPresentAttendanceDay(
   month: number,
   day: number,
   departmentId: number | null,
-  userId?: number
+  userId?: number,
+  user?: any,
+  facilityId?: number | null
 ) {
 
   const days =
@@ -1159,6 +1371,13 @@ export async function fillPresentAttendanceDay(
     params.push(departmentId);
   }
 
+  const facilityFilter =
+    getPersonnelFacilityFilter(
+      user,
+      facilityId,
+      'e'
+    );
+
   const [result]: any =
     await pool.query(
       `
@@ -1188,8 +1407,12 @@ export async function fillPresentAttendanceDay(
               AND ar.attendance_date = ?
           )
           ${departmentFilter}
+          ${facilityFilter.sql}
       `,
-      params
+      [
+        ...params,
+        ...facilityFilter.params
+      ]
     );
 
   return {
@@ -1202,7 +1425,9 @@ export async function fillPresentAttendanceDay(
 export async function getAttendanceSummary(
   year: number,
   month: number,
-  departmentId: number | null
+  departmentId: number | null,
+  user?: any,
+  facilityId?: number | null
 ) {
 
   const period =
@@ -1221,6 +1446,13 @@ export async function getAttendanceSummary(
       'AND e.department_id = ?';
     params.push(departmentId);
   }
+
+  const facilityFilter =
+    getPersonnelFacilityFilter(
+      user,
+      facilityId,
+      'e'
+    );
 
   const [rows]: any =
     await pool.query(
@@ -1241,6 +1473,7 @@ export async function getAttendanceSummary(
           ON ac.id = ar.attendance_code_id
         WHERE e.is_active = TRUE
           ${departmentFilter}
+          ${facilityFilter.sql}
         GROUP BY
           e.id,
           e.full_name,
@@ -1250,7 +1483,10 @@ export async function getAttendanceSummary(
           d.name ASC,
           e.full_name ASC
       `,
-      params
+      [
+        ...params,
+        ...facilityFilter.params
+      ]
     );
 
   const summary =
@@ -2609,8 +2845,14 @@ async function assertAnnualDayLimit(
 export async function getEmployeeLeaveSummary(
   employeeId: number,
   year: number,
-  month: number
+  month: number,
+  user?: any
 ) {
+
+  await assertEmployeeAccess(
+    employeeId,
+    user
+  );
 
   const employee =
     await getEmployeeForLeave(employeeId);
@@ -2776,8 +3018,14 @@ export async function getEmployeeLeaveSummary(
 export async function getEmployeeDirectiveSummary(
   employeeId: number,
   year: number,
-  month: number
+  month: number,
+  user?: any
 ) {
+
+  await assertEmployeeAccess(
+    employeeId,
+    user
+  );
 
   const [employeeRows]: any =
     await pool.query(
@@ -3796,7 +4044,17 @@ async function adjustVacationBalanceForRequest(
   );
 }
 
-export async function getLeaveRequests() {
+export async function getLeaveRequests(
+  user?: any,
+  facilityId?: number | null
+) {
+
+  const facilityFilter =
+    getPersonnelFacilityFilter(
+      user,
+      facilityId,
+      'e'
+    );
 
   const [rows]: any =
     await pool.query(
@@ -3932,10 +4190,13 @@ export async function getLeaveRequests() {
           ON elb.employee_id = lr.employee_id
           AND elb.attendance_code_id = lr.attendance_code_id
           AND elb.year = YEAR(lr.start_date)
+        WHERE 1 = 1
+          ${facilityFilter.sql}
         ORDER BY
           lr.requested_at DESC,
           lr.id DESC
-      `
+      `,
+      facilityFilter.params
     );
 
   return rows;
@@ -4011,11 +4272,17 @@ export function formatLeaveAuditDetail(
 
 export async function createLeaveRequest(
   data: any,
-  userId?: number
+  userId?: number,
+  user?: any
 ) {
 
   const validated =
     await validateLeaveRequest(data);
+
+  await assertEmployeeAccess(
+    Number(validated.employee.id),
+    user
+  );
 
   const [result]: any =
     await pool.query(
@@ -4082,7 +4349,8 @@ export async function createLeaveRequest(
 export async function updateLeaveRequest(
   id: number,
   data: any,
-  userId?: number
+  userId?: number,
+  user?: any
 ) {
 
   const validated =
@@ -4090,6 +4358,11 @@ export async function updateLeaveRequest(
       data,
       id
     );
+
+  await assertEmployeeAccess(
+    Number(validated.employee.id),
+    user
+  );
 
   const connection =
     await pool.getConnection();
@@ -4227,7 +4500,8 @@ export async function updateLeaveRequestStatus(
   id: number,
   status: string,
   userId?: number,
-  rejectedReason?: string
+  rejectedReason?: string,
+  user?: any
 ) {
 
   const allowed =
@@ -4243,6 +4517,11 @@ export async function updateLeaveRequestStatus(
       'Estado invalido'
     );
   }
+
+  await assertLeaveRequestAccess(
+    id,
+    user
+  );
 
   const connection =
     await pool.getConnection();
@@ -4342,8 +4621,14 @@ export async function updateLeaveRequestStatus(
 
 export async function completeLeaveReturn(
   id: number,
-  data: any
+  data: any,
+  user?: any
 ) {
+
+  await assertLeaveRequestAccess(
+    id,
+    user
+  );
 
   const totalHours =
     Number(data.total_hours || 0);
@@ -4479,7 +4764,8 @@ export async function completeLeaveReturn(
 }
 
 export async function getEmployees(
-  filters: any = {}
+  filters: any = {},
+  user?: any
 ) {
   const where: string[] = [];
   const params: any[] = [];
@@ -4495,10 +4781,12 @@ export async function getEmployees(
         OR e.cuil LIKE ?
         OR e.file_number LIKE ?
         OR d.name LIKE ?
+        OR hf.name LIKE ?
       )`
     );
 
     params.push(
+      search,
       search,
       search,
       search,
@@ -4513,6 +4801,41 @@ export async function getEmployees(
   ) {
     where.push('e.department_id = ?');
     params.push(Number(filters.department));
+  }
+
+  if (
+    filters.facility_id &&
+    filters.facility_id !== 'todos'
+  ) {
+    const scopedFacilityId =
+      getScopedFacilityId(
+        user,
+        Number(filters.facility_id)
+      );
+
+    if (scopedFacilityId) {
+      where.push('e.facility_id = ?');
+      params.push(scopedFacilityId);
+    }
+  } else if (!canAccessAllFacilities(user)) {
+    const allowedFacilityIds =
+      Array.isArray(user?.facility_ids) &&
+      user.facility_ids.length > 0
+        ? user.facility_ids.map(Number)
+        : user?.facility_id
+          ? [Number(user.facility_id)]
+          : [];
+
+    if (allowedFacilityIds.length === 0) {
+      where.push('1 = 0');
+    } else {
+      where.push(
+        `e.facility_id IN (${allowedFacilityIds
+          .map(() => '?')
+          .join(', ')})`
+      );
+      params.push(...allowedFacilityIds);
+    }
   }
 
   if (filters.status === 'activo') {
@@ -4557,6 +4880,8 @@ export async function getEmployees(
           FROM employees e
           LEFT JOIN employee_departments d
             ON d.id = e.department_id
+          LEFT JOIN health_facilities hf
+            ON hf.id = e.facility_id
           ${whereSql}
         `,
         params
@@ -4568,6 +4893,7 @@ export async function getEmployees(
       `
         SELECT
           e.id,
+          e.facility_id,
           e.department_id,
           e.full_name,
           e.dni,
@@ -4586,12 +4912,18 @@ export async function getEmployees(
           e.is_professional,
           e.notes,
           e.is_active,
+          hf.name AS facility_name,
+          hf.facility_type,
           d.name AS department_name
         FROM employees e
         LEFT JOIN employee_departments d
           ON d.id = e.department_id
+        LEFT JOIN health_facilities hf
+          ON hf.id = e.facility_id
         ${whereSql}
-        ORDER BY e.full_name ASC
+        ORDER BY
+          hf.name ASC,
+          e.full_name ASC
         ${shouldPaginate ? 'LIMIT ? OFFSET ?' : ''}
       `,
       shouldPaginate
@@ -4626,13 +4958,31 @@ export async function getEmployees(
 }
 
 export async function createEmployee(
-  data: any
+  data: any,
+  user?: any
 ) {
+  const facilityId =
+    Number(
+      data.facility_id ||
+        getScopedFacilityId(user, null)
+    );
+
+  if (!facilityId) {
+    throw new Error(
+      'La dependencia del empleado es obligatoria'
+    );
+  }
+
+  assertFacilityAccess(
+    user,
+    facilityId
+  );
 
   const [result]: any =
     await pool.query(
       `
         INSERT INTO employees (
+          facility_id,
           department_id,
           full_name,
           dni,
@@ -4651,9 +5001,10 @@ export async function createEmployee(
           is_professional,
           notes
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
       [
+        facilityId,
         data.department_id || null,
         data.full_name,
         data.dni || null,
@@ -4679,13 +5030,36 @@ export async function createEmployee(
 
 export async function updateEmployee(
   id: number,
-  data: any
+  data: any,
+  user?: any
 ) {
+  await assertEmployeeAccess(
+    id,
+    user
+  );
+
+  const facilityId =
+    Number(
+      data.facility_id ||
+        getScopedFacilityId(user, null)
+    );
+
+  if (!facilityId) {
+    throw new Error(
+      'La dependencia del empleado es obligatoria'
+    );
+  }
+
+  assertFacilityAccess(
+    user,
+    facilityId
+  );
 
   await pool.query(
     `
       UPDATE employees
       SET
+        facility_id = ?,
         department_id = ?,
         full_name = ?,
         dni = ?,
@@ -4706,6 +5080,7 @@ export async function updateEmployee(
       WHERE id = ?
     `,
     [
+      facilityId,
       data.department_id || null,
       data.full_name,
       data.dni || null,
