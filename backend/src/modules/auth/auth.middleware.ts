@@ -21,6 +21,52 @@ function getRequestPermission(
   const isRead =
     req.method === 'GET';
 
+  if (req.baseUrl === '/personnel') {
+    if (isRead) {
+      return 'personnel.view';
+    }
+
+    if (
+      req.path.startsWith('/departments') ||
+      req.path.startsWith('/attendance-codes') ||
+      req.path.startsWith('/leave-rules') ||
+      req.path.startsWith('/vacation-rules')
+    ) {
+      return 'personnel.settings.manage';
+    }
+
+    if (
+      req.path.startsWith('/vacation-balances') ||
+      req.path.startsWith('/leave-balance-adjustments')
+    ) {
+      return 'personnel.balances.manage';
+    }
+
+    if (
+      req.path.startsWith('/attendance') ||
+      req.path.startsWith('/planned-days-off')
+    ) {
+      return 'personnel.attendance.manage';
+    }
+
+    if (
+      req.path.startsWith('/leave-requests') &&
+      req.path.endsWith('/status')
+    ) {
+      return 'personnel.leaves.approve';
+    }
+
+    if (req.path.startsWith('/leave-requests')) {
+      return 'personnel.leaves.manage';
+    }
+
+    if (req.path.startsWith('/employees')) {
+      return 'personnel.employees.manage';
+    }
+
+    return 'personnel.manage';
+  }
+
   const modulePermissions: Array<{
     paths: string[];
     view: string;
@@ -52,11 +98,6 @@ function getRequestPermission(
       ],
       view: 'vaccines.view',
       manage: 'vaccines.manage'
-    },
-    {
-      paths: ['/personnel'],
-      view: 'personnel.view',
-      manage: 'personnel.manage'
     },
     {
       paths: [
@@ -100,8 +141,19 @@ function hasEffectivePermission(
   permission: string
 ) {
   if (
+    permission === 'personnel.view' &&
+    user.permissions?.some((item: string) =>
+      item.startsWith('personnel.') &&
+      item.endsWith('.manage')
+    )
+  ) {
+    return true;
+  }
+
+  if (
     user.role === 'dir' &&
     permission.endsWith('.manage') &&
+    !permission.startsWith('personnel.') &&
     user.permissions?.includes(
       permission.replace('.manage', '.view')
     )

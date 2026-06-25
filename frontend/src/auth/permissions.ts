@@ -3,6 +3,7 @@ import type { User } from './AuthContext';
 type NavigationItem = {
   path: string;
   label: string;
+  section?: string;
 };
 
 export function hasPermission(
@@ -20,8 +21,19 @@ export function hasPermission(
 
   if (user.permissions_configured) {
     if (
+      permission === 'personnel.view' &&
+      user.permissions?.some((item) =>
+        item.startsWith('personnel.') &&
+        item.endsWith('.manage')
+      )
+    ) {
+      return true;
+    }
+
+    if (
       user.role === 'dir' &&
       permission.endsWith('.manage') &&
+      !permission.startsWith('personnel.') &&
       user.permissions?.includes(
         permission.replace('.manage', '.view')
       )
@@ -86,11 +98,13 @@ export function getAvailableNavigation(
   if (user.role === 'admin') {
     items.push({
       path: '/users',
-      label: 'Usuarios'
+      label: 'Usuarios y roles',
+      section: 'Administracion'
     });
     items.push({
       path: '/facilities',
-      label: 'Dependencias'
+      label: 'Dependencias',
+      section: 'Administracion'
     });
   }
 
@@ -192,7 +206,8 @@ export function getAvailableNavigation(
   if (user.role === 'admin') {
     items.push({
       path: '/whatsapp',
-      label: 'WhatsApp'
+      label: 'WhatsApp',
+      section: 'Administracion'
     });
   }
 
@@ -205,7 +220,8 @@ export function getAvailableNavigation(
   ) {
     items.push({
       path: '/audit',
-      label: 'Auditoria'
+      label: 'Auditoria',
+      section: 'Administracion'
     });
   }
 

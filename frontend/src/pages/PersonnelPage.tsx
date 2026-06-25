@@ -889,12 +889,61 @@ export default function PersonnelPage() {
 
   const { user } = useAuth();
 
-  const readOnly =
-    !hasPermission(
+  const canManageEmployees =
+    hasPermission(
       user,
-      'personnel.manage',
-      ['admin', 'user']
+      'personnel.employees.manage',
+      ['admin', 'user', 'dir']
     );
+
+  const canManageAttendance =
+    hasPermission(
+      user,
+      'personnel.attendance.manage',
+      ['admin', 'user', 'dir']
+    );
+
+  const canManageLeaves =
+    hasPermission(
+      user,
+      'personnel.leaves.manage',
+      ['admin', 'user', 'dir']
+    );
+
+  const canApproveLeaves =
+    hasPermission(
+      user,
+      'personnel.leaves.approve',
+      ['admin', 'dir']
+    );
+
+  const canManageBalances =
+    hasPermission(
+      user,
+      'personnel.balances.manage',
+      ['admin', 'dir']
+    );
+
+  const canManageSettings =
+    hasPermission(
+      user,
+      'personnel.settings.manage',
+      ['admin', 'dir']
+    );
+
+  const hasAnyPersonnelManagePermission =
+    canManageEmployees ||
+    canManageAttendance ||
+    canManageLeaves ||
+    canApproveLeaves ||
+    canManageBalances ||
+    canManageSettings;
+
+  const attendanceReadOnly =
+    !canManageAttendance;
+
+  const readOnly =
+    !hasAnyPersonnelManagePermission;
 
   const canSelectFacility =
     user?.role === 'admin' ||
@@ -3771,7 +3820,7 @@ export default function PersonnelPage() {
           Empleados
         </button>
 
-        {!readOnly && (
+        {canManageSettings && (
           <button
             className={
               activeTab === 'departments'
@@ -3786,7 +3835,7 @@ export default function PersonnelPage() {
           </button>
         )}
 
-        {!readOnly && (
+        {canManageSettings && (
           <button
             className={
               activeTab === 'codes'
@@ -3814,7 +3863,7 @@ export default function PersonnelPage() {
           Presentismo
         </button>
 
-        {!readOnly && (
+        {canManageAttendance && (
           <button
             className={
               activeTab === 'planned-days-off'
@@ -3868,7 +3917,7 @@ export default function PersonnelPage() {
           Reglas licencias
         </button>
 
-        {!readOnly && (
+        {canManageSettings && (
           <button
             className={
               activeTab === 'vacation-rules'
@@ -3883,7 +3932,7 @@ export default function PersonnelPage() {
           </button>
         )}
 
-        {!readOnly && (
+        {canManageBalances && (
           <button
             className={
               activeTab === 'balance-adjustments'
@@ -3910,7 +3959,7 @@ export default function PersonnelPage() {
       {
         activeTab === 'employees' && (
           <>
-            {!readOnly && (
+            {canManageEmployees && (
               <div className="management-actions page-actions">
                 <button
                   className="btn-primary"
@@ -3929,7 +3978,7 @@ export default function PersonnelPage() {
               </div>
             )}
 
-            {!readOnly && showEmployeeFormModal && (
+            {canManageEmployees && showEmployeeFormModal && (
             <div className="modal-overlay">
               <div className="modal-content modal-content-wide">
                 <button
@@ -4339,7 +4388,7 @@ export default function PersonnelPage() {
                       {(readOnly || user?.role === 'admin') && (
                         <th>Resumen</th>
                       )}
-                      {!readOnly && (
+                      {canManageEmployees && (
                         <th>Acciones</th>
                       )}
                   </tr>
@@ -4382,7 +4431,7 @@ export default function PersonnelPage() {
                           </button>
                         </td>
                       )}
-                      {!readOnly && (
+                      {canManageEmployees && (
                         <td>
                           <div className="table-actions">
                             <button
@@ -5429,7 +5478,7 @@ export default function PersonnelPage() {
                 type="button"
                 disabled={
                   savingAttendance ||
-                  readOnly
+                  attendanceReadOnly
                 }
                 onClick={() =>
                   setShowFillPresentModal(true)
@@ -5444,7 +5493,7 @@ export default function PersonnelPage() {
                 disabled={
                   savingAttendance ||
                   Object.keys(attendanceEdits).length === 0 ||
-                  readOnly
+                  attendanceReadOnly
                 }
                 onClick={saveAttendance}
               >
@@ -5540,7 +5589,7 @@ export default function PersonnelPage() {
                                   day
                                 )}
                                 onChange={(e) =>
-                                  !readOnly &&
+                                  !attendanceReadOnly &&
                                   !lockedCell &&
                                   updateAttendanceCell(
                                     employee.id,
@@ -5549,7 +5598,7 @@ export default function PersonnelPage() {
                                   )
                                 }
                                 onBlur={() =>
-                                  !readOnly &&
+                                  !attendanceReadOnly &&
                                   !lockedCell &&
                                   validateAttendanceCellOnBlur(
                                     employee.id,
@@ -5557,7 +5606,7 @@ export default function PersonnelPage() {
                                   )
                                 }
                                 disabled={lockedCell}
-                                readOnly={readOnly}
+                                readOnly={attendanceReadOnly}
                                 onKeyDown={(e) =>
                                   handleAttendanceKeyDown(
                                     e,
@@ -5782,7 +5831,7 @@ export default function PersonnelPage() {
               )
             }
 
-            {!readOnly && (
+            {canManageLeaves && (
               <div className="management-actions page-actions">
                 <button
                   className="btn-primary"
@@ -5806,7 +5855,7 @@ export default function PersonnelPage() {
               </div>
             )}
 
-            {!readOnly && showLeaveFormModal && (
+            {canManageLeaves && showLeaveFormModal && (
             <div className="modal-overlay">
               <div className="modal-content modal-content-wide">
                 <button
@@ -6105,7 +6154,7 @@ export default function PersonnelPage() {
                     {canSeeLeaveCreator && (
                       <th>Cargada por</th>
                     )}
-                    {!readOnly && (
+                    {canManageLeaves && (
                       <th>Acciones</th>
                     )}
                   </tr>
@@ -6147,10 +6196,11 @@ export default function PersonnelPage() {
                           {request.requested_by_name || '-'}
                         </td>
                       )}
-                      {!readOnly && (
+                      {canManageLeaves && (
                         <td>
                         <div className="table-actions">
-                          {!['cancelado', 'rechazado'].includes(request.status) && (
+                          {canManageLeaves &&
+                            !['cancelado', 'rechazado'].includes(request.status) && (
                             <button
                               className="btn-primary"
                               type="button"
@@ -6174,7 +6224,8 @@ export default function PersonnelPage() {
                             </button>
                           )}
 
-                          {request.code === '43' &&
+                          {canManageLeaves &&
+                            request.code === '43' &&
                             !request.no_return &&
                             (!request.return_time || !Number(request.total_hours || 0)) && (
                               <button
@@ -6201,6 +6252,7 @@ export default function PersonnelPage() {
                             )}
 
                           {
+                            canApproveLeaves &&
                             request.status === 'pendiente' && (
                               <>
                                 <button
@@ -6231,6 +6283,7 @@ export default function PersonnelPage() {
                             )
                           }
                           {
+                            canManageLeaves &&
                             request.status !== 'cancelado' && (
                               <button
                                 className="btn-secondary"
@@ -6255,7 +6308,7 @@ export default function PersonnelPage() {
                   {
                     selectedEmployeeLeaveRequests.length === 0 && (
                       <tr>
-                        <td colSpan={readOnly ? 7 : 8}>
+                        <td colSpan={(canManageLeaves || canApproveLeaves) ? 8 : 7}>
                           {
                             selectedLeaveEmployee
                               ? 'Este empleado todavia no tiene solicitudes cargadas.'
@@ -6308,7 +6361,7 @@ export default function PersonnelPage() {
                       <th>Hs/anio</th>
                       <th>Detalle</th>
                       <th>Estado</th>
-                      {!readOnly && (
+                      {canManageSettings && (
                         <th>Acciones</th>
                       )}
                     </tr>
@@ -6550,7 +6603,7 @@ export default function PersonnelPage() {
                                 : 'Inactiva'
                             )}
                           </td>
-                          {!readOnly && (
+                          {canManageSettings && (
                             <td>
                               {isEditing ? (
                                 <div className="action-buttons">
@@ -6592,7 +6645,7 @@ export default function PersonnelPage() {
                     })}
                     {leaveRules.length === 0 && (
                       <tr>
-                        <td colSpan={readOnly ? 11 : 12}>
+                        <td colSpan={canManageSettings ? 12 : 11}>
                           No hay reglas cargadas. Aplique el script de reglas de licencias para inicializarlas.
                         </td>
                       </tr>
@@ -6853,7 +6906,7 @@ export default function PersonnelPage() {
                     <th>Dias</th>
                     <th>Horas</th>
                     <th>Estado</th>
-                    {!readOnly && (
+                    {(canManageLeaves || canApproveLeaves) && (
                       <th>Acciones</th>
                     )}
                   </tr>
@@ -6886,7 +6939,7 @@ export default function PersonnelPage() {
                           {request.status}
                         </span>
                       </td>
-                      {!readOnly && (
+                      {(canManageLeaves || canApproveLeaves) && (
                         <td>
                         <div className="table-actions">
                           {!['cancelado', 'rechazado'].includes(request.status) && (
@@ -6994,7 +7047,7 @@ export default function PersonnelPage() {
                   {
                     filteredLeaveRequests.length === 0 && (
                       <tr>
-                        <td colSpan={readOnly ? 7 : 8}>
+                        <td colSpan={(canManageLeaves || canApproveLeaves) ? 8 : 7}>
                           No hay solicitudes para esos filtros.
                         </td>
                       </tr>

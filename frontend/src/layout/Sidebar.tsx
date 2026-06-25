@@ -22,6 +22,16 @@ export default function Sidebar() {
   const navigationItems =
     getAvailableNavigation(user);
 
+  const mainNavigationItems =
+    navigationItems.filter((item) =>
+      !item.section
+    );
+
+  const administrationItems =
+    navigationItems.filter((item) =>
+      item.section === 'Administracion'
+    );
+
   return (
 
     <aside className="app-sidebar">
@@ -39,7 +49,7 @@ export default function Sidebar() {
 
       <hr className="app-sidebar-divider" />
 
-      {navigationItems.map((item) => (
+      {mainNavigationItems.map((item) => (
         <NavLink
           key={item.path}
           to={item.path}
@@ -48,6 +58,24 @@ export default function Sidebar() {
           {item.label}
         </NavLink>
       ))}
+
+      {administrationItems.length > 0 && (
+        <>
+          <div className="app-nav-section-title">
+            Administracion
+          </div>
+
+          {administrationItems.map((item) => (
+            <NavLink
+              key={item.path}
+              to={item.path}
+              className="app-nav-link"
+            >
+              {item.label}
+            </NavLink>
+          ))}
+        </>
+      )}
 
       <Link to="/" className="app-nav-link app-nav-danger">
         Salir
