@@ -386,6 +386,10 @@ export async function getLeaveRules() {
           lr.min_advance_days,
           lr.max_days_per_request,
           lr.max_days_per_year,
+          lr.max_hours_per_day,
+          lr.max_hours_per_week,
+          lr.max_hours_per_month,
+          lr.max_hours_per_year,
           lr.requires_documentation,
           lr.requires_medical_order,
           lr.gender_condition,
@@ -419,6 +423,10 @@ export async function updateLeaveRule(
         min_advance_days = ?,
         max_days_per_request = ?,
         max_days_per_year = ?,
+        max_hours_per_day = ?,
+        max_hours_per_week = ?,
+        max_hours_per_month = ?,
+        max_hours_per_year = ?,
         requires_documentation = ?,
         requires_medical_order = ?,
         gender_condition = ?,
@@ -433,6 +441,10 @@ export async function updateLeaveRule(
       data.min_advance_days || null,
       data.max_days_per_request || null,
       data.max_days_per_year || null,
+      data.max_hours_per_day || null,
+      data.max_hours_per_week || null,
+      data.max_hours_per_month || null,
+      data.max_hours_per_year || null,
       Boolean(data.requires_documentation),
       Boolean(data.requires_medical_order),
       data.gender_condition || 'cualquiera',
@@ -1863,6 +1875,12 @@ const configurableDayRuleCodes =
     '42'
   ]);
 
+const configurableHourRuleCodes =
+  new Set([
+    '35',
+    '46'
+  ]);
+
 async function getActiveLeaveRuleForCode(
   code: string
 ) {
@@ -1877,6 +1895,10 @@ async function getActiveLeaveRuleForCode(
             lr.min_advance_days,
             lr.max_days_per_request,
             lr.max_days_per_year,
+            lr.max_hours_per_day,
+            lr.max_hours_per_week,
+            lr.max_hours_per_month,
+            lr.max_hours_per_year,
             lr.rule_notes
           FROM leave_rules lr
           INNER JOIN attendance_codes ac
@@ -1959,6 +1981,114 @@ async function validateConfigurableDayRule(
     ) {
       throw new Error(
         `La clave ${code} - ${ruleName} tiene un maximo de ${rule.max_days_per_year} dias anuales`
+      );
+    }
+  }
+
+  return true;
+}
+
+async function validateConfigurableHourRule(
+  employeeId: number,
+  code: string,
+  startDate: string,
+  startYear: number,
+  startMonth: number,
+  totalHours: number,
+  isException: boolean,
+  excludeLeaveRequestId?: number
+) {
+
+  if (
+    isException ||
+    !configurableHourRuleCodes.has(code)
+  ) {
+    return false;
+  }
+
+  const rule =
+    await getActiveLeaveRuleForCode(code);
+
+  if (!rule) {
+    return false;
+  }
+
+  const ruleName =
+    rule.name || `clave ${code}`;
+
+  if (totalHours <= 0) {
+    throw new Error(
+      `La clave ${code} - ${ruleName} requiere cargar horas`
+    );
+  }
+
+  if (
+    rule.max_hours_per_day !== null &&
+    totalHours > Number(rule.max_hours_per_day)
+  ) {
+    throw new Error(
+      `La clave ${code} - ${ruleName} permite hasta ${rule.max_hours_per_day} horas por dia`
+    );
+  }
+
+  if (rule.max_hours_per_week !== null) {
+    const week =
+      getWeekBounds(startDate);
+
+    const weekly =
+      await getDateRangeUsage(
+        employeeId,
+        [code],
+        week.start,
+        week.end,
+        excludeLeaveRequestId
+      );
+
+    if (
+      weekly.hours + totalHours >
+      Number(rule.max_hours_per_week)
+    ) {
+      throw new Error(
+        `La clave ${code} - ${ruleName} supera ${rule.max_hours_per_week} horas semanales. Ya hay ${weekly.hours} hs cargadas esa semana; puede cargar como maximo ${Math.max(0, Number(rule.max_hours_per_week) - weekly.hours)} hs`
+      );
+    }
+  }
+
+  if (rule.max_hours_per_month !== null) {
+    const monthly =
+      await getMonthlyUsage(
+        employeeId,
+        [code],
+        startYear,
+        startMonth,
+        excludeLeaveRequestId
+      );
+
+    if (
+      monthly.hours + totalHours >
+      Number(rule.max_hours_per_month)
+    ) {
+      throw new Error(
+        `La clave ${code} - ${ruleName} supera ${rule.max_hours_per_month} horas mensuales`
+      );
+    }
+  }
+
+  if (rule.max_hours_per_year !== null) {
+    const yearly =
+      await getApprovedUsage(
+        employeeId,
+        code,
+        startYear,
+        excludeLeaveRequestId
+      );
+
+    if (
+      yearly.hours + totalHours >
+      Number(rule.max_hours_per_year)
+    ) {
+      throw new Error(
+        `La clave ${code} - ${ruleName} supera ${rule.max_hours_per_year} horas anuales`
       );
     }
   }
@@ -3168,7 +3298,19 @@ async function validateLeaveRequest(
     );
   }
 
-  if (code.code === '35') {
+  const configurableHourRuleHandled =
+    await validateConfigurableHourRule(
+      employee.id,
+      code.code,
+      startDate,
+      startYear,
+      startMonth,
+      totalHours,
+      isException,
+      excludeLeaveRequestId
+    );
+
+  if (!configurableHourRuleHandled && code.code === '35') {
     if (totalHours <= 0) {
       throw new Error(
         'La clave 35 requiere cargar horas'
@@ -3193,7 +3335,7 @@ async function validateLeaveRequest(
     );
   }
 
-  if (code.code === '46') {
+  if (!configurableHourRuleHandled && code.code === '46') {
     if (totalHours <= 0) {
       throw new Error(
         'La clave 46 requiere cargar horas'

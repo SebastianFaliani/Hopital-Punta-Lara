@@ -166,6 +166,10 @@ type LeaveRule = {
   min_advance_days: number | null;
   max_days_per_request: number | null;
   max_days_per_year: number | null;
+  max_hours_per_day: number | null;
+  max_hours_per_week: number | null;
+  max_hours_per_month: number | null;
+  max_hours_per_year: number | null;
   requires_documentation: boolean;
   requires_medical_order: boolean;
   gender_condition: string;
@@ -6069,6 +6073,10 @@ export default function PersonnelPage() {
                       <th>Anticipacion</th>
                       <th>Max. solicitud</th>
                       <th>Max. anual</th>
+                      <th>Hs/dia</th>
+                      <th>Hs/sem</th>
+                      <th>Hs/mes</th>
+                      <th>Hs/anio</th>
                       <th>Detalle</th>
                       <th>Estado</th>
                       {!readOnly && (
@@ -6178,6 +6186,102 @@ export default function PersonnelPage() {
                           </td>
                           <td>
                             {isEditing ? (
+                              <input
+                                className="attendance-code-input"
+                                type="number"
+                                min="0"
+                                step="0.5"
+                                value={rule.max_hours_per_day ?? ''}
+                                onChange={(e) =>
+                                  updateLeaveRuleDraft(
+                                    rule.id,
+                                    {
+                                      max_hours_per_day:
+                                        e.target.value
+                                          ? Number(e.target.value)
+                                          : null
+                                    }
+                                  )
+                                }
+                              />
+                            ) : (
+                              rule.max_hours_per_day ?? '-'
+                            )}
+                          </td>
+                          <td>
+                            {isEditing ? (
+                              <input
+                                className="attendance-code-input"
+                                type="number"
+                                min="0"
+                                step="0.5"
+                                value={rule.max_hours_per_week ?? ''}
+                                onChange={(e) =>
+                                  updateLeaveRuleDraft(
+                                    rule.id,
+                                    {
+                                      max_hours_per_week:
+                                        e.target.value
+                                          ? Number(e.target.value)
+                                          : null
+                                    }
+                                  )
+                                }
+                              />
+                            ) : (
+                              rule.max_hours_per_week ?? '-'
+                            )}
+                          </td>
+                          <td>
+                            {isEditing ? (
+                              <input
+                                className="attendance-code-input"
+                                type="number"
+                                min="0"
+                                step="0.5"
+                                value={rule.max_hours_per_month ?? ''}
+                                onChange={(e) =>
+                                  updateLeaveRuleDraft(
+                                    rule.id,
+                                    {
+                                      max_hours_per_month:
+                                        e.target.value
+                                          ? Number(e.target.value)
+                                          : null
+                                    }
+                                  )
+                                }
+                              />
+                            ) : (
+                              rule.max_hours_per_month ?? '-'
+                            )}
+                          </td>
+                          <td>
+                            {isEditing ? (
+                              <input
+                                className="attendance-code-input"
+                                type="number"
+                                min="0"
+                                step="0.5"
+                                value={rule.max_hours_per_year ?? ''}
+                                onChange={(e) =>
+                                  updateLeaveRuleDraft(
+                                    rule.id,
+                                    {
+                                      max_hours_per_year:
+                                        e.target.value
+                                          ? Number(e.target.value)
+                                          : null
+                                    }
+                                  )
+                                }
+                              />
+                            ) : (
+                              rule.max_hours_per_year ?? '-'
+                            )}
+                          </td>
+                          <td>
+                            {isEditing ? (
                               <textarea
                                 className="form-input"
                                 value={rule.rule_notes || ''}
@@ -6259,7 +6363,7 @@ export default function PersonnelPage() {
                     })}
                     {leaveRules.length === 0 && (
                       <tr>
-                        <td colSpan={readOnly ? 7 : 8}>
+                        <td colSpan={readOnly ? 11 : 12}>
                           No hay reglas cargadas. Aplique el script de reglas de licencias para inicializarlas.
                         </td>
                       </tr>
