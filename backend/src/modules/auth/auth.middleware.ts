@@ -99,6 +99,16 @@ function hasEffectivePermission(
   user: any,
   permission: string
 ) {
+  if (
+    user.role === 'dir' &&
+    permission.endsWith('.manage') &&
+    user.permissions?.includes(
+      permission.replace('.manage', '.view')
+    )
+  ) {
+    return true;
+  }
+
   return (
     user.permissions?.includes(permission) ||
     (

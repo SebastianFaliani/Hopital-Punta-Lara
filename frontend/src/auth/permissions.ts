@@ -19,6 +19,16 @@ export function hasPermission(
   }
 
   if (user.permissions_configured) {
+    if (
+      user.role === 'dir' &&
+      permission.endsWith('.manage') &&
+      user.permissions?.includes(
+        permission.replace('.manage', '.view')
+      )
+    ) {
+      return true;
+    }
+
     return Boolean(
       user.permissions?.includes(permission) ||
       (
