@@ -2580,7 +2580,7 @@ export default function PersonnelPage() {
     const plannedOffText =
       plannedOff
         ? hasWorkedPlannedDayOff(employee, day)
-          ? 'Franco programado trabajado: suma 1 compensatorio'
+          ? 'Franco programado trabajado: suma 2 compensatorios'
           : 'Franco programado'
         : '';
 
@@ -2646,6 +2646,22 @@ export default function PersonnelPage() {
         .toUpperCase() === 'P';
   }
 
+  function isAttendanceCellLocked(
+    employee: AttendanceEmployee,
+    day: number
+  ) {
+
+    const savedCode =
+      employee.attendance[String(day)]?.code
+        ?.trim()
+        .toUpperCase();
+
+    return Boolean(
+      savedCode &&
+      attendanceCodesOnlyFromLeaves.has(savedCode)
+    );
+  }
+
   function getAttendanceInputClass(
     employee: AttendanceEmployee,
     day: number
@@ -2659,6 +2675,10 @@ export default function PersonnelPage() {
 
     const classes =
       ['attendance-code-input'];
+
+    if (isAttendanceCellLocked(employee, day)) {
+      classes.push('attendance-code-locked');
+    }
 
     if (isNonPresentCode(value)) {
       classes.push('attendance-code-danger');
@@ -2862,18 +2882,40 @@ export default function PersonnelPage() {
     });
   }
 
-  function focusAttendanceInput(
+  function focusNextEditableAttendanceInput(
     rowIndex: number,
-    day: number
+    day: number,
+    rowStep: number,
+    dayStep: number
   ) {
 
-    const input =
-      document.querySelector<HTMLInputElement>(
-        `[data-attendance-row="${rowIndex}"][data-attendance-day="${day}"]`
+    let nextRow =
+      rowIndex + rowStep;
+
+    let nextDay =
+      day + dayStep;
+
+    const maxAttempts =
+      Math.max(
+        1,
+        filteredAttendanceRows.length * attendanceDays
       );
 
-    input?.focus();
-    input?.select();
+    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+      const input =
+        document.querySelector<HTMLInputElement>(
+          `[data-attendance-row="${nextRow}"][data-attendance-day="${nextDay}"]:not(:disabled)`
+        );
+
+      if (input) {
+        input.focus();
+        input.select();
+        return;
+      }
+
+      nextRow += rowStep;
+      nextDay += dayStep;
+    }
   }
 
   function handleAttendanceKeyDown(
@@ -2884,41 +2926,51 @@ export default function PersonnelPage() {
 
     if (e.key === 'Enter') {
       e.preventDefault();
-      focusAttendanceInput(
-        rowIndex + 1,
-        day
+      focusNextEditableAttendanceInput(
+        rowIndex,
+        day,
+        1,
+        0
       );
     }
 
     if (e.key === 'ArrowDown') {
       e.preventDefault();
-      focusAttendanceInput(
-        rowIndex + 1,
-        day
+      focusNextEditableAttendanceInput(
+        rowIndex,
+        day,
+        1,
+        0
       );
     }
 
     if (e.key === 'ArrowUp') {
       e.preventDefault();
-      focusAttendanceInput(
-        rowIndex - 1,
-        day
+      focusNextEditableAttendanceInput(
+        rowIndex,
+        day,
+        -1,
+        0
       );
     }
 
     if (e.key === 'ArrowRight') {
       e.preventDefault();
-      focusAttendanceInput(
+      focusNextEditableAttendanceInput(
         rowIndex,
-        day + 1
+        day,
+        0,
+        1
       );
     }
 
     if (e.key === 'ArrowLeft') {
       e.preventDefault();
-      focusAttendanceInput(
+      focusNextEditableAttendanceInput(
         rowIndex,
-        day - 1
+        day,
+        0,
+        -1
       );
     }
   }
@@ -5265,61 +5317,72 @@ export default function PersonnelPage() {
                             {employee.department_name || 'Sin sector'}
                           </span>
                         </td>
-                        {dayNumbers.map((day) => (
-                          <td
-                            key={day}
-                            className={
-                              isSunday(day)
-                                ? 'attendance-sunday-cell'
-                                : ''
-                            }
-                          >
-                            <input
-                              data-attendance-row={rowIndex}
-                              data-attendance-day={day}
-                              className={getAttendanceInputClass(
-                                employee,
-                                day
-                              )}
-                              value={getAttendanceValue(
-                                employee,
-                                day
-                              )}
-                              placeholder={
-                                hasPlannedDayOff(employee, day)
-                                  ? 'F'
+                        {dayNumbers.map((day) => {
+                          const lockedCell =
+                            isAttendanceCellLocked(
+                              employee,
+                              day
+                            );
+
+                          return (
+                            <td
+                              key={day}
+                              className={
+                                isSunday(day)
+                                  ? 'attendance-sunday-cell'
                                   : ''
                               }
-                              title={getAttendanceCodeDescription(
-                                employee,
-                                day
-                              )}
-                              onChange={(e) =>
-                                !readOnly &&
-                                updateAttendanceCell(
-                                  employee.id,
-                                  day,
-                                  e.target.value
-                                )
-                              }
-                              onBlur={() =>
-                                !readOnly &&
-                                validateAttendanceCellOnBlur(
-                                  employee.id,
+                            >
+                              <input
+                                data-attendance-row={rowIndex}
+                                data-attendance-day={day}
+                                className={getAttendanceInputClass(
+                                  employee,
                                   day
-                                )
-                              }
-                              readOnly={readOnly}
-                              onKeyDown={(e) =>
-                                handleAttendanceKeyDown(
-                                  e,
-                                  rowIndex,
+                                )}
+                                value={getAttendanceValue(
+                                  employee,
                                   day
-                                )
-                              }
-                            />
-                          </td>
-                        ))}
+                                )}
+                                placeholder={
+                                  hasPlannedDayOff(employee, day)
+                                    ? 'F'
+                                    : ''
+                                }
+                                title={getAttendanceCodeDescription(
+                                  employee,
+                                  day
+                                )}
+                                onChange={(e) =>
+                                  !readOnly &&
+                                  !lockedCell &&
+                                  updateAttendanceCell(
+                                    employee.id,
+                                    day,
+                                    e.target.value
+                                  )
+                                }
+                                onBlur={() =>
+                                  !readOnly &&
+                                  !lockedCell &&
+                                  validateAttendanceCellOnBlur(
+                                    employee.id,
+                                    day
+                                  )
+                                }
+                                disabled={lockedCell}
+                                readOnly={readOnly}
+                                onKeyDown={(e) =>
+                                  handleAttendanceKeyDown(
+                                    e,
+                                    rowIndex,
+                                    day
+                                  )
+                                }
+                              />
+                            </td>
+                          );
+                        })}
                       </tr>
                     ))}
 

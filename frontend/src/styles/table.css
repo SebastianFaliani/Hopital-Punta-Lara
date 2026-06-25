@@ -1026,6 +1026,28 @@
   opacity: 0.8;
 }
 
+.attendance-code-locked,
+.attendance-code-locked:disabled {
+
+  color: #374151;
+
+  background:
+    repeating-linear-gradient(
+      135deg,
+      #f3f4f6 0,
+      #f3f4f6 6px,
+      #e5e7eb 6px,
+      #e5e7eb 12px
+    );
+
+  box-shadow:
+    inset 0 0 0 2px #9ca3af;
+
+  cursor: not-allowed;
+
+  opacity: 1;
+}
+
 .planned-off-grid .attendance-grid tbody td,
 .planned-off-grid tbody td {
 
