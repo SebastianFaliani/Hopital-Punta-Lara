@@ -1849,6 +1849,123 @@ async function getCodeForLeave(
   return rows[0];
 }
 
+const configurableDayRuleCodes =
+  new Set([
+    '5',
+    '6',
+    '14',
+    '15',
+    '16',
+    '17',
+    '18',
+    '31',
+    '33',
+    '42'
+  ]);
+
+async function getActiveLeaveRuleForCode(
+  code: string
+) {
+
+  try {
+    const [rows]: any =
+      await pool.query(
+        `
+          SELECT
+            lr.id,
+            lr.name,
+            lr.min_advance_days,
+            lr.max_days_per_request,
+            lr.max_days_per_year,
+            lr.rule_notes
+          FROM leave_rules lr
+          INNER JOIN attendance_codes ac
+            ON ac.id = lr.attendance_code_id
+          WHERE ac.code = ?
+            AND lr.is_active = TRUE
+          ORDER BY lr.id ASC
+          LIMIT 1
+        `,
+        [code]
+      );
+
+    return rows[0] || null;
+  } catch (error: any) {
+    if (error.code === 'ER_NO_SUCH_TABLE') {
+      return null;
+    }
+
+    throw error;
+  }
+}
+
+async function validateConfigurableDayRule(
+  employeeId: number,
+  code: string,
+  startYear: number,
+  totalDays: number,
+  advanceDays: number,
+  isException: boolean,
+  excludeLeaveRequestId?: number
+) {
+
+  if (
+    isException ||
+    !configurableDayRuleCodes.has(code)
+  ) {
+    return false;
+  }
+
+  const rule =
+    await getActiveLeaveRuleForCode(code);
+
+  if (!rule) {
+    return false;
+  }
+
+  const ruleName =
+    rule.name || `clave ${code}`;
+
+  if (
+    rule.min_advance_days !== null &&
+    advanceDays < Number(rule.min_advance_days)
+  ) {
+    throw new Error(
+      `La clave ${code} - ${ruleName} requiere ${rule.min_advance_days} dias de anticipacion`
+    );
+  }
+
+  if (
+    rule.max_days_per_request !== null &&
+    totalDays > Number(rule.max_days_per_request)
+  ) {
+    throw new Error(
+      `La clave ${code} - ${ruleName} permite hasta ${rule.max_days_per_request} dias por solicitud`
+    );
+  }
+
+  if (rule.max_days_per_year !== null) {
+    const usage =
+      await getApprovedUsage(
+        employeeId,
+        code,
+        startYear,
+        excludeLeaveRequestId
+      );
+
+    if (
+      usage.days + totalDays >
+      Number(rule.max_days_per_year)
+    ) {
+      throw new Error(
+        `La clave ${code} - ${ruleName} tiene un maximo de ${rule.max_days_per_year} dias anuales`
+      );
+    }
+  }
+
+  return true;
+}
+
 async function getApprovedUsage(
   employeeId: number,
   code: string,
@@ -2939,7 +3056,18 @@ async function validateLeaveRequest(
     }
   }
 
-  if (code.code === '5') {
+  const configurableDayRuleHandled =
+    await validateConfigurableDayRule(
+      employee.id,
+      code.code,
+      startYear,
+      totalDays,
+      advanceDays,
+      isException,
+      excludeLeaveRequestId
+    );
+
+  if (!configurableDayRuleHandled && code.code === '5') {
     await assertAnnualDayLimit(
       employee.id,
       '5',
@@ -2952,49 +3080,89 @@ async function validateLeaveRequest(
     );
   }
 
-  if (code.code === '6' && totalDays > 90 && !isException) {
+  if (
+    !configurableDayRuleHandled &&
+    code.code === '6' &&
+    totalDays > 90 &&
+    !isException
+  ) {
     throw new Error(
       'La clave 6 maternidad permite hasta 90 dias'
     );
   }
 
-  if (code.code === '14' && totalDays > 3 && !isException) {
+  if (
+    !configurableDayRuleHandled &&
+    code.code === '14' &&
+    totalDays > 3 &&
+    !isException
+  ) {
     throw new Error(
       'La clave 14 permite hasta 3 dias corridos'
     );
   }
 
-  if (code.code === '15' && totalDays > 1 && !isException) {
+  if (
+    !configurableDayRuleHandled &&
+    code.code === '15' &&
+    totalDays > 1 &&
+    !isException
+  ) {
     throw new Error(
       'La clave 15 permite 1 dia'
     );
   }
 
-  if (code.code === '16' && totalDays > 10 && !isException) {
+  if (
+    !configurableDayRuleHandled &&
+    code.code === '16' &&
+    totalDays > 10 &&
+    !isException
+  ) {
     throw new Error(
       'La clave 16 matrimonio permite hasta 10 dias corridos'
     );
   }
 
-  if (code.code === '17' && totalDays > 2 && !isException) {
+  if (
+    !configurableDayRuleHandled &&
+    code.code === '17' &&
+    totalDays > 2 &&
+    !isException
+  ) {
     throw new Error(
       'La clave 17 pre examen permite hasta 2 dias por materia'
     );
   }
 
-  if (code.code === '18' && totalDays > 1 && !isException) {
+  if (
+    !configurableDayRuleHandled &&
+    code.code === '18' &&
+    totalDays > 1 &&
+    !isException
+  ) {
     throw new Error(
       'La clave 18 examen permite 1 dia por examen'
     );
   }
 
-  if (code.code === '31' && totalDays > 3 && !isException) {
+  if (
+    !configurableDayRuleHandled &&
+    code.code === '31' &&
+    totalDays > 3 &&
+    !isException
+  ) {
     throw new Error(
       'La clave 31 nacimiento de hijo permite hasta 3 dias'
     );
   }
 
-  if (code.code === '33' && totalDays > 1 && !isException) {
+  if (
+    !configurableDayRuleHandled &&
+    code.code === '33' &&
+    totalDays > 1 &&
+    !isException
+  ) {
     throw new Error(
       'La clave 33 donacion de sangre permite 1 dia'
     );
@@ -3014,7 +3182,12 @@ async function validateLeaveRequest(
     }
   }
 
-  if (code.code === '42' && totalDays > 90 && !isException) {
+  if (
+    !configurableDayRuleHandled &&
+    code.code === '42' &&
+    totalDays > 90 &&
+    !isException
+  ) {
     throw new Error(
       'La clave 42 adopcion permite hasta 90 dias'
     );
