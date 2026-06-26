@@ -2,6 +2,7 @@ import { Router } from 'express';
 
 import {
   handleCreateLaboratoryRecord,
+  handleGetLaboratoryTestCatalog,
   handleGetLaboratoryRecords,
   handleGetLaboratoryStats,
   handleRegisterLaboratoryPickup,
@@ -51,6 +52,13 @@ router.get(
   authenticateToken,
   authorizeRoles(...laboratoryReadRoles),
   handleGetLaboratoryStats
+);
+
+router.get(
+  '/catalog',
+  authenticateToken,
+  authorizeRoles(...laboratoryReadRoles),
+  handleGetLaboratoryTestCatalog
 );
 
 router.post(

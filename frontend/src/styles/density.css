@@ -158,8 +158,8 @@
   }
 
   .dashboard-grid {
-    gap: 15px;
-    margin-bottom: 18px;
+    gap: 8px;
+    margin-bottom: 12px;
   }
 
   .dashboard-sections {
@@ -168,21 +168,21 @@
 
   .dashboard-card,
   .dashboard-panel {
-    padding: 15px;
+    padding: 9px 10px;
     border-radius: 6px;
   }
 
   .dashboard-card {
-    border-left-width: 4px;
+    border-left-width: 3px;
   }
 
   .dashboard-card h3 {
-    margin-bottom: 7px;
+    margin-bottom: 4px;
     font-size: 11px;
   }
 
   .dashboard-card p {
-    font-size: 23px;
+    font-size: 18px;
   }
 
   .dashboard-card span,

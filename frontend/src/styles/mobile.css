@@ -238,17 +238,17 @@
 
   .dashboard-card,
   .dashboard-panel {
-    border-radius: 10px;
-    padding: 14px;
+    border-radius: 8px;
+    padding: 10px;
   }
 
   .dashboard-card h3,
   .dashboard-panel h2 {
-    font-size: 14px;
+    font-size: 12px;
   }
 
   .dashboard-card p {
-    font-size: 24px;
+    font-size: 19px;
   }
 
   .module-tabs {
@@ -330,6 +330,14 @@
   .access-permission-table th:nth-child(4),
   .access-permission-table td:nth-child(4) {
     width: 82px;
+  }
+
+  .laboratory-patient-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .laboratory-tests-grid {
+    grid-template-columns: 1fr;
   }
 
   .table-container,

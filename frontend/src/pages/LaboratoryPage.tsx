@@ -10,25 +10,43 @@ import type {
 
 import { apiFetch } from '../api/api';
 import { useAuth } from '../auth/useAuth';
+import { hasPermission } from '../auth/permissions';
 import {
   formatDisplayDate
 } from '../utils/dateFormat';
 
+type LaboratoryTest = {
+  id: number;
+  test_id?: number;
+  category: string;
+  code: string;
+  name: string;
+  display_order: number;
+  requested?: boolean;
+  received?: boolean;
+};
+
 type LaboratoryRecord = {
   id: number;
+  protocol_number: string | null;
   study_date: string;
   patient_last_name: string;
   patient_first_name: string;
   patient_document: string | null;
+  patient_birth_date: string | null;
   has_blood_extraction: boolean | number;
   has_urine_sample: boolean | number;
   is_complete: boolean | number;
+  status: string;
   missing_details: string | null;
   completed_at: string | null;
   pickup_date: string | null;
   picked_up_by: string | null;
   pickup_document: string | null;
   notes: string | null;
+  requested_tests_count: number;
+  received_tests_count: number;
+  tests: LaboratoryTest[];
   created_by_username?: string | null;
 };
 
@@ -36,25 +54,24 @@ type LaboratoryStats = {
   total_records: number;
   blood_extractions: number;
   urine_samples: number;
-  both_samples: number;
   pending_pickups: number;
   delivered_results: number;
   incomplete_records: number;
   complete_records: number;
+  sent_records: number;
+  partial_records: number;
 };
 
 const emptyForm = {
+  protocol_number: '',
   study_date: new Date().toISOString().slice(0, 10),
   patient_last_name: '',
   patient_first_name: '',
   patient_document: '',
-  has_blood_extraction: true,
+  patient_birth_date: '',
+  has_blood_extraction: false,
   has_urine_sample: false,
-  is_complete: true,
-  missing_details: '',
-  pickup_date: '',
-  picked_up_by: '',
-  pickup_document: '',
+  requested_test_ids: [] as number[],
   notes: ''
 };
 
@@ -62,11 +79,12 @@ const initialStats = {
   total_records: 0,
   blood_extractions: 0,
   urine_samples: 0,
-  both_samples: 0,
   pending_pickups: 0,
   delivered_results: 0,
   incomplete_records: 0,
-  complete_records: 0
+  complete_records: 0,
+  sent_records: 0,
+  partial_records: 0
 };
 
 function toDateInput(
@@ -93,7 +111,8 @@ function yesNo(
 
 function showSystemAlert(
   message: string,
-  title = 'Aviso del sistema'
+  title = 'Aviso del sistema',
+  variant = 'error'
 ) {
   window.dispatchEvent(
     new CustomEvent(
@@ -102,7 +121,7 @@ function showSystemAlert(
         detail: {
           title,
           message,
-          variant: 'error'
+          variant
         }
       }
     )
@@ -120,12 +139,54 @@ function percentOf(
   return `${Math.round((value / total) * 100)}%`;
 }
 
+function getStatusLabel(
+  status: string,
+  isComplete: boolean | number,
+  pickupDate?: string | null
+) {
+  if (pickupDate || status === 'retirado') {
+    if (!yesNo(isComplete)) {
+      return {
+        text: 'Retirado incompleto',
+        className: 'badge badge-danger'
+      };
+    }
+
+    return {
+      text: 'Retirado',
+      className: 'badge badge-info'
+    };
+  }
+
+  if (yesNo(isComplete) || status === 'completo') {
+    return {
+      text: 'Completo',
+      className: 'badge badge-success'
+    };
+  }
+
+  if (status === 'parcial') {
+    return {
+      text: 'Parcial',
+      className: 'badge badge-warning'
+    };
+  }
+
+  return {
+    text: 'Enviado',
+    className: 'badge badge-info'
+  };
+}
+
 export default function LaboratoryPage() {
 
   const { user } = useAuth();
 
   const [records, setRecords] =
     useState<LaboratoryRecord[]>([]);
+
+  const [catalog, setCatalog] =
+    useState<LaboratoryTest[]>([]);
 
   const [stats, setStats] =
     useState<LaboratoryStats>(initialStats);
@@ -138,6 +199,7 @@ export default function LaboratoryPage() {
       sample_type: 'todas',
       pickup_status: 'todos',
       completion_status: 'todos',
+      test_status: 'todos',
       page: 1,
       per_page: 25
     });
@@ -165,11 +227,8 @@ export default function LaboratoryPage() {
   const [completionRecord, setCompletionRecord] =
     useState<LaboratoryRecord | null>(null);
 
-  const [completionForm, setCompletionForm] =
-    useState({
-      is_complete: true,
-      missing_details: ''
-    });
+  const [receivedTestIds, setReceivedTestIds] =
+    useState<number[]>([]);
 
   const [pickupForm, setPickupForm] =
     useState({
@@ -186,8 +245,11 @@ export default function LaboratoryPage() {
     useState(false);
 
   const canEdit =
-    user?.role === 'admin' ||
-    user?.role === 'lab';
+    hasPermission(
+      user,
+      'laboratory.manage',
+      ['admin', 'lab']
+    );
 
   const canChangeCompletion =
     user?.role === 'admin' ||
@@ -195,13 +257,35 @@ export default function LaboratoryPage() {
 
   const canPickup =
     canEdit ||
-    user?.role === 'user';
+    hasPermission(
+      user,
+      'laboratory.pickup',
+      ['admin', 'lab', 'user']
+    );
 
   const canView =
-    user?.role === 'lab' ||
     canEdit ||
     canPickup ||
-    user?.role === 'dir';
+    hasPermission(
+      user,
+      'laboratory.view',
+      ['admin', 'lab', 'user', 'dir']
+    );
+
+  const testsByCategory =
+    useMemo(() => {
+      return catalog.reduce(
+        (
+          groups: Record<string, LaboratoryTest[]>,
+          test
+        ) => {
+          groups[test.category] ||= [];
+          groups[test.category].push(test);
+          return groups;
+        },
+        {}
+      );
+    }, [catalog]);
 
   const queryString =
     useMemo(() => {
@@ -232,13 +316,15 @@ export default function LaboratoryPage() {
 
   async function loadLaboratory() {
     try {
-      const [recordsRes, statsRes] =
+      const [recordsRes, statsRes, catalogRes] =
         await Promise.all([
           apiFetch(`/laboratory${queryString}`),
-          apiFetch(`/laboratory/stats${queryString}`)
+          apiFetch(`/laboratory/stats${queryString}`),
+          apiFetch('/laboratory/catalog')
         ]);
 
       setRecords(recordsRes.data);
+      setCatalog(catalogRes.data);
       setPagination(
         recordsRes.pagination || {
           page: 1,
@@ -271,17 +357,18 @@ export default function LaboratoryPage() {
   ) {
     setEditing(record);
     setForm({
+      protocol_number: record.protocol_number || '',
       study_date: toDateInput(record.study_date),
       patient_last_name: record.patient_last_name || '',
       patient_first_name: record.patient_first_name || '',
       patient_document: record.patient_document || '',
+      patient_birth_date: toDateInput(record.patient_birth_date),
       has_blood_extraction: yesNo(record.has_blood_extraction),
       has_urine_sample: yesNo(record.has_urine_sample),
-      is_complete: yesNo(record.is_complete),
-      missing_details: record.missing_details || '',
-      pickup_date: '',
-      picked_up_by: '',
-      pickup_document: '',
+      requested_test_ids:
+        (record.tests || [])
+          .filter((test) => test.requested)
+          .map((test) => Number(test.test_id || test.id)),
       notes: record.notes || ''
     });
     setShowForm(true);
@@ -306,10 +393,43 @@ export default function LaboratoryPage() {
     record: LaboratoryRecord
   ) {
     setCompletionRecord(record);
-    setCompletionForm({
-      is_complete: yesNo(record.is_complete),
-      missing_details: record.missing_details || ''
-    });
+    setReceivedTestIds(
+      (record.tests || [])
+        .filter((test) => test.received)
+        .map((test) => Number(test.test_id || test.id))
+    );
+  }
+
+  function toggleRequestedTest(
+    testId: number
+  ) {
+    setForm((current) => ({
+      ...current,
+      requested_test_ids:
+        current.requested_test_ids.includes(testId)
+          ? current.requested_test_ids.filter((id) =>
+            id !== testId
+          )
+          : [
+            ...current.requested_test_ids,
+            testId
+          ]
+    }));
+  }
+
+  function toggleReceivedTest(
+    testId: number
+  ) {
+    setReceivedTestIds((current) =>
+      current.includes(testId)
+        ? current.filter((id) =>
+          id !== testId
+        )
+        : [
+          ...current,
+          testId
+        ]
+    );
   }
 
   async function handleSubmit(
@@ -322,20 +442,8 @@ export default function LaboratoryPage() {
       return;
     }
 
-    if (
-      user?.role === 'lab' &&
-      !form.is_complete &&
-      !form.missing_details
-    ) {
-      showSystemAlert('Indica que estudio o resultado esta pendiente');
-      return;
-    }
-
-    if (
-      !form.has_blood_extraction &&
-      !form.has_urine_sample
-    ) {
-      showSystemAlert('Debe seleccionar al menos sangre u orina');
+    if (form.requested_test_ids.length === 0) {
+      showSystemAlert('Debe seleccionar al menos una practica solicitada');
       return;
     }
 
@@ -418,14 +526,6 @@ export default function LaboratoryPage() {
       return;
     }
 
-    if (
-      !completionForm.is_complete &&
-      !completionForm.missing_details
-    ) {
-      showSystemAlert('Indica que estudio o resultado esta pendiente');
-      return;
-    }
-
     try {
       setLoading(true);
 
@@ -433,7 +533,9 @@ export default function LaboratoryPage() {
         `/laboratory/${completionRecord.id}/completion`,
         {
           method: 'PATCH',
-          body: JSON.stringify(completionForm)
+          body: JSON.stringify({
+            received_test_ids: receivedTestIds
+          })
         }
       );
 
@@ -460,33 +562,27 @@ export default function LaboratoryPage() {
   const totalRecords =
     Number(stats.total_records || 0);
 
-  const bloodExtractions =
-    Number(stats.blood_extractions || 0);
-
-  const urineSamples =
-    Number(stats.urine_samples || 0);
-
   const pendingPickups =
     Number(stats.pending_pickups || 0);
 
   const deliveredResults =
     Number(stats.delivered_results || 0);
 
+  const partialRecords =
+    Number(stats.partial_records || 0);
+
   const incompleteRecords =
     Number(stats.incomplete_records || 0);
 
   return (
-
     <div>
-
       <div className="page-header">
-
         <div>
           <h1 className="page-title">
             Laboratorio
           </h1>
           <p className="page-subtitle">
-            Estudios, muestras y retiros de resultados.
+            Hoja de ruta, resultados recibidos y retiro de estudios.
           </p>
         </div>
 
@@ -495,14 +591,12 @@ export default function LaboratoryPage() {
             className="btn-primary"
             onClick={openCreate}
           >
-            + Nuevo estudio
+            + Nueva hoja de ruta
           </button>
         )}
-
       </div>
 
       <div className="dashboard-grid">
-
         <div className="dashboard-card">
           <h3>Total</h3>
           <p>{totalRecords}</p>
@@ -510,44 +604,34 @@ export default function LaboratoryPage() {
         </div>
 
         <div className="dashboard-card">
-          <h3>Extracciones</h3>
-          <p>{bloodExtractions}</p>
-          <span>
-            {percentOf(bloodExtractions, totalRecords)} del total
-          </span>
-        </div>
-
-        <div className="dashboard-card">
-          <h3>Orinas</h3>
-          <p>{urineSamples}</p>
-          <span>
-            {percentOf(urineSamples, totalRecords)} del total
-          </span>
-        </div>
-
-        <div className="dashboard-card">
-          <h3>Pendientes</h3>
-          <p>{pendingPickups}</p>
-          <span>
-            {percentOf(pendingPickups, totalRecords)} pendientes · {percentOf(deliveredResults, totalRecords)} retirados
-          </span>
-        </div>
-
-        <div className="dashboard-card">
-          <h3>Incompletos</h3>
+          <h3>En proceso</h3>
           <p>{incompleteRecords}</p>
-          <span>
-            {percentOf(incompleteRecords, totalRecords)} con resultados pendientes
-          </span>
+          <span>{percentOf(incompleteRecords, totalRecords)} con resultados pendientes</span>
         </div>
 
+        <div className="dashboard-card">
+          <h3>Parciales</h3>
+          <p>{partialRecords}</p>
+          <span>{percentOf(partialRecords, totalRecords)} llegaron incompletos</span>
+        </div>
+
+        <div className="dashboard-card">
+          <h3>Para retirar</h3>
+          <p>{pendingPickups}</p>
+          <span>{percentOf(pendingPickups, totalRecords)} completos sin retiro</span>
+        </div>
+
+        <div className="dashboard-card">
+          <h3>Retirados</h3>
+          <p>{deliveredResults}</p>
+          <span>{percentOf(deliveredResults, totalRecords)} entregados</span>
+        </div>
       </div>
 
       <div className="filter-bar">
-
         <input
           className="form-input"
-          placeholder="Buscar paciente, DNI o quien retiro"
+          placeholder="Buscar paciente, DNI, protocolo o quien retiro"
           value={filters.search}
           onChange={(e) =>
             setFilters({
@@ -630,7 +714,7 @@ export default function LaboratoryPage() {
         >
           <option value="todos">Todos los estados</option>
           <option value="completo">Completos</option>
-          <option value="incompleto">Incompletos</option>
+          <option value="incompleto">Con pendientes</option>
         </select>
 
         <button
@@ -643,6 +727,7 @@ export default function LaboratoryPage() {
               sample_type: 'todas',
               pickup_status: 'todos',
               completion_status: 'todos',
+              test_status: 'todos',
               page: 1,
               per_page: filters.per_page
             })
@@ -650,7 +735,6 @@ export default function LaboratoryPage() {
         >
           Limpiar
         </button>
-
       </div>
 
       <p className="results-summary">
@@ -711,256 +795,283 @@ export default function LaboratoryPage() {
       </div>
 
       <div className="table-container">
-
         <table className="data-table">
-
           <thead>
             <tr>
               <th>Fecha</th>
+              <th>Protocolo</th>
               <th>Paciente</th>
               <th>DNI</th>
-              <th>Sangre</th>
-              <th>Orina</th>
+              <th>Prácticas</th>
               <th>Estado</th>
               <th>Retiro</th>
               <th>Retiro por</th>
-              <th>Observaciones</th>
               <th>Acciones</th>
             </tr>
           </thead>
 
           <tbody>
+            {records.map((record) => {
+              const status =
+                getStatusLabel(
+                  record.status,
+                  record.is_complete,
+                  record.pickup_date
+                );
 
-            {records.map((record) => (
-              <tr key={record.id}>
-                <td>{formatDate(record.study_date)}</td>
-                <td>
-                  {record.patient_last_name} {record.patient_first_name}
-                </td>
-                <td>{record.patient_document || '-'}</td>
-                <td>
-                  <span
-                    className={
-                      yesNo(record.has_blood_extraction)
-                        ? 'badge badge-success'
-                        : 'badge'
-                    }
-                  >
-                    {yesNo(record.has_blood_extraction) ? 'Si' : 'No'}
-                  </span>
-                </td>
-                <td>
-                  <span
-                    className={
-                      yesNo(record.has_urine_sample)
-                        ? 'badge badge-success'
-                        : 'badge'
-                    }
-                  >
-                    {yesNo(record.has_urine_sample) ? 'Si' : 'No'}
-                  </span>
-                </td>
-                <td>
-                  {yesNo(record.is_complete) ? (
-                    '-'
-                  ) : (
-                    <span
-                      className="badge badge-warning"
-                      title={record.missing_details || 'Sin detalle cargado'}
-                    >
-                      Incompleto
-                    </span>
-                  )}
-                </td>
-                <td>
-                  {record.pickup_date ? (
-                    <span className="badge badge-success">
-                      {formatDate(record.pickup_date)}
-                    </span>
-                  ) : (
-                    <span className="badge badge-warning">
-                      Pendiente
-                    </span>
-                  )}
-                </td>
-                <td>{record.picked_up_by || '-'}</td>
-                <td>{record.notes || '-'}</td>
-                <td>
-                  <div className="table-actions">
-                    {canEdit && (
-                      <button
-                        className="btn-primary"
-                        onClick={() =>
-                          openEdit(record)
-                        }
-                      >
-                        Editar
-                      </button>
-                    )}
+              const canModifyRecord =
+                !record.pickup_date ||
+                user?.role === 'admin';
 
-                    {canPickup && (
-                      <button
-                        className="btn-secondary"
-                        onClick={() =>
-                          openPickup(record)
+              return (
+                <tr key={record.id}>
+                  <td>{formatDate(record.study_date)}</td>
+                  <td>{record.protocol_number || '-'}</td>
+                  <td>
+                    {record.patient_last_name} {record.patient_first_name}
+                  </td>
+                  <td>{record.patient_document || '-'}</td>
+                  <td>
+                    <div className="laboratory-practice-preview">
+                      <strong>
+                        {record.received_tests_count || 0}/{record.requested_tests_count || 0}
+                      </strong>
+                      <span>
+                        {(record.tests || [])
+                          .slice(0, 4)
+                          .map((test) => test.name)
+                          .join(', ') || '-'}
+                      </span>
+                      {(record.tests || []).length > 0 && (
+                        <div className="laboratory-practice-tooltip">
+                          <strong>Prácticas solicitadas</strong>
+                          <ul>
+                            {(record.tests || []).map((test) => (
+                              <li key={test.test_id || test.id}>
+                                <span>
+                                  {test.category} - {test.name}
+                                </span>
+                                <em>
+                                  {test.received ? 'Recibido' : 'Pendiente'}
+                                </em>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  </td>
+                  <td>
+                    <span className={status.className}>
+                      {status.text}
+                    </span>
+                  </td>
+                  <td>
+                    {record.pickup_date ? (
+                      <span
+                        className={
+                          yesNo(record.is_complete)
+                            ? 'badge badge-success'
+                            : 'badge badge-danger'
                         }
                       >
-                        Registrar retiro
-                      </button>
+                        {formatDate(record.pickup_date)}
+                      </span>
+                    ) : (
+                      <span className="badge badge-warning">
+                        Pendiente
+                      </span>
                     )}
-                    {canChangeCompletion && (
-                      <button
-                        className="btn-secondary"
-                        onClick={() =>
-                          openCompletion(record)
-                        }
-                      >
-                        Estado
-                      </button>
-                    )}
-                  </div>
-                </td>
-              </tr>
-            ))}
+                  </td>
+                  <td>{record.picked_up_by || '-'}</td>
+                  <td>
+                    <div className="table-actions">
+                      {canEdit && canModifyRecord && (
+                        <button
+                          className="btn-primary"
+                          onClick={() =>
+                            openEdit(record)
+                          }
+                        >
+                          Editar
+                        </button>
+                      )}
+
+                      {canChangeCompletion && canModifyRecord && (
+                        <button
+                          className="btn-secondary"
+                          onClick={() =>
+                            openCompletion(record)
+                          }
+                        >
+                          Resultados
+                        </button>
+                      )}
+
+                      {canPickup && (
+                        <button
+                          className="btn-secondary"
+                          onClick={() =>
+                            openPickup(record)
+                          }
+                        >
+                          Registrar retiro
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
 
             {records.length === 0 && (
               <tr>
-                <td colSpan={10}>
+                <td colSpan={9}>
                   No hay estudios para esos filtros.
                 </td>
               </tr>
             )}
-
           </tbody>
-
         </table>
-
       </div>
 
       {showForm && (
         <div className="modal-overlay">
-          <div className="modal-content">
+          <div className="modal-content modal-content-wide">
+            <button
+              className="modal-close-button"
+              type="button"
+              onClick={() =>
+                setShowForm(false)
+              }
+              aria-label="Cerrar"
+            >
+              x
+            </button>
+
             <h2 className="modal-title">
-              {editing ? 'Editar estudio' : 'Nuevo estudio'}
+              {editing ? 'Editar hoja de ruta' : 'Nueva hoja de ruta'}
             </h2>
 
             <form
-              className="auth-form"
+              className="laboratory-route-form"
               onSubmit={handleSubmit}
             >
-              <label className="form-label">
-                Fecha del estudio
-              </label>
-              <input
-                className="form-input"
-                type="date"
-                value={form.study_date}
-                onChange={(e) =>
-                  setForm({
-                    ...form,
-                    study_date: e.target.value
-                  })
-                }
-              />
-
-              <input
-                className="form-input"
-                placeholder="Apellido"
-                value={form.patient_last_name}
-                onChange={(e) =>
-                  setForm({
-                    ...form,
-                    patient_last_name: e.target.value.toUpperCase()
-                  })
-                }
-              />
-
-              <input
-                className="form-input"
-                placeholder="Nombre"
-                value={form.patient_first_name}
-                onChange={(e) =>
-                  setForm({
-                    ...form,
-                    patient_first_name: e.target.value.toUpperCase()
-                  })
-                }
-              />
-
-              <input
-                className="form-input"
-                placeholder="DNI del paciente (opcional)"
-                value={form.patient_document}
-                onChange={(e) =>
-                  setForm({
-                    ...form,
-                    patient_document: e.target.value
-                  })
-                }
-              />
-
-              <div className="form-check-row">
-                <label>
+              <div className="laboratory-patient-grid">
+                <label className="form-field">
+                  <span>Apellido</span>
                   <input
-                    type="checkbox"
-                    checked={form.has_blood_extraction}
+                    className="form-input"
+                    value={form.patient_last_name}
                     onChange={(e) =>
                       setForm({
                         ...form,
-                        has_blood_extraction: e.target.checked
+                        patient_last_name: e.target.value.toUpperCase()
                       })
                     }
                   />
-                  Extraccion de sangre
                 </label>
 
-                <label>
+                <label className="form-field">
+                  <span>Nombre</span>
                   <input
-                    type="checkbox"
-                    checked={form.has_urine_sample}
+                    className="form-input"
+                    value={form.patient_first_name}
                     onChange={(e) =>
                       setForm({
                         ...form,
-                        has_urine_sample: e.target.checked
+                        patient_first_name: e.target.value.toUpperCase()
                       })
                     }
                   />
-                  Orina
+                </label>
+
+                <label className="form-field">
+                  <span>Protocolo</span>
+                  <input
+                    className="form-input"
+                    value={form.protocol_number}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        protocol_number: e.target.value
+                      })
+                    }
+                  />
+                </label>
+
+                <label className="form-field">
+                  <span>Fecha</span>
+                  <input
+                    className="form-input"
+                    type="date"
+                    value={form.study_date}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        study_date: e.target.value
+                      })
+                    }
+                  />
+                </label>
+
+                <label className="form-field">
+                  <span>DNI</span>
+                  <input
+                    className="form-input"
+                    value={form.patient_document}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        patient_document: e.target.value
+                      })
+                    }
+                  />
+                </label>
+
+                <label className="form-field">
+                  <span>Fecha nacimiento</span>
+                  <input
+                    className="form-input"
+                    type="date"
+                    value={form.patient_birth_date}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        patient_birth_date: e.target.value
+                      })
+                    }
+                  />
                 </label>
               </div>
 
-              {user?.role === 'lab' && (
-                <>
-                  <label className="checkbox-row">
-                    <input
-                      type="checkbox"
-                      checked={!form.is_complete}
-                      onChange={(e) =>
-                        setForm({
-                          ...form,
-                          is_complete: !e.target.checked
-                        })
-                      }
-                    />
-                    Estudio incompleto
-                  </label>
-
-                  {!form.is_complete && (
-                    <textarea
-                      className="form-input"
-                      placeholder="Que falta completar"
-                      rows={3}
-                      value={form.missing_details}
-                      onChange={(e) =>
-                        setForm({
-                          ...form,
-                          missing_details: e.target.value
-                        })
-                      }
-                    />
-                  )}
-                </>
-              )}
+              <div className="laboratory-tests-grid">
+                {Object.entries(testsByCategory).map(([category, tests]) => (
+                  <section
+                    className="laboratory-test-group"
+                    key={category}
+                  >
+                    <h3>{category}</h3>
+                    <div className="laboratory-test-options">
+                      {tests.map((test) => (
+                        <label
+                          className="checkbox-row"
+                          key={test.id}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={form.requested_test_ids.includes(test.id)}
+                            onChange={() =>
+                              toggleRequestedTest(test.id)
+                            }
+                          />
+                          {test.name}
+                        </label>
+                      ))}
+                    </div>
+                  </section>
+                ))}
+              </div>
 
               <textarea
                 className="form-input"
@@ -1001,9 +1112,20 @@ export default function LaboratoryPage() {
 
       {completionRecord && (
         <div className="modal-overlay">
-          <div className="modal-content">
+          <div className="modal-content modal-content-wide">
+            <button
+              className="modal-close-button"
+              type="button"
+              onClick={() =>
+                setCompletionRecord(null)
+              }
+              aria-label="Cerrar"
+            >
+              x
+            </button>
+
             <h2 className="modal-title">
-              Estado del estudio
+              Resultados recibidos
             </h2>
 
             <p className="page-subtitle">
@@ -1011,43 +1133,56 @@ export default function LaboratoryPage() {
             </p>
 
             <form
-              className="auth-form"
+              className="laboratory-route-form"
               onSubmit={handleCompletionSubmit}
             >
-              <label className="checkbox-row">
-                <input
-                  type="checkbox"
-                  checked={!completionForm.is_complete}
-                  onChange={(e) =>
-                    setCompletionForm({
-                      ...completionForm,
-                      is_complete: !e.target.checked
-                    })
-                  }
-                />
-                Estudio incompleto
-              </label>
+              <div className="laboratory-tests-grid">
+                {Object.entries(
+                  (completionRecord.tests || []).reduce(
+                    (
+                      groups: Record<string, LaboratoryTest[]>,
+                      test
+                    ) => {
+                      groups[test.category] ||= [];
+                      groups[test.category].push(test);
+                      return groups;
+                    },
+                    {}
+                  )
+                ).map(([category, tests]) => (
+                  <section
+                    className="laboratory-test-group"
+                    key={category}
+                  >
+                    <h3>{category}</h3>
+                    <div className="laboratory-test-options">
+                      {tests.map((test) => (
+                        <label
+                          className="checkbox-row"
+                          key={test.test_id || test.id}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={receivedTestIds.includes(
+                              Number(test.test_id || test.id)
+                            )}
+                            onChange={() =>
+                              toggleReceivedTest(
+                                Number(test.test_id || test.id)
+                              )
+                            }
+                          />
+                          {test.name}
+                        </label>
+                      ))}
+                    </div>
+                  </section>
+                ))}
+              </div>
 
-              {!completionForm.is_complete && (
-                <textarea
-                  className="form-input"
-                  placeholder="Que falta completar"
-                  rows={3}
-                  value={completionForm.missing_details}
-                  onChange={(e) =>
-                    setCompletionForm({
-                      ...completionForm,
-                      missing_details: e.target.value
-                    })
-                  }
-                />
-              )}
-
-              {completionForm.is_complete && (
-                <p className="page-subtitle">
-                  Al guardar, el estudio quedara marcado como completo.
-                </p>
-              )}
+              <p className="form-note">
+                Cuando todas las practicas pedidas esten tildadas, el estudio queda completo y pendiente para retirar.
+              </p>
 
               <div className="modal-actions">
                 <button
@@ -1065,7 +1200,7 @@ export default function LaboratoryPage() {
                   className="btn-success"
                   disabled={loading}
                 >
-                  {loading ? 'Guardando...' : 'Guardar estado'}
+                  {loading ? 'Guardando...' : 'Guardar resultados'}
                 </button>
               </div>
             </form>
@@ -1085,11 +1220,11 @@ export default function LaboratoryPage() {
             </p>
 
             <p>
-              Este estudio figura como incompleto.
+              Este estudio todavia tiene resultados pendientes.
             </p>
 
             <p className="auth-error">
-              Falta: {pickupRecord.missing_details || 'sin detalle cargado'}
+              Recibidos {pickupRecord.received_tests_count || 0} de {pickupRecord.requested_tests_count || 0}
             </p>
 
             <div className="modal-actions">
@@ -1208,7 +1343,6 @@ export default function LaboratoryPage() {
           </div>
         </div>
       )}
-
     </div>
   );
 }

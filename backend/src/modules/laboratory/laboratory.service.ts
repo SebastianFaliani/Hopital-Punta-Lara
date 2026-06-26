@@ -7,6 +7,7 @@ type LaboratoryFilters = {
   sample_type?: string;
   pickup_status?: string;
   completion_status?: string;
+  test_status?: string;
   page?: string | number;
   per_page?: string | number;
 };
@@ -49,16 +50,18 @@ function buildWhereClause(
 
     where.push(
       `(
-        patient_last_name LIKE ?
-        OR patient_first_name LIKE ?
-        OR CONCAT(patient_last_name, ' ', patient_first_name) LIKE ?
-        OR CONCAT(patient_first_name, ' ', patient_last_name) LIKE ?
-        OR patient_document LIKE ?
-        OR picked_up_by LIKE ?
+        laboratory_records.patient_last_name LIKE ?
+        OR laboratory_records.patient_first_name LIKE ?
+        OR CONCAT(laboratory_records.patient_last_name, ' ', laboratory_records.patient_first_name) LIKE ?
+        OR CONCAT(laboratory_records.patient_first_name, ' ', laboratory_records.patient_last_name) LIKE ?
+        OR laboratory_records.patient_document LIKE ?
+        OR laboratory_records.protocol_number LIKE ?
+        OR laboratory_records.picked_up_by LIKE ?
       )`
     );
 
     values.push(
+      search,
       search,
       search,
       search,
@@ -70,57 +73,69 @@ function buildWhereClause(
 
   if (filters.date_from) {
     where.push(
-      'study_date >= ?'
+      'laboratory_records.study_date >= ?'
     );
     values.push(filters.date_from);
   }
 
   if (filters.date_to) {
     where.push(
-      'study_date <= ?'
+      'laboratory_records.study_date <= ?'
     );
     values.push(filters.date_to);
   }
 
   if (filters.sample_type === 'sangre') {
     where.push(
-      'has_blood_extraction = TRUE AND has_urine_sample = FALSE'
+      'laboratory_records.has_blood_extraction = TRUE AND laboratory_records.has_urine_sample = FALSE'
     );
   }
 
   if (filters.sample_type === 'orina') {
     where.push(
-      'has_urine_sample = TRUE AND has_blood_extraction = FALSE'
+      'laboratory_records.has_urine_sample = TRUE AND laboratory_records.has_blood_extraction = FALSE'
     );
   }
 
   if (filters.sample_type === 'ambas') {
     where.push(
-      'has_blood_extraction = TRUE AND has_urine_sample = TRUE'
+      'laboratory_records.has_blood_extraction = TRUE AND laboratory_records.has_urine_sample = TRUE'
     );
   }
 
   if (filters.pickup_status === 'retirado') {
     where.push(
-      'pickup_date IS NOT NULL'
+      'laboratory_records.pickup_date IS NOT NULL'
     );
   }
 
   if (filters.pickup_status === 'pendiente') {
     where.push(
-      'pickup_date IS NULL'
+      'laboratory_records.pickup_date IS NULL'
     );
   }
 
   if (filters.completion_status === 'completo') {
     where.push(
-      'is_complete = TRUE'
+      'laboratory_records.is_complete = TRUE'
     );
   }
 
   if (filters.completion_status === 'incompleto') {
     where.push(
-      'is_complete = FALSE'
+      'laboratory_records.is_complete = FALSE'
+    );
+  }
+
+  if (filters.test_status === 'parcial') {
+    where.push(
+      `EXISTS (
+        SELECT 1
+        FROM laboratory_record_tests lrt_filter
+        WHERE lrt_filter.laboratory_record_id = laboratory_records.id
+          AND lrt_filter.requested = TRUE
+          AND lrt_filter.received = FALSE
+      )`
     );
   }
 
@@ -130,6 +145,227 @@ function buildWhereClause(
         ? `WHERE ${where.join(' AND ')}`
         : '',
     values
+  };
+}
+
+async function attachTestsToRecords(
+  records: any[]
+) {
+  if (records.length === 0) {
+    return records;
+  }
+
+  const ids =
+    records.map((record) => record.id);
+
+  const [testRows]: any =
+    await pool.query(
+      `
+        SELECT
+          lrt.id,
+          lrt.laboratory_record_id,
+          lrt.test_id,
+          lrt.requested,
+          lrt.received,
+          lrt.received_at,
+          lrt.notes,
+          ltc.category,
+          ltc.code,
+          ltc.name,
+          ltc.display_order
+        FROM laboratory_record_tests lrt
+        INNER JOIN laboratory_test_catalog ltc
+          ON ltc.id = lrt.test_id
+        WHERE lrt.laboratory_record_id IN (${ids
+          .map(() => '?')
+          .join(', ')})
+        ORDER BY
+          ltc.category,
+          ltc.display_order,
+          ltc.name
+      `,
+      ids
+    );
+
+  const grouped =
+    new Map<number, any[]>();
+
+  testRows.forEach((row: any) => {
+    const recordId =
+      Number(row.laboratory_record_id);
+
+    grouped.set(
+      recordId,
+      [
+        ...(grouped.get(recordId) || []),
+        {
+          ...row,
+          requested: Boolean(row.requested),
+          received: Boolean(row.received)
+        }
+      ]
+    );
+  });
+
+  return records.map((record) => {
+    const tests =
+      grouped.get(Number(record.id)) || [];
+
+    const requestedCount =
+      tests.filter((test) => test.requested).length;
+
+    const receivedCount =
+      tests.filter((test) =>
+        test.requested && test.received
+      ).length;
+
+    return {
+      ...record,
+      tests,
+      requested_tests_count: requestedCount,
+      received_tests_count: receivedCount
+    };
+  });
+}
+
+async function syncLaboratoryRecordStatus(
+  connection: any,
+  recordId: number,
+  userId?: number
+) {
+  const [rows]: any =
+    await connection.query(
+      `
+        SELECT
+          lr.pickup_date,
+          COUNT(lrt.id) AS requested_count,
+          SUM(CASE WHEN lrt.received = TRUE THEN 1 ELSE 0 END) AS received_count
+        FROM laboratory_records lr
+        LEFT JOIN laboratory_record_tests lrt
+          ON lrt.laboratory_record_id = lr.id
+          AND lrt.requested = TRUE
+        WHERE lr.id = ?
+        GROUP BY lr.id, lr.pickup_date
+      `,
+      [recordId]
+    );
+
+  const row =
+    rows[0] || {};
+
+  const requestedCount =
+    Number(row.requested_count || 0);
+
+  const receivedCount =
+    Number(row.received_count || 0);
+
+  const isComplete =
+    requestedCount > 0 &&
+    requestedCount === receivedCount;
+
+  const status =
+    row.pickup_date
+      ? 'retirado'
+      : isComplete
+        ? 'completo'
+        : receivedCount > 0
+          ? 'parcial'
+          : 'enviado';
+
+  await connection.query(
+    `
+      UPDATE laboratory_records
+      SET
+        is_complete = ?,
+        status = ?,
+        missing_details = ?,
+        completed_at = ?,
+        completed_by = ?,
+        updated_by = ?
+      WHERE id = ?
+    `,
+    [
+      isComplete,
+      status,
+      isComplete
+        ? null
+        : requestedCount > 0
+          ? 'Resultados pendientes'
+          : 'Sin practicas cargadas',
+      isComplete
+        ? new Date()
+        : null,
+      isComplete
+        ? userId || null
+        : null,
+      userId || null,
+      recordId
+    ]
+  );
+}
+
+async function replaceRequestedTests(
+  connection: any,
+  recordId: number,
+  testIds: number[]
+) {
+  await connection.query(
+    'DELETE FROM laboratory_record_tests WHERE laboratory_record_id = ?',
+    [recordId]
+  );
+
+  for (const testId of new Set(testIds)) {
+    await connection.query(
+      `
+        INSERT INTO laboratory_record_tests (
+          laboratory_record_id,
+          test_id,
+          requested,
+          received
+        )
+        VALUES (?, ?, TRUE, FALSE)
+      `,
+      [recordId, testId]
+    );
+  }
+}
+
+async function getSampleFlagsFromTests(
+  connection: any,
+  testIds: number[]
+) {
+  if (testIds.length === 0) {
+    return {
+      hasBlood: false,
+      hasUrine: false
+    };
+  }
+
+  const [rows]: any =
+    await connection.query(
+      `
+        SELECT category
+        FROM laboratory_test_catalog
+        WHERE id IN (${testIds
+          .map(() => '?')
+          .join(', ')})
+      `,
+      testIds
+    );
+
+  const hasUrine =
+    rows.some((row: any) =>
+      String(row.category).startsWith('Orina')
+    );
+
+  const hasBlood =
+    rows.some((row: any) =>
+      !String(row.category).startsWith('Orina')
+    );
+
+  return {
+    hasBlood,
+    hasUrine
   };
 }
 
@@ -156,31 +392,34 @@ export async function getLaboratoryRecords(
     await pool.query(
       `
         SELECT
-          lr.id,
-          lr.study_date,
-          lr.patient_last_name,
-          lr.patient_first_name,
-          lr.patient_document,
-          lr.has_blood_extraction,
-          lr.has_urine_sample,
-          lr.is_complete,
-          lr.missing_details,
-          lr.completed_at,
-          lr.pickup_date,
-          lr.picked_up_by,
-          lr.pickup_document,
-          lr.notes,
-          lr.created_at,
-          lr.updated_at,
+          laboratory_records.id,
+          laboratory_records.protocol_number,
+          laboratory_records.study_date,
+          laboratory_records.patient_last_name,
+          laboratory_records.patient_first_name,
+          laboratory_records.patient_document,
+          laboratory_records.patient_birth_date,
+          laboratory_records.has_blood_extraction,
+          laboratory_records.has_urine_sample,
+          laboratory_records.is_complete,
+          laboratory_records.status,
+          laboratory_records.missing_details,
+          laboratory_records.completed_at,
+          laboratory_records.pickup_date,
+          laboratory_records.picked_up_by,
+          laboratory_records.pickup_document,
+          laboratory_records.notes,
+          laboratory_records.created_at,
+          laboratory_records.updated_at,
           cu.username AS created_by_username,
           uu.username AS updated_by_username
-        FROM laboratory_records lr
+        FROM laboratory_records
         LEFT JOIN users cu
-          ON cu.id = lr.created_by
+          ON cu.id = laboratory_records.created_by
         LEFT JOIN users uu
-          ON uu.id = lr.updated_by
+          ON uu.id = laboratory_records.updated_by
         ${where.sql}
-        ORDER BY lr.study_date DESC, lr.id DESC
+        ORDER BY laboratory_records.study_date DESC, laboratory_records.id DESC
         LIMIT ? OFFSET ?
       `,
       [
@@ -194,7 +433,8 @@ export async function getLaboratoryRecords(
     Number(countRows[0]?.total || 0);
 
   return {
-    records: rows,
+    records:
+      await attachTestsToRecords(rows),
     pagination: {
       page: pagination.page,
       per_page: pagination.perPage,
@@ -222,10 +462,12 @@ export async function getLaboratoryStats(
           SUM(CASE WHEN has_blood_extraction = TRUE THEN 1 ELSE 0 END) AS blood_extractions,
           SUM(CASE WHEN has_urine_sample = TRUE THEN 1 ELSE 0 END) AS urine_samples,
           SUM(CASE WHEN has_blood_extraction = TRUE AND has_urine_sample = TRUE THEN 1 ELSE 0 END) AS both_samples,
-          SUM(CASE WHEN pickup_date IS NULL THEN 1 ELSE 0 END) AS pending_pickups,
+          SUM(CASE WHEN pickup_date IS NULL AND is_complete = TRUE THEN 1 ELSE 0 END) AS pending_pickups,
           SUM(CASE WHEN pickup_date IS NOT NULL THEN 1 ELSE 0 END) AS delivered_results,
           SUM(CASE WHEN is_complete = FALSE THEN 1 ELSE 0 END) AS incomplete_records,
-          SUM(CASE WHEN is_complete = TRUE THEN 1 ELSE 0 END) AS complete_records
+          SUM(CASE WHEN is_complete = TRUE THEN 1 ELSE 0 END) AS complete_records,
+          SUM(CASE WHEN status = 'enviado' THEN 1 ELSE 0 END) AS sent_records,
+          SUM(CASE WHEN status = 'parcial' THEN 1 ELSE 0 END) AS partial_records
         FROM laboratory_records
         ${where.sql}
       `,
@@ -233,6 +475,25 @@ export async function getLaboratoryStats(
     );
 
   return rows[0];
+}
+
+export async function getLaboratoryTestCatalog() {
+  const [rows]: any =
+    await pool.query(
+      `
+        SELECT
+          id,
+          category,
+          code,
+          name,
+          display_order
+        FROM laboratory_test_catalog
+        WHERE is_active = TRUE
+        ORDER BY category, display_order, name
+      `
+    );
+
+  return rows;
 }
 
 export async function getLaboratoryRecordById(
@@ -248,57 +509,98 @@ export async function getLaboratoryRecordById(
       [id]
     );
 
-  return rows[0];
+  const records =
+    await attachTestsToRecords(rows);
+
+  return records[0];
 }
 
 export async function createLaboratoryRecord(
   data: any,
   userId?: number
 ) {
-  const [result]: any =
-    await pool.query(
-      `
-        INSERT INTO laboratory_records (
-          study_date,
-          patient_last_name,
-          patient_first_name,
-          patient_document,
-          has_blood_extraction,
-          has_urine_sample,
-          is_complete,
-          missing_details,
-          completed_at,
-          completed_by,
-          notes,
-          created_by,
-          updated_by
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `,
-      [
-        data.study_date,
-        data.patient_last_name,
-        data.patient_first_name,
-        data.patient_document || null,
-        Boolean(data.has_blood_extraction),
-        Boolean(data.has_urine_sample),
-        data.is_complete !== false,
-        data.is_complete === false
-          ? data.missing_details || null
-          : null,
-        data.is_complete === false
-          ? null
-          : new Date(),
-        data.is_complete === false
-          ? null
-          : userId || null,
-        data.notes || null,
-        userId || null,
-        userId || null
-      ]
+  const connection =
+    await pool.getConnection();
+
+  try {
+    await connection.beginTransaction();
+
+    const requestedTestIds =
+      Array.isArray(data.requested_test_ids)
+        ? data.requested_test_ids
+          .map(Number)
+          .filter((id: number) => id > 0)
+        : [];
+
+    const sampleFlags =
+      await getSampleFlagsFromTests(
+        connection,
+        requestedTestIds
+      );
+
+    const [result]: any =
+      await connection.query(
+        `
+          INSERT INTO laboratory_records (
+            protocol_number,
+            study_date,
+            patient_last_name,
+            patient_first_name,
+            patient_document,
+            patient_birth_date,
+            has_blood_extraction,
+            has_urine_sample,
+            is_complete,
+            status,
+            missing_details,
+            completed_at,
+            completed_by,
+            notes,
+            created_by,
+            updated_by
+          )
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `,
+        [
+          data.protocol_number || null,
+          data.study_date,
+          data.patient_last_name,
+          data.patient_first_name,
+          data.patient_document || null,
+          data.patient_birth_date || null,
+          sampleFlags.hasBlood,
+          sampleFlags.hasUrine,
+          false,
+          'enviado',
+          'Resultados pendientes',
+          null,
+          null,
+          data.notes || null,
+          userId || null,
+          userId || null
+        ]
+      );
+
+    await replaceRequestedTests(
+      connection,
+      result.insertId,
+      requestedTestIds
     );
 
-  return result.insertId;
+    await syncLaboratoryRecordStatus(
+      connection,
+      result.insertId,
+      userId
+    );
+
+    await connection.commit();
+    return result.insertId;
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
 }
 
 export async function updateLaboratoryRecord(
@@ -306,34 +608,76 @@ export async function updateLaboratoryRecord(
   data: any,
   userId?: number
 ) {
-  await pool.query(
-    `
-      UPDATE laboratory_records
-      SET
-        study_date = ?,
-        patient_last_name = ?,
-        patient_first_name = ?,
-        patient_document = ?,
-        has_blood_extraction = ?,
-        has_urine_sample = ?,
-        notes = ?,
-        updated_by = ?
-      WHERE id = ?
-    `,
-    [
-      data.study_date,
-      data.patient_last_name,
-      data.patient_first_name,
-      data.patient_document || null,
-      Boolean(data.has_blood_extraction),
-      Boolean(data.has_urine_sample),
-      data.notes || null,
-      userId || null,
-      id
-    ]
-  );
+  const connection =
+    await pool.getConnection();
 
-  return true;
+  try {
+    await connection.beginTransaction();
+
+    const requestedTestIds =
+      Array.isArray(data.requested_test_ids)
+        ? data.requested_test_ids
+          .map(Number)
+          .filter((testId: number) => testId > 0)
+        : [];
+
+    const sampleFlags =
+      await getSampleFlagsFromTests(
+        connection,
+        requestedTestIds
+      );
+
+    await connection.query(
+      `
+        UPDATE laboratory_records
+        SET
+          protocol_number = ?,
+          study_date = ?,
+          patient_last_name = ?,
+          patient_first_name = ?,
+          patient_document = ?,
+          patient_birth_date = ?,
+          has_blood_extraction = ?,
+          has_urine_sample = ?,
+          notes = ?,
+          updated_by = ?
+        WHERE id = ?
+      `,
+      [
+        data.protocol_number || null,
+        data.study_date,
+        data.patient_last_name,
+        data.patient_first_name,
+        data.patient_document || null,
+        data.patient_birth_date || null,
+        sampleFlags.hasBlood,
+        sampleFlags.hasUrine,
+        data.notes || null,
+        userId || null,
+        id
+      ]
+    );
+
+    await replaceRequestedTests(
+      connection,
+      id,
+      requestedTestIds
+    );
+
+    await syncLaboratoryRecordStatus(
+      connection,
+      id,
+      userId
+    );
+
+    await connection.commit();
+    return true;
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
 }
 
 export async function updateLaboratoryCompletion(
@@ -341,35 +685,66 @@ export async function updateLaboratoryCompletion(
   data: any,
   userId?: number
 ) {
-  const isComplete =
-    Boolean(data.is_complete);
+  const receivedTestIds =
+    Array.isArray(data.received_test_ids)
+      ? data.received_test_ids
+        .map(Number)
+        .filter((testId: number) => testId > 0)
+      : [];
 
-  await pool.query(
-    `
-      UPDATE laboratory_records
-      SET
-        is_complete = ?,
-        missing_details = ?,
-        completed_at = ?,
-        completed_by = ?,
-        updated_by = ?
-      WHERE id = ?
-    `,
-    [
-      isComplete,
-      isComplete
-        ? null
-        : data.missing_details || null,
-      isComplete
-        ? new Date()
-        : null,
-      isComplete
-        ? userId || null
-        : null,
-      userId || null,
-      id
-    ]
-  );
+  const connection =
+    await pool.getConnection();
+
+  try {
+    await connection.beginTransaction();
+
+    await connection.query(
+      `
+        UPDATE laboratory_record_tests
+        SET
+          received = FALSE,
+          received_at = NULL,
+          received_by = NULL,
+          notes = NULL
+        WHERE laboratory_record_id = ?
+      `,
+      [id]
+    );
+
+    if (receivedTestIds.length > 0) {
+      await connection.query(
+        `
+          UPDATE laboratory_record_tests
+          SET
+            received = TRUE,
+            received_at = COALESCE(received_at, NOW()),
+            received_by = ?
+          WHERE laboratory_record_id = ?
+            AND test_id IN (${receivedTestIds
+              .map(() => '?')
+              .join(', ')})
+        `,
+        [
+          userId || null,
+          id,
+          ...receivedTestIds
+        ]
+      );
+    }
+
+    await syncLaboratoryRecordStatus(
+      connection,
+      id,
+      userId
+    );
+
+    await connection.commit();
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
 
   return true;
 }
@@ -386,6 +761,7 @@ export async function registerLaboratoryPickup(
         pickup_date = ?,
         picked_up_by = ?,
         pickup_document = ?,
+        status = 'retirado',
         notes = ?,
         updated_by = ?
       WHERE id = ?

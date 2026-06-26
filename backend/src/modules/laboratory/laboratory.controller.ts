@@ -11,6 +11,7 @@ import {
   getLaboratoryRecordById,
   getLaboratoryRecords,
   getLaboratoryStats,
+  getLaboratoryTestCatalog,
   registerLaboratoryPickup,
   updateLaboratoryCompletion,
   updateLaboratoryRecord
@@ -32,10 +33,10 @@ function validateLaboratoryBody(
   }
 
   if (
-    !body.has_blood_extraction &&
-    !body.has_urine_sample
+    !Array.isArray(body.requested_test_ids) ||
+    body.requested_test_ids.length === 0
   ) {
-    return 'Debe seleccionar al menos sangre u orina';
+    return 'Debe seleccionar al menos una practica solicitada';
   }
 
   return null;
@@ -49,21 +50,6 @@ function validatePickupBody(
   }
 
   return null;
-}
-
-function buildLaboratoryPayload(
-  body: any,
-  user: any
-) {
-  if (user?.role === 'lab') {
-    return body;
-  }
-
-  return {
-    ...body,
-    is_complete: true,
-    missing_details: null
-  };
 }
 
 export async function handleGetLaboratoryRecords(
@@ -85,6 +71,28 @@ export async function handleGetLaboratoryRecords(
     return res.status(500).json({
       success: false,
       message: 'Error al obtener estudios de laboratorio'
+    });
+  }
+}
+
+export async function handleGetLaboratoryTestCatalog(
+  req: Request,
+  res: Response
+) {
+  try {
+    const catalog =
+      await getLaboratoryTestCatalog();
+
+    return res.json({
+      success: true,
+      data: catalog
+    });
+  } catch (error) {
+    console.error(error);
+
+    return res.status(500).json({
+      success: false,
+      message: 'Error al obtener practicas de laboratorio'
     });
   }
 }
@@ -198,10 +206,7 @@ export async function handleCreateLaboratoryRecord(
 
     const id =
       await createLaboratoryRecord(
-        buildLaboratoryPayload(
-          req.body,
-          req.user
-        ),
+        req.body,
         req.user?.userId || req.user?.id
       );
 
@@ -259,12 +264,19 @@ export async function handleUpdateLaboratoryRecord(
       });
     }
 
+    if (
+      previous.pickup_date &&
+      req.user?.role !== 'admin'
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: 'El estudio ya fue retirado. Solo un administrador puede modificarlo.'
+      });
+    }
+
     await updateLaboratoryRecord(
       Number(req.params.id),
-      buildLaboratoryPayload(
-        req.body,
-        req.user
-      ),
+      req.body,
       req.user?.userId || req.user?.id
     );
 
@@ -313,12 +325,19 @@ export async function handleUpdateLaboratoryCompletion(
     }
 
     if (
-      req.body.is_complete === false &&
-      !req.body.missing_details
+      previous.pickup_date &&
+      req.user?.role !== 'admin'
     ) {
+      return res.status(403).json({
+        success: false,
+        message: 'El estudio ya fue retirado. Solo un administrador puede modificar sus resultados.'
+      });
+    }
+
+    if (!Array.isArray(req.body.received_test_ids)) {
       return res.status(400).json({
         success: false,
-        message: 'Indica que estudio o resultado esta pendiente'
+        message: 'Debe indicar que practicas llegaron'
       });
     }
 
@@ -331,14 +350,10 @@ export async function handleUpdateLaboratoryCompletion(
     await logAudit({
       user: req.user,
       module: 'laboratorio',
-      action: req.body.is_complete
-        ? 'marcar_estudio_completo'
-        : 'marcar_estudio_incompleto',
+      action: 'actualizar_resultados_laboratorio',
       entityType: 'laboratory_record',
       entityId: Number(req.params.id),
-      description: req.body.is_complete
-        ? `Marco estudio ${req.params.id} como completo`
-        : `Marco estudio ${req.params.id} como incompleto`,
+      description: `Actualizo resultados recibidos del estudio ${req.params.id}`,
       oldData: previous,
       newData: req.body,
       ipAddress: req.ip,

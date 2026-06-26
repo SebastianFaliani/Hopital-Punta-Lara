@@ -116,6 +116,14 @@ function getRequestPermission(
       manage: 'nutrition.manage'
     },
     {
+      paths: ['/laboratory'],
+      view: 'laboratory.view',
+      manage:
+        req.path.endsWith('/pickup')
+          ? 'laboratory.pickup'
+          : 'laboratory.manage'
+    },
+    {
       paths: ['/housekeeping'],
       view: 'housekeeping.view',
       manage: 'housekeeping.manage'
