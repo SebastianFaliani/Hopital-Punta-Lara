@@ -124,6 +124,25 @@ export function getAvailableNavigation(
   if (
     hasPermission(
       user,
+      'personnel.settings.manage',
+      ['admin', 'dir']
+    ) ||
+    hasPermission(
+      user,
+      'personnel.balances.manage',
+      ['admin', 'dir']
+    )
+  ) {
+    items.push({
+      path: '/personnel/settings',
+      label: 'Configuracion Personal',
+      section: 'Administracion'
+    });
+  }
+
+  if (
+    hasPermission(
+      user,
       'vaccines.view',
       ['admin', 'vacu', 'dir']
     )

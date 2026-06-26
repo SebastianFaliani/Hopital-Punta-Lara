@@ -159,6 +159,11 @@ export default function AppRouter() {
             />
 
             <Route
+              path="/personnel/settings"
+              element={<PersonnelPage />}
+            />
+
+            <Route
               path="/vaccines"
               element={<VaccinesPage />}
             />

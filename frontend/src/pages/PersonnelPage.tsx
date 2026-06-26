@@ -3,6 +3,8 @@ import {
   useRef,
   useState
 } from 'react';
+import { useLocation }
+  from 'react-router-dom';
 
 import { apiFetch }
   from '../api/api';
@@ -888,6 +890,10 @@ function getAutomaticEndDate(
 export default function PersonnelPage() {
 
   const { user } = useAuth();
+  const location = useLocation();
+
+  const isPersonnelSettingsPage =
+    location.pathname.startsWith('/personnel/settings');
 
   const canManageEmployees =
     hasPermission(
@@ -970,7 +976,17 @@ export default function PersonnelPage() {
   }
 
   const [activeTab, setActiveTab] =
-    useState('employees');
+    useState(() =>
+      isPersonnelSettingsPage
+        ? (
+          canManageSettings
+            ? 'departments'
+            : canManageBalances
+              ? 'balance-adjustments'
+              : 'no-access'
+        )
+        : 'employees'
+    );
 
   const [employees, setEmployees] =
     useState<Employee[]>([]);
@@ -1165,6 +1181,50 @@ export default function PersonnelPage() {
 
   const [loadingDirectiveSummary, setLoadingDirectiveSummary] =
     useState(false);
+
+  useEffect(() => {
+    const settingsTabs = [
+      'departments',
+      'codes',
+      'leave-rules',
+      'vacation-rules',
+      'balance-adjustments'
+    ];
+
+    const dailyTabs = [
+      'employees',
+      'attendance',
+      'planned-days-off',
+      'leaves',
+      'leave-requests'
+    ];
+
+    if (
+      isPersonnelSettingsPage &&
+      !settingsTabs.includes(activeTab)
+    ) {
+      setActiveTab(
+        canManageSettings
+          ? 'departments'
+          : canManageBalances
+            ? 'balance-adjustments'
+            : 'no-access'
+      );
+      return;
+    }
+
+    if (
+      !isPersonnelSettingsPage &&
+      !dailyTabs.includes(activeTab)
+    ) {
+      setActiveTab('employees');
+    }
+  }, [
+    activeTab,
+    canManageBalances,
+    canManageSettings,
+    isPersonnelSettingsPage
+  ]);
 
   async function loadData() {
 
@@ -3798,29 +3858,39 @@ export default function PersonnelPage() {
       <div className="page-header">
         <div>
           <h1 className="page-title">
-            Personal
+            {
+              isPersonnelSettingsPage
+                ? 'Configuracion Personal'
+                : 'Personal'
+            }
           </h1>
           <p className="page-subtitle">
-            Empleados, sectores y claves de presentismo.
+            {
+              isPersonnelSettingsPage
+                ? 'Sectores, claves, reglas y saldos sensibles.'
+                : 'Empleados, presentismo, francos y licencias.'
+            }
           </p>
         </div>
       </div>
 
       <div className="module-tabs">
-        <button
-          className={
-            activeTab === 'employees'
-              ? 'module-tab module-tab-active'
-              : 'module-tab'
-          }
-          onClick={() =>
-            changeTab('employees')
-          }
-        >
-          Empleados
-        </button>
+        {!isPersonnelSettingsPage && (
+          <button
+            className={
+              activeTab === 'employees'
+                ? 'module-tab module-tab-active'
+                : 'module-tab'
+            }
+            onClick={() =>
+              changeTab('employees')
+            }
+          >
+            Empleados
+          </button>
+        )}
 
-        {canManageSettings && (
+        {isPersonnelSettingsPage && canManageSettings && (
           <button
             className={
               activeTab === 'departments'
@@ -3835,7 +3905,7 @@ export default function PersonnelPage() {
           </button>
         )}
 
-        {canManageSettings && (
+        {isPersonnelSettingsPage && canManageSettings && (
           <button
             className={
               activeTab === 'codes'
@@ -3850,20 +3920,22 @@ export default function PersonnelPage() {
           </button>
         )}
 
-        <button
-          className={
-            activeTab === 'attendance'
-              ? 'module-tab module-tab-active'
-              : 'module-tab'
-          }
-          onClick={() =>
-            changeTab('attendance')
-          }
-        >
-          Presentismo
-        </button>
+        {!isPersonnelSettingsPage && (
+          <button
+            className={
+              activeTab === 'attendance'
+                ? 'module-tab module-tab-active'
+                : 'module-tab'
+            }
+            onClick={() =>
+              changeTab('attendance')
+            }
+          >
+            Presentismo
+          </button>
+        )}
 
-        {canManageAttendance && (
+        {!isPersonnelSettingsPage && canManageAttendance && (
           <button
             className={
               activeTab === 'planned-days-off'
@@ -3878,46 +3950,52 @@ export default function PersonnelPage() {
           </button>
         )}
 
-        <button
-          className={
-            activeTab === 'leaves'
-              ? 'module-tab module-tab-active'
-              : 'module-tab'
-          }
-          onClick={() =>
-            changeTab('leaves')
-          }
-        >
-          Licencias
-        </button>
+        {!isPersonnelSettingsPage && (
+          <button
+            className={
+              activeTab === 'leaves'
+                ? 'module-tab module-tab-active'
+                : 'module-tab'
+            }
+            onClick={() =>
+              changeTab('leaves')
+            }
+          >
+            Licencias
+          </button>
+        )}
 
-        <button
-          className={
-            activeTab === 'leave-requests'
-              ? 'module-tab module-tab-active'
-              : 'module-tab'
-          }
-          onClick={() =>
-            changeTab('leave-requests')
-          }
-        >
-          Licencias pendientes
-        </button>
+        {!isPersonnelSettingsPage && (
+          <button
+            className={
+              activeTab === 'leave-requests'
+                ? 'module-tab module-tab-active'
+                : 'module-tab'
+            }
+            onClick={() =>
+              changeTab('leave-requests')
+            }
+          >
+            Licencias pendientes
+          </button>
+        )}
 
-        <button
-          className={
-            activeTab === 'leave-rules'
-              ? 'module-tab module-tab-active'
-              : 'module-tab'
-          }
-          onClick={() =>
-            changeTab('leave-rules')
-          }
-        >
-          Reglas licencias
-        </button>
+        {isPersonnelSettingsPage && canManageSettings && (
+          <button
+            className={
+              activeTab === 'leave-rules'
+                ? 'module-tab module-tab-active'
+                : 'module-tab'
+            }
+            onClick={() =>
+              changeTab('leave-rules')
+            }
+          >
+            Reglas licencias
+          </button>
+        )}
 
-        {canManageSettings && (
+        {isPersonnelSettingsPage && canManageSettings && (
           <button
             className={
               activeTab === 'vacation-rules'
@@ -3932,7 +4010,7 @@ export default function PersonnelPage() {
           </button>
         )}
 
-        {canManageBalances && (
+        {isPersonnelSettingsPage && canManageBalances && (
           <button
             className={
               activeTab === 'balance-adjustments'
@@ -3957,6 +4035,17 @@ export default function PersonnelPage() {
       }
 
       {
+        isPersonnelSettingsPage &&
+        !canManageSettings &&
+        !canManageBalances && (
+          <div className="empty-state">
+            No tenes permisos para administrar la configuracion de Personal.
+          </div>
+        )
+      }
+
+      {
+        !isPersonnelSettingsPage &&
         activeTab === 'employees' && (
           <>
             {canManageEmployees && (
@@ -4795,6 +4884,8 @@ export default function PersonnelPage() {
       }
 
       {
+        isPersonnelSettingsPage &&
+        canManageSettings &&
         activeTab === 'departments' && (
           <>
             <form
@@ -4890,6 +4981,8 @@ export default function PersonnelPage() {
       }
 
       {
+        isPersonnelSettingsPage &&
+        canManageSettings &&
         activeTab === 'codes' && (
           <>
             <form
@@ -5173,6 +5266,7 @@ export default function PersonnelPage() {
       }
 
       {
+        !isPersonnelSettingsPage &&
         activeTab === 'planned-days-off' && (
           <>
             <div className="attendance-toolbar">
@@ -5375,6 +5469,7 @@ export default function PersonnelPage() {
       }
 
       {
+        !isPersonnelSettingsPage &&
         activeTab === 'attendance' && (
           <>
             <div className="attendance-toolbar">
@@ -5639,6 +5734,7 @@ export default function PersonnelPage() {
       }
 
       {
+        !isPersonnelSettingsPage &&
         activeTab === 'leaves' && (
           <>
             
@@ -6283,7 +6379,7 @@ export default function PersonnelPage() {
                             )
                           }
                           {
-                            canManageLeaves &&
+                            canApproveLeaves &&
                             request.status !== 'cancelado' && (
                               <button
                                 className="btn-secondary"
@@ -6326,6 +6422,8 @@ export default function PersonnelPage() {
       }
 
       {
+        isPersonnelSettingsPage &&
+        canManageSettings &&
         activeTab === 'leave-rules' && (
           <>
             <div className="dashboard-grid">
@@ -6659,6 +6757,8 @@ export default function PersonnelPage() {
       }
 
       {
+        isPersonnelSettingsPage &&
+        canManageSettings &&
         activeTab === 'vacation-rules' && (
           <>
             <div className="dashboard-grid">
@@ -6833,6 +6933,7 @@ export default function PersonnelPage() {
       }
 
       {
+        !isPersonnelSettingsPage &&
         activeTab === 'leave-requests' && (
           <>
             <div className="filter-bar">
@@ -6966,7 +7067,8 @@ export default function PersonnelPage() {
                             </button>
                           )}
 
-                          {request.code === '43' &&
+                          {canManageLeaves &&
+                            request.code === '43' &&
                             !request.no_return &&
                             (!request.return_time || !Number(request.total_hours || 0)) && (
                               <button
@@ -6993,6 +7095,7 @@ export default function PersonnelPage() {
                             )}
 
                           {
+                            canApproveLeaves &&
                             request.status === 'pendiente' && (
                               <>
                                 <button
@@ -7023,6 +7126,7 @@ export default function PersonnelPage() {
                             )
                           }
                           {
+                            canApproveLeaves &&
                             request.status !== 'cancelado' && (
                               <button
                                 className="btn-secondary"
@@ -7061,6 +7165,8 @@ export default function PersonnelPage() {
       }
 
       {
+        isPersonnelSettingsPage &&
+        canManageBalances &&
         activeTab === 'balance-adjustments' && (
           <>
             <div className="nutrition-layout">

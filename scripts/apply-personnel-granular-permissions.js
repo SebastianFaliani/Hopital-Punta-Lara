@@ -228,6 +228,25 @@ async function main() {
       `
     );
 
+    await connection.query(
+      `
+        UPDATE user_permissions up
+        INNER JOIN permissions p
+          ON p.id = up.permission_id
+        INNER JOIN users u
+          ON u.id = up.user_id
+        INNER JOIN roles r
+          ON r.id = u.role_id
+        SET up.allowed = FALSE
+        WHERE r.name = 'user'
+          AND p.permission_key IN (
+            'personnel.leaves.approve',
+            'personnel.balances.manage',
+            'personnel.settings.manage'
+          )
+      `
+    );
+
     await connection.commit();
   } catch (error) {
     await connection.rollback();
