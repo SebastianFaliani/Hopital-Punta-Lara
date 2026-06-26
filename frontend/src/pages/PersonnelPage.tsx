@@ -1050,9 +1050,6 @@ export default function PersonnelPage() {
   const [attendanceEdits, setAttendanceEdits] =
     useState<Record<string, string>>({});
 
-  const [showFillPresentModal, setShowFillPresentModal] =
-    useState(false);
-
   const [plannedOffRows, setPlannedOffRows] =
     useState<PlannedDaysOffEmployee[]>([]);
 
@@ -3292,90 +3289,6 @@ export default function PersonnelPage() {
     }
   }
 
-  async function completePresentAttendance(
-    selectedDay?: number
-  ) {
-
-    if (Object.keys(attendanceEdits).length > 0) {
-      showSystemAlert(
-        'Guarda o descarta los cambios pendientes antes de completar presentes.',
-        'Cambios pendientes',
-        'info'
-      );
-      return;
-    }
-
-    const day =
-      Number(
-        selectedDay ||
-        attendanceFilters.day
-      );
-
-    if (!day || day < 1 || day > attendanceDays) {
-      showSystemAlert(
-        'Selecciona un dia valido del mes visible.'
-      );
-      return;
-    }
-
-    const dateLabel =
-      `${String(day).padStart(2, '0')}/${String(attendanceFilters.month).padStart(2, '0')}/${attendanceFilters.year}`;
-
-    if (
-      !window.confirm(
-        `Se completaran como presentes los empleados sin marca para el dia ${dateLabel}. No se modificaran registros ya cargados. Continuar?`
-      )
-    ) {
-      return;
-    }
-
-    setSavingAttendance(true);
-    setError('');
-
-    try {
-      const response =
-        await apiFetch(
-          '/personnel/attendance/fill-present',
-          {
-            method: 'POST',
-            body: JSON.stringify({
-              year: Number(attendanceFilters.year),
-              month: Number(attendanceFilters.month),
-              day,
-              department_id:
-                attendanceFilters.department !== 'todos'
-                  ? Number(attendanceFilters.department)
-                  : null,
-              facility_id:
-                attendanceFilters.facility_id !== 'todos'
-                  ? Number(attendanceFilters.facility_id)
-                  : null
-            })
-          }
-        );
-
-      await loadAttendance();
-      if (selectedLeaveEmployee) {
-        await loadLeaveSummary(
-          selectedLeaveEmployee.id
-        );
-      }
-      setShowFillPresentModal(false);
-
-      showSystemAlert(
-        response.message ||
-          `Se completaron ${response.data?.completed || 0} presente(s).`,
-        'Presentes completados',
-        'success'
-      );
-
-    } catch (error: any) {
-      setError(error.message);
-    } finally {
-      setSavingAttendance(false);
-    }
-  }
-
   useEffect(() => {
 
     loadData();
@@ -4730,82 +4643,6 @@ export default function PersonnelPage() {
       }
 
       {
-        showFillPresentModal && (
-          <div className="modal-overlay">
-            <div className="modal-content">
-              <button
-                className="modal-close-button"
-                type="button"
-                onClick={() =>
-                  setShowFillPresentModal(false)
-                }
-                aria-label="Cerrar"
-              >
-                x
-              </button>
-
-              <h2 className="modal-title">
-                Completar presentes
-              </h2>
-              <p className="modal-subtitle">
-                Mes visible: {String(attendanceFilters.month).padStart(2, '0')}/{attendanceFilters.year}
-              </p>
-
-              <label className="form-field">
-                <span>Dia</span>
-                <select
-                  className="form-input"
-                  value={attendanceFilters.day}
-                  onChange={(event) =>
-                    updateAttendanceFilters({
-                      day: event.target.value
-                    })
-                  }
-                >
-                  {dayNumbers.map((day) => (
-                    <option
-                      key={day}
-                      value={day}
-                    >
-                      {String(day).padStart(2, '0')}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <p className="form-note">
-                Solo se completaran las celdas vacias con P. No se modificaran licencias, francos ni claves ya cargadas.
-              </p>
-
-              <div className="modal-actions">
-                <button
-                  className="btn-secondary"
-                  type="button"
-                  onClick={() =>
-                    setShowFillPresentModal(false)
-                  }
-                >
-                  Cancelar
-                </button>
-                <button
-                  className="btn-success"
-                  type="button"
-                  disabled={savingAttendance}
-                  onClick={() =>
-                    completePresentAttendance(
-                      Number(attendanceFilters.day)
-                    )
-                  }
-                >
-                  Completar presentes
-                </button>
-              </div>
-            </div>
-          </div>
-        )
-      }
-
-      {
         printLeaveRequest && (
           <PermissionPrintModal
             request={printLeaveRequest}
@@ -5566,20 +5403,6 @@ export default function PersonnelPage() {
                 }}
               >
                 Actualizar
-              </button>
-
-              <button
-                className="btn-secondary"
-                type="button"
-                disabled={
-                  savingAttendance ||
-                  attendanceReadOnly
-                }
-                onClick={() =>
-                  setShowFillPresentModal(true)
-                }
-              >
-                Completar presentes
               </button>
 
               <button
