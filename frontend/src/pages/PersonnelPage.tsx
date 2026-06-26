@@ -146,6 +146,10 @@ type LeaveRequest = {
   requested_at: string;
   requested_by: number | null;
   requested_by_name: string | null;
+  approved_by?: number | null;
+  approved_by_name?: string | null;
+  approved_at?: string | null;
+  rejected_reason?: string | null;
   notes: string | null;
 };
 
@@ -270,13 +274,53 @@ type DirectiveSummary = {
   };
   balances: any;
   recentLeaves: LeaveRequest[];
-  recentAttendance: Array<{
-    attendance_date: string;
-    code: string;
-    description: string;
-    category: string;
-  }>;
+  recentAttendance: AttendanceRecordSummary[];
 };
+
+type LeaveRequestGroup = {
+  code: string;
+  description: string;
+  leaves: LeaveRequest[];
+};
+
+type AttendanceRecordSummary = {
+  id: number;
+  attendance_date: string;
+  code: string;
+  description: string;
+  category: string;
+  source?: string | null;
+  created_at?: string | null;
+  created_by_name?: string | null;
+};
+
+type AttendanceRecordGroup = {
+  code: string;
+  description: string;
+  category: string;
+  records: AttendanceRecordSummary[];
+};
+
+type DirectiveKeyCardData = {
+  title: string;
+  value: string | number;
+  detail: string;
+  mode: DirectivePrintMode;
+};
+
+type DirectivePrintMode =
+  | 'all'
+  | 'seniority'
+  | 'absences'
+  | 'leaves'
+  | 'vacation'
+  | 'code26'
+  | 'hours'
+  | 'code29'
+  | 'compensatory'
+  | 'attendance'
+  | `attendance:${string}`
+  | `leave:${string}`;
 
 type LeaveSummary = {
   vacation: {
@@ -1070,6 +1114,18 @@ export default function PersonnelPage() {
 
   const [printLeaveRequest, setPrintLeaveRequest] =
     useState<LeaveRequest | null>(null);
+
+  const [printLeaveSummary, setPrintLeaveSummary] =
+    useState(false);
+
+  const [directivePrintMode, setDirectivePrintMode] =
+    useState<DirectivePrintMode | null>(null);
+
+  const [printDirectiveLeaves, setPrintDirectiveLeaves] =
+    useState(false);
+
+  const [printDirectiveAttendance, setPrintDirectiveAttendance] =
+    useState(false);
 
   const [returnLeaveRequest, setReturnLeaveRequest] =
     useState<LeaveRequest | null>(null);
@@ -4496,7 +4552,7 @@ export default function PersonnelPage() {
       {
         directiveSummary && (
           <div className="modal-overlay">
-            <div className="modal-content modal-content-wide">
+            <div className="modal-content modal-content-wide directive-summary-modal">
               <div className="page-header">
                 <div>
                   <h2 className="modal-title">
@@ -4521,59 +4577,180 @@ export default function PersonnelPage() {
                 <p>Cargando resumen...</p>
               ) : (
                 <>
-                  <div className="dashboard-grid">
-                    <div className="dashboard-card">
-                      <h3>Antiguedad</h3>
+                  <div className="management-actions page-actions">
+                    <button
+                      className="btn-primary"
+                      type="button"
+                      onClick={() =>
+                        setDirectivePrintMode('all')
+                      }
+                    >
+                      Imprimir todo
+                    </button>
+                  </div>
+
+                  <div className="dashboard-grid directive-key-grid">
+                    {buildDirectiveKeyCards(directiveSummary).map((card) => (
+                      <DirectiveKeyCard
+                        key={card.mode}
+                        card={card}
+                        onPrint={() =>
+                          setDirectivePrintMode(card.mode)
+                        }
+                      />
+                    ))}
+                  </div>
+
+                  <div className="dashboard-grid legacy-summary-grid">
+                    <div className="dashboard-card directive-hidden-card">
+                      <h3 title="Antiguedad">Antiguedad</h3>
                       <p>{directiveSummary.employee.seniority_years}</p>
                       <span>Ingreso {formatDisplayDate(directiveSummary.employee.hire_date)}</span>
+                      <button
+                        className="card-print-button"
+                        type="button"
+                        onClick={() =>
+                          setDirectivePrintMode('seniority')
+                        }
+                      >
+                        Imprimir
+                      </button>
                     </div>
 
                     <div className="dashboard-card">
-                      <h3>Ausencias del mes</h3>
+                      <h3 title="Ausencias del año">Ausencias del año</h3>
                       <p>{directiveSummary.attendance.totals.ausencia || 0}</p>
-                      <span>{directiveSummary.period.month}/{directiveSummary.period.year}</span>
+                      <span>{directiveSummary.period.year}</span>
+                      <button
+                        className="card-print-button"
+                        type="button"
+                        onClick={() =>
+                          setDirectivePrintMode('absences')
+                        }
+                      >
+                        Imprimir
+                      </button>
                     </div>
 
                     <div className="dashboard-card">
-                      <h3>Licencias del mes</h3>
+                      <h3 title="Licencias del año">Licencias del año</h3>
                       <p>{directiveSummary.attendance.totals.licencia || 0}</p>
-                      <span>Incluye articulos y permisos</span>
+                      <button
+                        className="card-print-button"
+                        type="button"
+                        onClick={() =>
+                          setDirectivePrintMode('leaves')
+                        }
+                      >
+                        Imprimir
+                      </button>
+                      <span>Incluye articulos y permisos del año</span>
                     </div>
 
-                    <div className="dashboard-card">
-                      <h3>Vacaciones disponibles</h3>
+                    <div className="dashboard-card directive-hidden-card">
+                      <h3 title="Vacaciones disponibles">Vacaciones disponibles</h3>
                       <p>{directiveSummary.balances.vacation.available_days}</p>
                       <span>Asignadas {directiveSummary.balances.vacation.allowed_days}</span>
+                      <button
+                        className="card-print-button"
+                        type="button"
+                        onClick={() =>
+                          setDirectivePrintMode('vacation')
+                        }
+                      >
+                        Imprimir
+                      </button>
                     </div>
 
                     <div className="dashboard-card">
-                      <h3>Articulo 26</h3>
+                      <h3 title="Clave 26">Clave 26</h3>
                       <p>{directiveSummary.balances.code26.remaining_days}</p>
+                      <button
+                        className="card-print-button"
+                        type="button"
+                        onClick={() =>
+                          setDirectivePrintMode('code26')
+                        }
+                      >
+                        Imprimir
+                      </button>
                       <span>Restantes en el año</span>
                     </div>
 
                     <div className="dashboard-card">
-                      <h3>Horas 24/43</h3>
+                      <h3 title="Horas 24/43">Horas 24/43</h3>
                       <p>{directiveSummary.balances.hours24_43.remaining_hours_year}</p>
                       <span>Este mes quedan {directiveSummary.balances.hours24_43.remaining_hours_month} hs</span>
+                      <button
+                        className="card-print-button"
+                        type="button"
+                        onClick={() =>
+                          setDirectivePrintMode('hours')
+                        }
+                      >
+                        Imprimir
+                      </button>
                     </div>
 
                     <div className="dashboard-card">
-                      <h3>Clave 29</h3>
+                      <h3 title="Clave 29">Clave 29</h3>
                       <p>{directiveSummary.balances.code29.remaining_days}</p>
                       <span>Dias restantes</span>
+                      <button
+                        className="card-print-button"
+                        type="button"
+                        onClick={() =>
+                          setDirectivePrintMode('code29')
+                        }
+                      >
+                        Imprimir
+                      </button>
                     </div>
 
                     <div className="dashboard-card">
-                      <h3>Compensatorios</h3>
+                      <h3 title="Compensatorios">Compensatorios</h3>
                       <p>{directiveSummary.balances.compensatory.remaining_days}</p>
                       <span>Ganados {directiveSummary.balances.compensatory.earned_days}</span>
+                      <button
+                        className="card-print-button"
+                        type="button"
+                        onClick={() =>
+                          setDirectivePrintMode('compensatory')
+                        }
+                      >
+                        Imprimir
+                      </button>
                     </div>
+
+                    <div className="dashboard-card directive-attendance-total-card">
+                      <h3 title="Presentismo por clave">Presentismo por clave</h3>
+                      <p>{directiveSummary.attendance.byCode.length}</p>
+                      <span>Resumen anual completo</span>
+                      <button
+                        className="card-print-button"
+                        type="button"
+                        onClick={() =>
+                          setDirectivePrintMode('attendance')
+                        }
+                      >
+                        Imprimir
+                      </button>
+                    </div>
+
+                    {buildDirectiveKeyCards(directiveSummary).map((card) => (
+                      <DirectiveKeyCard
+                        key={card.mode}
+                        card={card}
+                        onPrint={() =>
+                          setDirectivePrintMode(card.mode)
+                        }
+                      />
+                    ))}
                   </div>
 
-                  <div className="dashboard-sections">
+                  <div className="dashboard-sections directive-detail-sections">
                     <section className="dashboard-panel">
-                      <h2>Presentismo por clave</h2>
+                      <h2>Resumen anual por clave</h2>
                       <div className="dashboard-list">
                         {directiveSummary.attendance.byCode.map((item) => (
                           <div
@@ -4587,52 +4764,66 @@ export default function PersonnelPage() {
                         ))}
                         {directiveSummary.attendance.byCode.length === 0 && (
                           <p className="page-subtitle">
-                            No hay presentismo cargado para este mes.
+                            No hay presentismo cargado para este año.
                           </p>
                         )}
                       </div>
                     </section>
 
-                    <section className="dashboard-panel">
-                      <h2>Ultimas licencias</h2>
-                      <div className="dashboard-list">
-                        {directiveSummary.recentLeaves.map((item) => (
-                          <div
-                            className="dashboard-list-item"
-                            key={item.id}
-                          >
-                            <strong>{item.code} - {item.description}</strong>
-                            <span>{formatDisplayDate(item.start_date)} al {formatDisplayDate(item.end_date)}</span>
-                            <span>{item.status}</span>
-                          </div>
-                        ))}
-                        {directiveSummary.recentLeaves.length === 0 && (
-                          <p className="page-subtitle">
-                            No hay licencias recientes.
-                          </p>
-                        )}
+                    <section className="dashboard-panel dashboard-panel-wide">
+                      <div className="panel-title-row">
+                        <h2>Ultimas licencias</h2>
+                        <button
+                          className="btn-secondary"
+                          type="button"
+                          disabled={directiveSummary.recentLeaves.length === 0}
+                          onClick={() =>
+                            setPrintDirectiveLeaves(true)
+                          }
+                        >
+                          Imprimir
+                        </button>
                       </div>
+
+                      {directiveSummary.recentLeaves.length === 0 ? (
+                        <p className="page-subtitle">
+                          No hay licencias recientes.
+                        </p>
+                      ) : (
+                        <GroupedLeavesHistory
+                          groups={groupLeaveRequestsByCode(
+                            directiveSummary.recentLeaves
+                          )}
+                        />
+                      )}
                     </section>
 
-                    <section className="dashboard-panel">
-                      <h2>Ultimas novedades de presentismo</h2>
-                      <div className="dashboard-list">
-                        {directiveSummary.recentAttendance.map((item) => (
-                          <div
-                            className="dashboard-list-item"
-                            key={`${item.attendance_date}-${item.code}`}
-                          >
-                            <strong>{item.code} - {item.description}</strong>
-                            <span>{formatDisplayDate(item.attendance_date)}</span>
-                            <span>{item.category}</span>
-                          </div>
-                        ))}
-                        {directiveSummary.recentAttendance.length === 0 && (
-                          <p className="page-subtitle">
-                            No hay novedades recientes.
-                          </p>
-                        )}
+                    <section className="dashboard-panel dashboard-panel-wide">
+                      <div className="panel-title-row">
+                        <h2>Novedades de presentismo</h2>
+                        <button
+                          className="btn-secondary"
+                          type="button"
+                          disabled={directiveSummary.recentAttendance.length === 0}
+                          onClick={() =>
+                            setPrintDirectiveAttendance(true)
+                          }
+                        >
+                          Imprimir
+                        </button>
                       </div>
+
+                      {directiveSummary.recentAttendance.length === 0 ? (
+                        <p className="page-subtitle">
+                          No hay novedades de presentismo para este año.
+                        </p>
+                      ) : (
+                        <GroupedAttendanceHistory
+                          groups={groupAttendanceRecordsByCode(
+                            directiveSummary.recentAttendance
+                          )}
+                        />
+                      )}
                     </section>
                   </div>
                 </>
@@ -4643,11 +4834,66 @@ export default function PersonnelPage() {
       }
 
       {
+        directivePrintMode &&
+        directiveSummary && (
+          <DirectiveSummaryPrintModal
+            mode={directivePrintMode}
+            summary={directiveSummary}
+            user={user}
+            onClose={() =>
+              setDirectivePrintMode(null)
+            }
+          />
+        )
+      }
+
+      {
+        printDirectiveLeaves &&
+        directiveSummary && (
+          <EmployeeLeavesHistoryPrintModal
+            summary={directiveSummary}
+            user={user}
+            onClose={() =>
+              setPrintDirectiveLeaves(false)
+            }
+          />
+        )
+      }
+
+      {
+        printDirectiveAttendance &&
+        directiveSummary && (
+          <EmployeeAttendanceHistoryPrintModal
+            summary={directiveSummary}
+            user={user}
+            onClose={() =>
+              setPrintDirectiveAttendance(false)
+            }
+          />
+        )
+      }
+
+      {
         printLeaveRequest && (
           <PermissionPrintModal
             request={printLeaveRequest}
             onClose={() =>
               setPrintLeaveRequest(null)
+            }
+          />
+        )
+      }
+
+      {
+        printLeaveSummary &&
+        selectedLeaveEmployee &&
+        leaveSummary && (
+          <LeaveSummaryPrintModal
+            employee={selectedLeaveEmployee}
+            summary={leaveSummary}
+            user={user}
+            onClose={() =>
+              setPrintLeaveSummary(false)
             }
           />
         )
@@ -5710,6 +5956,18 @@ export default function PersonnelPage() {
 
             {
               selectedLeaveEmployee && leaveSummary && (
+                <>
+                <div className="management-actions page-actions">
+                  <button
+                    className="btn-secondary"
+                    type="button"
+                    onClick={() =>
+                      setPrintLeaveSummary(true)
+                    }
+                  >
+                    Imprimir resumen
+                  </button>
+                </div>
                 <div className="dashboard-grid">
                   <div className="dashboard-card">
                     <h3>Vacaciones clave 8</h3>
@@ -5719,7 +5977,7 @@ export default function PersonnelPage() {
                     </span>
                   </div>
                   <div className="dashboard-card">
-                    <h3>Articulo 26</h3>
+                    <h3>Clave 26</h3>
                     <p>{leaveSummary.code26.remaining_days}</p>
                     <span>
                       Usados {leaveSummary.code26.used_days}, pendientes {leaveSummary.code26.pending_days}. Este mes quedan {leaveSummary.code26.remaining_this_month}
@@ -5747,6 +6005,7 @@ export default function PersonnelPage() {
                     </span>
                   </div>
                 </div>
+                </>
               )
             }
 
@@ -7263,6 +7522,1098 @@ function formatPrintTime(
   }
 
   return String(value).slice(0, 5);
+}
+
+function formatPrintDateTime(
+  value: Date
+) {
+  return value.toLocaleString(
+    'es-AR',
+    {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    }
+  );
+}
+
+function groupLeaveRequestsByCode(
+  leaves: LeaveRequest[]
+): LeaveRequestGroup[] {
+  const sortedLeaves =
+    [...leaves].sort((a, b) => {
+      const dateDiff =
+        new Date(b.start_date).getTime() -
+        new Date(a.start_date).getTime();
+
+      if (dateDiff !== 0) {
+        return dateDiff;
+      }
+
+      return b.id - a.id;
+    });
+
+  const groups =
+    new Map<string, LeaveRequestGroup>();
+
+  sortedLeaves.forEach((leave) => {
+    const groupKey =
+      `${leave.code}-${leave.description}`;
+
+    if (!groups.has(groupKey)) {
+      groups.set(
+        groupKey,
+        {
+          code: leave.code,
+          description: leave.description,
+          leaves: []
+        }
+      );
+    }
+
+    groups.get(groupKey)?.leaves.push(leave);
+  });
+
+  return Array.from(groups.values());
+}
+
+function formatLeavePeriod(
+  leave: LeaveRequest
+) {
+  const startDate =
+    formatDisplayDate(leave.start_date);
+  const endDate =
+    formatDisplayDate(leave.end_date);
+
+  if (
+    !leave.end_date ||
+    startDate === endDate
+  ) {
+    return startDate;
+  }
+
+  return `${startDate} al ${endDate}`;
+}
+
+function formatLeaveQuantity(
+  leave: LeaveRequest
+) {
+  if (Number(leave.total_hours || 0) > 0) {
+    return `${leave.total_hours} hs`;
+  }
+
+  return `${leave.total_days || 0} dia(s)`;
+}
+
+function formatLeaveStatus(
+  status: string
+) {
+  const labels: Record<string, string> = {
+    pendiente: 'Pendiente',
+    aprobado: 'Aprobada',
+    rechazado: 'Rechazada',
+    cancelado: 'Cancelada'
+  };
+
+  return labels[status] || status;
+}
+
+function getLeaveStatusBadgeClass(
+  status: string
+) {
+  if (status === 'aprobado') {
+    return 'badge badge-success';
+  }
+
+  if (
+    status === 'rechazado' ||
+    status === 'cancelado'
+  ) {
+    return 'badge badge-danger';
+  }
+
+  return 'badge';
+}
+
+function formatLeaveResolvedBy(
+  leave: LeaveRequest
+) {
+  if (leave.status === 'pendiente') {
+    return 'Pendiente';
+  }
+
+  return leave.approved_by_name || '-';
+}
+
+function GroupedLeavesHistory({
+  groups
+}: {
+  groups: LeaveRequestGroup[];
+}) {
+  return (
+    <div className="leave-history-groups">
+      {groups.map((group) => (
+        <section
+          className="leave-history-group"
+          key={`${group.code}-${group.description}`}
+        >
+          <h3>
+            Clave {group.code} - {group.description}
+          </h3>
+          <div className="table-responsive">
+            <table className="data-table leave-history-table">
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Cantidad</th>
+                  <th>Estado</th>
+                  <th>Cargo</th>
+                  <th>Aprobo / rechazo</th>
+                </tr>
+              </thead>
+              <tbody>
+                {group.leaves.map((leave) => (
+                  <tr key={leave.id}>
+                    <td>{formatLeavePeriod(leave)}</td>
+                    <td>{formatLeaveQuantity(leave)}</td>
+                    <td>
+                      <span className={getLeaveStatusBadgeClass(leave.status)}>
+                        {formatLeaveStatus(leave.status)}
+                      </span>
+                    </td>
+                    <td>{leave.requested_by_name || '-'}</td>
+                    <td>{formatLeaveResolvedBy(leave)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ))}
+    </div>
+  );
+}
+
+function groupAttendanceRecordsByCode(
+  records: AttendanceRecordSummary[]
+): AttendanceRecordGroup[] {
+  const sortedRecords =
+    [...records].sort((a, b) => {
+      const dateDiff =
+        new Date(b.attendance_date).getTime() -
+        new Date(a.attendance_date).getTime();
+
+      if (dateDiff !== 0) {
+        return dateDiff;
+      }
+
+      return b.id - a.id;
+    });
+
+  const groups =
+    new Map<string, AttendanceRecordGroup>();
+
+  sortedRecords.forEach((record) => {
+    const groupKey =
+      `${record.code}-${record.description}`;
+
+    if (!groups.has(groupKey)) {
+      groups.set(
+        groupKey,
+        {
+          code: record.code,
+          description: record.description,
+          category: record.category,
+          records: []
+        }
+      );
+    }
+
+    groups.get(groupKey)?.records.push(record);
+  });
+
+  return Array.from(groups.values());
+}
+
+function formatAttendanceSource(
+  source?: string | null
+) {
+  if (source === 'manual') {
+    return 'Manual';
+  }
+
+  if (source === 'excel_import') {
+    return 'Importado';
+  }
+
+  return source || '-';
+}
+
+function GroupedAttendanceHistory({
+  groups
+}: {
+  groups: AttendanceRecordGroup[];
+}) {
+  return (
+    <div className="leave-history-groups">
+      {groups.map((group) => (
+        <section
+          className="leave-history-group"
+          key={`${group.code}-${group.description}`}
+        >
+          <h3>
+            Clave {group.code} - {group.description}
+          </h3>
+          <div className="table-responsive">
+            <table className="data-table leave-history-table">
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Categoria</th>
+                  <th>Origen</th>
+                  <th>Cargo</th>
+                </tr>
+              </thead>
+              <tbody>
+                {group.records.map((record) => (
+                  <tr key={record.id}>
+                    <td>{formatDisplayDate(record.attendance_date)}</td>
+                    <td>{record.category || '-'}</td>
+                    <td>{formatAttendanceSource(record.source)}</td>
+                    <td>{record.created_by_name || '-'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ))}
+    </div>
+  );
+}
+
+function buildDirectiveKeyCards(
+  summary: DirectiveSummary
+): DirectiveKeyCardData[] {
+  const coveredCodes =
+    new Set([
+      '8',
+      '23',
+      '24',
+      '26',
+      '29',
+      '34',
+      '43',
+      'C',
+      'FC',
+      'P'
+    ]);
+
+  const cards: DirectiveKeyCardData[] = [];
+  const addedCodes =
+    new Set<string>();
+
+  summary.recentLeaves.forEach((leave) => {
+    const normalizedCode =
+      String(leave.code).toUpperCase();
+
+    if (
+      coveredCodes.has(normalizedCode) ||
+      addedCodes.has(normalizedCode)
+    ) {
+      return;
+    }
+
+    const sameCodeLeaves =
+      summary.recentLeaves.filter((item) =>
+        String(item.code).toUpperCase() === normalizedCode
+      );
+
+    const totalQuantity =
+      sameCodeLeaves.reduce(
+        (total, item) =>
+          total +
+          Number(
+            Number(item.total_hours || 0) > 0
+              ? item.total_hours
+              : item.total_days || 0
+          ),
+        0
+      );
+
+    cards.push({
+      title: `Clave ${leave.code} - ${leave.description}`,
+      value: totalQuantity,
+      detail: `${sameCodeLeaves.length} movimiento(s)`,
+      mode: `leave:${leave.code}`
+    });
+
+    addedCodes.add(normalizedCode);
+  });
+
+  summary.attendance.byCode.forEach((item) => {
+    const normalizedCode =
+      String(item.code).toUpperCase();
+
+    if (
+      coveredCodes.has(normalizedCode) ||
+      addedCodes.has(normalizedCode)
+    ) {
+      return;
+    }
+
+    cards.push({
+      title: `Clave ${item.code} - ${item.description}`,
+      value: item.total,
+      detail: `${item.category}`,
+      mode: `attendance:${item.code}`
+    });
+
+    addedCodes.add(normalizedCode);
+  });
+
+  return cards;
+}
+
+function DirectiveKeyCard({
+  card,
+  onPrint
+}: {
+  card: DirectiveKeyCardData;
+  onPrint: () => void;
+}) {
+  return (
+    <div className="dashboard-card directive-key-card">
+      <div className="directive-key-card-header">
+        <h3 title={card.title}>{card.title}</h3>
+        <button
+          aria-label={`Imprimir ${card.title}`}
+          className="card-print-icon-button"
+          title="Imprimir"
+          type="button"
+          onClick={onPrint}
+        >
+          ⎙
+        </button>
+      </div>
+      <p>{card.value}</p>
+      <span>{card.detail}</span>
+    </div>
+  );
+}
+
+function getDirectivePrintTitle(
+  mode: DirectivePrintMode
+) {
+  if (mode === 'all') {
+    return 'Resumen completo de personal';
+  }
+
+  if (mode === 'vacation') {
+    return 'Clave 8 - LICENCIA ANUAL';
+  }
+
+  if (mode === 'code26') {
+    return 'Clave 26 - PERMISO ASUNTOS PARTICULARES';
+  }
+
+  if (mode === 'hours') {
+    return 'Claves 24/43 - HORAS';
+  }
+
+  if (mode === 'code29') {
+    return 'Clave 29 - LICENCIA COMPLEMENTARIA';
+  }
+
+  if (mode === 'compensatory') {
+    return 'Compensatorios';
+  }
+
+  if (mode === 'attendance') {
+    return 'Presentismo por clave';
+  }
+
+  if (mode.startsWith('attendance:')) {
+    return `Clave ${mode.replace('attendance:', '')}`;
+  }
+
+  if (mode.startsWith('leave:')) {
+    return `Clave ${mode.replace('leave:', '')}`;
+  }
+
+  return 'Resumen de personal';
+}
+
+function getDirectiveLeavesForPrint(
+  summary: DirectiveSummary,
+  mode: DirectivePrintMode
+) {
+  const leaves =
+    summary.recentLeaves;
+
+  if (
+    mode === 'all' ||
+    mode === 'leaves'
+  ) {
+    return leaves;
+  }
+
+  if (mode.startsWith('leave:')) {
+    const code =
+      mode.replace('leave:', '').toUpperCase();
+
+    return leaves.filter((leave) =>
+      String(leave.code).toUpperCase() === code
+    );
+  }
+
+  const codeMap: Partial<Record<DirectivePrintMode, string[]>> = {
+    vacation: ['8'],
+    code26: ['26'],
+    hours: ['23', '24', '43'],
+    code29: ['29'],
+    compensatory: ['34', 'FC']
+  };
+
+  const codes =
+    codeMap[mode] || [];
+
+  return leaves.filter((leave) =>
+    codes.includes(String(leave.code).toUpperCase())
+  );
+}
+
+function getDirectiveAttendanceForPrint(
+  summary: DirectiveSummary,
+  mode: DirectivePrintMode
+) {
+  const records =
+    summary.recentAttendance;
+
+  if (mode === 'all') {
+    const leaveCodes =
+      new Set(
+        summary.recentLeaves.map((leave) =>
+          String(leave.code).toUpperCase()
+        )
+      );
+
+    return records.filter((record) =>
+      !leaveCodes.has(String(record.code).toUpperCase())
+    );
+  }
+
+  if (mode === 'attendance') {
+    return records;
+  }
+
+  if (mode.startsWith('attendance:')) {
+    const code =
+      mode.replace('attendance:', '').toUpperCase();
+
+    return records.filter((record) =>
+      String(record.code).toUpperCase() === code
+    );
+  }
+
+  if (mode === 'absences') {
+    return records.filter((record) =>
+      record.category === 'ausencia'
+    );
+  }
+
+  if (mode === 'compensatory') {
+    return records.filter((record) =>
+      String(record.code).toUpperCase() === 'C'
+    );
+  }
+
+  return [];
+}
+
+function DirectiveSummaryPrintModal({
+  mode,
+  summary,
+  user,
+  onClose
+}: {
+  mode: DirectivePrintMode;
+  summary: DirectiveSummary;
+  user: any;
+  onClose: () => void;
+}) {
+  const printedAt =
+    new Date();
+
+  const printedBy =
+    [
+      user?.first_name,
+      user?.last_name
+    ]
+      .filter(Boolean)
+      .join(' ') ||
+    user?.username ||
+    '-';
+
+  const leaves =
+    getDirectiveLeavesForPrint(
+      summary,
+      mode
+    );
+
+  const attendance =
+    getDirectiveAttendanceForPrint(
+      summary,
+      mode
+    );
+
+  const showBalances =
+    mode === 'all' ||
+    mode === 'seniority';
+
+  function handlePrint() {
+    window.print();
+  }
+
+  return (
+    <div className="modal-overlay">
+      <div className="modal-content modal-content-wide">
+        <div className="permission-print-actions">
+          <button
+            className="btn-secondary"
+            type="button"
+            onClick={onClose}
+          >
+            Cerrar
+          </button>
+          <button
+            className="btn-primary"
+            type="button"
+            onClick={handlePrint}
+          >
+            Imprimir
+          </button>
+        </div>
+
+        <section className="employee-leaves-print-area">
+          <div className="employee-leaves-print-page">
+            <header className="leave-summary-print-header">
+              <h2>{getDirectivePrintTitle(mode)}</h2>
+              <p>Hospital Municipal de Punta Lara - {summary.period.year}</p>
+            </header>
+
+            <section className="leave-summary-print-section">
+              <h3>Datos del empleado</h3>
+              <div className="leave-summary-print-grid">
+                <LeaveSummaryTextField
+                  label="Empleado"
+                  value={summary.employee.full_name}
+                />
+                <LeaveSummaryTextField
+                  label="DNI"
+                  value={summary.employee.dni}
+                />
+                <LeaveSummaryTextField
+                  label="Legajo"
+                  value={summary.employee.file_number}
+                />
+                <LeaveSummaryTextField
+                  label="Dependencia"
+                  value={summary.employee.facility_name}
+                />
+                <LeaveSummaryTextField
+                  label="Sector"
+                  value={summary.employee.department_name}
+                />
+                <LeaveSummaryTextField
+                  label="Ingreso"
+                  value={formatDisplayDate(summary.employee.hire_date)}
+                />
+                <LeaveSummaryTextField
+                  label="Turno"
+                  value={formatEmployeeShift(summary.employee)}
+                />
+                <LeaveSummaryTextField
+                  label="Tipo"
+                  value={summary.employee.employment_type}
+                />
+                <LeaveSummaryTextField
+                  label="Profesional"
+                  value={
+                    summary.employee.is_professional
+                      ? 'Si.'
+                      : 'No.'
+                  }
+                />
+              </div>
+            </section>
+
+            {showBalances && (
+              <section className="leave-summary-print-section">
+                <h3>Detalle de saldos</h3>
+                <div className="leave-summary-print-cards">
+                  <LeaveSummaryPrintCard
+                    title="Vacaciones clave 8"
+                    value={summary.balances.vacation.available_days}
+                    detail={`Asignadas ${summary.balances.vacation.allowed_days}, usadas ${summary.balances.vacation.used_days}, pendientes ${summary.balances.vacation.pending_days}`}
+                  />
+                  <LeaveSummaryPrintCard
+                    title="Clave 26"
+                    value={summary.balances.code26.remaining_days}
+                    detail={`Usados ${summary.balances.code26.used_days}, pendientes ${summary.balances.code26.pending_days}. Este mes quedan ${summary.balances.code26.remaining_this_month}`}
+                  />
+                  <LeaveSummaryPrintCard
+                    title="Horas 24 / 43"
+                    value={summary.balances.hours24_43.remaining_hours_year}
+                    detail={`Este mes quedan ${summary.balances.hours24_43.remaining_hours_month} hs. Usadas anio ${summary.balances.hours24_43.used_hours_year} hs`}
+                  />
+                  <LeaveSummaryPrintCard
+                    title="Clave 29"
+                    value={summary.balances.code29.remaining_days}
+                    detail={`Asignados ${summary.balances.code29.allowed_days}, usados ${summary.balances.code29.used_days}, pendientes ${summary.balances.code29.pending_days}`}
+                  />
+                  <LeaveSummaryPrintCard
+                    title="Compensatorios"
+                    value={summary.balances.compensatory.remaining_days}
+                    detail={`Ganados ${summary.balances.compensatory.earned_days}, usados ${summary.balances.compensatory.used_days}, pendientes ${summary.balances.compensatory.pending_days}`}
+                  />
+                </div>
+              </section>
+            )}
+
+            {leaves.length > 0 && (
+              <section className="leave-summary-print-section">
+                <h3>Licencias</h3>
+                <GroupedLeavesHistory
+                  groups={groupLeaveRequestsByCode(leaves)}
+                />
+              </section>
+            )}
+
+            {attendance.length > 0 && (
+              <section className="leave-summary-print-section">
+                <h3>Presentismo</h3>
+                <GroupedAttendanceHistory
+                  groups={groupAttendanceRecordsByCode(attendance)}
+                />
+              </section>
+            )}
+
+            {leaves.length === 0 &&
+              attendance.length === 0 &&
+              !showBalances && (
+                <p className="page-subtitle">
+                  No hay movimientos para imprimir en esta opcion.
+                </p>
+              )}
+
+            <footer className="leave-summary-print-footer">
+              <span>
+                Impreso por: <strong>{printedBy}</strong>
+              </span>
+              <span>
+                Fecha y hora: <strong>{formatPrintDateTime(printedAt)}</strong>
+              </span>
+            </footer>
+          </div>
+        </section>
+      </div>
+    </div>
+  );
+}
+
+function EmployeeAttendanceHistoryPrintModal({
+  summary,
+  user,
+  onClose
+}: {
+  summary: DirectiveSummary;
+  user: any;
+  onClose: () => void;
+}) {
+  const printedAt =
+    new Date();
+
+  const printedBy =
+    [
+      user?.first_name,
+      user?.last_name
+    ]
+      .filter(Boolean)
+      .join(' ') ||
+    user?.username ||
+    '-';
+
+  function handlePrint() {
+    window.print();
+  }
+
+  return (
+    <div className="modal-overlay">
+      <div className="modal-content modal-content-wide">
+        <div className="permission-print-actions">
+          <button
+            className="btn-secondary"
+            type="button"
+            onClick={onClose}
+          >
+            Cerrar
+          </button>
+          <button
+            className="btn-primary"
+            type="button"
+            onClick={handlePrint}
+          >
+            Imprimir
+          </button>
+        </div>
+
+        <section className="employee-leaves-print-area">
+          <div className="employee-leaves-print-page">
+            <header className="leave-summary-print-header">
+              <h2>Historial de presentismo</h2>
+              <p>Hospital Municipal de Punta Lara - {summary.period.year}</p>
+            </header>
+
+            <section className="leave-summary-print-section">
+              <h3>Datos del empleado</h3>
+              <div className="leave-summary-print-grid">
+                <LeaveSummaryTextField
+                  label="Empleado"
+                  value={summary.employee.full_name}
+                />
+                <LeaveSummaryTextField
+                  label="DNI"
+                  value={summary.employee.dni}
+                />
+                <LeaveSummaryTextField
+                  label="Legajo"
+                  value={summary.employee.file_number}
+                />
+                <LeaveSummaryTextField
+                  label="Dependencia"
+                  value={summary.employee.facility_name}
+                />
+                <LeaveSummaryTextField
+                  label="Sector"
+                  value={summary.employee.department_name}
+                />
+                <LeaveSummaryTextField
+                  label="Ingreso"
+                  value={formatDisplayDate(summary.employee.hire_date)}
+                />
+              </div>
+            </section>
+
+            <section className="leave-summary-print-section">
+              <h3>Novedades por clave</h3>
+              <GroupedAttendanceHistory
+                groups={groupAttendanceRecordsByCode(summary.recentAttendance)}
+              />
+            </section>
+
+            <footer className="leave-summary-print-footer">
+              <span>
+                Impreso por: <strong>{printedBy}</strong>
+              </span>
+              <span>
+                Fecha y hora: <strong>{formatPrintDateTime(printedAt)}</strong>
+              </span>
+            </footer>
+          </div>
+        </section>
+      </div>
+    </div>
+  );
+}
+
+function EmployeeLeavesHistoryPrintModal({
+  summary,
+  user,
+  onClose
+}: {
+  summary: DirectiveSummary;
+  user: any;
+  onClose: () => void;
+}) {
+  const printedAt =
+    new Date();
+
+  const printedBy =
+    [
+      user?.first_name,
+      user?.last_name
+    ]
+      .filter(Boolean)
+      .join(' ') ||
+    user?.username ||
+    '-';
+
+  function handlePrint() {
+    window.print();
+  }
+
+  return (
+    <div className="modal-overlay">
+      <div className="modal-content modal-content-wide">
+        <div className="permission-print-actions">
+          <button
+            className="btn-secondary"
+            type="button"
+            onClick={onClose}
+          >
+            Cerrar
+          </button>
+          <button
+            className="btn-primary"
+            type="button"
+            onClick={handlePrint}
+          >
+            Imprimir
+          </button>
+        </div>
+
+        <section className="employee-leaves-print-area">
+          <div className="employee-leaves-print-page">
+            <header className="leave-summary-print-header">
+              <h2>Historial de licencias</h2>
+              <p>Hospital Municipal de Punta Lara</p>
+            </header>
+
+            <section className="leave-summary-print-section">
+              <h3>Datos del empleado</h3>
+              <div className="leave-summary-print-grid">
+                <LeaveSummaryTextField
+                  label="Empleado"
+                  value={summary.employee.full_name}
+                />
+                <LeaveSummaryTextField
+                  label="DNI"
+                  value={summary.employee.dni}
+                />
+                <LeaveSummaryTextField
+                  label="Legajo"
+                  value={summary.employee.file_number}
+                />
+                <LeaveSummaryTextField
+                  label="Dependencia"
+                  value={summary.employee.facility_name}
+                />
+                <LeaveSummaryTextField
+                  label="Sector"
+                  value={summary.employee.department_name}
+                />
+                <LeaveSummaryTextField
+                  label="Ingreso"
+                  value={formatDisplayDate(summary.employee.hire_date)}
+                />
+              </div>
+            </section>
+
+            <section className="leave-summary-print-section">
+              <h3>Licencias por clave</h3>
+              <GroupedLeavesHistory
+                groups={groupLeaveRequestsByCode(summary.recentLeaves)}
+              />
+            </section>
+
+            <footer className="leave-summary-print-footer">
+              <span>
+                Impreso por: <strong>{printedBy}</strong>
+              </span>
+              <span>
+                Fecha y hora: <strong>{formatPrintDateTime(printedAt)}</strong>
+              </span>
+            </footer>
+          </div>
+        </section>
+      </div>
+    </div>
+  );
+}
+
+function LeaveSummaryPrintModal({
+  employee,
+  summary,
+  user,
+  onClose
+}: {
+  employee: Employee;
+  summary: LeaveSummary;
+  user: any;
+  onClose: () => void;
+}) {
+  const printedAt =
+    new Date();
+
+  const printedBy =
+    [
+      user?.first_name,
+      user?.last_name
+    ]
+      .filter(Boolean)
+      .join(' ') ||
+    user?.username ||
+    '-';
+
+  function handlePrint() {
+    window.print();
+  }
+
+  return (
+    <div className="modal-overlay">
+      <div className="modal-content modal-content-wide">
+        <div className="permission-print-actions">
+          <button
+            className="btn-secondary"
+            type="button"
+            onClick={onClose}
+          >
+            Cerrar
+          </button>
+          <button
+            className="btn-primary"
+            type="button"
+            onClick={handlePrint}
+          >
+            Imprimir
+          </button>
+        </div>
+
+        <section className="leave-summary-print-area">
+          <div className="leave-summary-print-page">
+            <header className="leave-summary-print-header">
+              <div>
+                <h2>Resumen de licencias</h2>
+                <p>Hospital Municipal de Punta Lara</p>
+              </div>
+            </header>
+
+            <section className="leave-summary-print-section">
+              <h3>Datos del empleado</h3>
+              <div className="leave-summary-print-grid">
+                <LeaveSummaryTextField
+                  label="Empleado"
+                  value={employee.full_name}
+                />
+                <LeaveSummaryTextField
+                  label="DNI"
+                  value={employee.dni}
+                />
+                <LeaveSummaryTextField
+                  label="Legajo"
+                  value={employee.file_number}
+                />
+                <LeaveSummaryTextField
+                  label="Dependencia"
+                  value={employee.facility_name}
+                />
+                <LeaveSummaryTextField
+                  label="Sector"
+                  value={employee.department_name}
+                />
+                <LeaveSummaryTextField
+                  label="Ingreso"
+                  value={formatDisplayDate(employee.hire_date)}
+                />
+                <LeaveSummaryTextField
+                  label="Turno"
+                  value={formatEmployeeShift(employee)}
+                />
+                <LeaveSummaryTextField
+                  label="Tipo"
+                  value={employee.employment_type}
+                />
+                <LeaveSummaryTextField
+                  label="Profesional"
+                  value={
+                    employee.is_professional
+                      ? 'Si.'
+                      : 'No.'
+                  }
+                />
+              </div>
+            </section>
+
+            <section className="leave-summary-print-section">
+              <h3>Detalle de saldos</h3>
+              <div className="leave-summary-print-cards">
+                <LeaveSummaryPrintCard
+                  title="Vacaciones clave 8"
+                  value={summary.vacation.available_days}
+                  detail={`Asignadas ${summary.vacation.allowed_days}, usadas ${summary.vacation.used_days}, pendientes ${summary.vacation.pending_days}`}
+                />
+                <LeaveSummaryPrintCard
+                  title="Clave 26"
+                  value={summary.code26.remaining_days}
+                  detail={`Usados ${summary.code26.used_days}, pendientes ${summary.code26.pending_days}. Este mes quedan ${summary.code26.remaining_this_month}`}
+                />
+                <LeaveSummaryPrintCard
+                  title="Horas 24 / 43"
+                  value={summary.hours24_43.remaining_hours_year}
+                  detail={`Este mes quedan ${summary.hours24_43.remaining_hours_month} hs. Usadas anio ${summary.hours24_43.used_hours_year} hs`}
+                />
+                <LeaveSummaryPrintCard
+                  title="Clave 29"
+                  value={summary.code29.remaining_days}
+                  detail={`Asignados ${summary.code29.allowed_days}, usados ${summary.code29.used_days}, pendientes ${summary.code29.pending_days}`}
+                />
+                <LeaveSummaryPrintCard
+                  title="Compensatorios"
+                  value={summary.compensatory.remaining_days}
+                  detail={`Ganados ${summary.compensatory.earned_days}, usados ${summary.compensatory.used_days}, pendientes ${summary.compensatory.pending_days}`}
+                />
+              </div>
+            </section>
+
+            <footer className="leave-summary-print-footer">
+              <span>
+                Impreso por: <strong>{printedBy}</strong>
+              </span>
+              <span>
+                Fecha y hora: <strong>{formatPrintDateTime(printedAt)}</strong>
+              </span>
+            </footer>
+          </div>
+        </section>
+      </div>
+    </div>
+  );
+}
+
+function LeaveSummaryPrintCard({
+  title,
+  value,
+  detail
+}: {
+  title: string;
+  value: number;
+  detail: string;
+}) {
+  return (
+    <div className="leave-summary-print-card">
+      <h4>{title}</h4>
+      <strong>{value}</strong>
+      <p>{detail}</p>
+    </div>
+  );
+}
+
+function LeaveSummaryTextField({
+  label,
+  value
+}: {
+  label: string;
+  value?: string | number | null;
+}) {
+  return (
+    <div className="leave-summary-text-field">
+      <strong>{label}</strong>
+      <span>{value || '-'}</span>
+    </div>
+  );
 }
 
 function PermissionPrintModal({

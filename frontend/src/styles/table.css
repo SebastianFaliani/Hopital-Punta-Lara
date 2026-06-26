@@ -363,9 +363,13 @@
 
 .dashboard-card {
 
+  position: relative;
+
   background: white;
 
-  padding: 10px 12px;
+  min-height: 92px;
+
+  padding: 10px 46px 12px 12px;
 
   border-radius: 8px;
 
@@ -383,6 +387,12 @@
   color: #6b7280;
 
   font-size: 12px;
+
+  overflow: hidden;
+
+  text-overflow: ellipsis;
+
+  white-space: nowrap;
 }
 
 .dashboard-card p {
@@ -403,6 +413,187 @@
   color: #6b7280;
 
   font-size: 11px;
+}
+
+.card-print-button {
+
+  position: absolute;
+
+  top: 10px;
+
+  right: 10px;
+
+  width: 28px;
+
+  height: 28px;
+
+  display: inline-grid;
+
+  place-items: center;
+
+  margin-top: 0;
+
+  padding: 0;
+
+  border: 1px solid var(--color-border);
+
+  border-radius: 6px;
+
+  background: #ffffff;
+
+  color: var(--color-primary);
+
+  cursor: pointer;
+
+  font-size: 0;
+
+  font-weight: 700;
+}
+
+.card-print-button::before {
+
+  content: "\2399";
+
+  font-size: 17px;
+
+  line-height: 1;
+}
+
+.card-print-button:hover {
+
+  background: #eff6ff;
+}
+
+.legacy-summary-grid {
+
+  display: grid;
+
+  grid-template-columns:
+    repeat(3, minmax(0, 1fr));
+}
+
+.directive-hidden-card,
+.legacy-summary-grid > .dashboard-card:nth-child(2) {
+
+  display: none;
+}
+
+.directive-key-grid {
+
+  display: none;
+
+  grid-template-columns:
+    repeat(3, minmax(0, 1fr));
+
+  margin-top: 10px;
+}
+
+.directive-key-card {
+
+  display: grid;
+
+  align-content: start;
+
+  gap: 5px;
+
+  min-height: 92px;
+
+  padding-right: 12px;
+}
+
+.directive-key-card-header {
+
+  display: grid;
+
+  grid-template-columns: 1fr auto;
+
+  align-items: start;
+
+  gap: 8px;
+}
+
+.directive-key-card-header h3 {
+
+  margin: 0;
+
+  overflow: hidden;
+
+  text-overflow: ellipsis;
+
+  white-space: nowrap;
+}
+
+.card-print-icon-button {
+
+  width: 28px;
+
+  height: 28px;
+
+  display: inline-grid;
+
+  place-items: center;
+
+  border: 1px solid var(--color-border);
+
+  border-radius: 6px;
+
+  background: #ffffff;
+
+  color: var(--color-primary);
+
+  cursor: pointer;
+
+  font-size: 0;
+}
+
+.card-print-icon-button::before {
+
+  content: "\2399";
+
+  font-size: 17px;
+
+  line-height: 1;
+}
+
+.card-print-icon-button:hover {
+
+  background: #eff6ff;
+}
+
+.directive-detail-sections {
+
+  display: none !important;
+}
+
+.directive-attendance-total-card {
+
+  display: none;
+}
+
+@media (max-width: 900px) {
+
+  .legacy-summary-grid,
+  .directive-key-grid {
+
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 620px) {
+
+  .legacy-summary-grid,
+  .directive-key-grid {
+
+    grid-template-columns: 1fr;
+  }
+}
+
+.directive-summary-modal .legacy-summary-grid,
+.directive-summary-modal .directive-key-grid {
+
+  grid-template-columns:
+    repeat(3, minmax(0, 1fr)) !important;
 }
 
 .dashboard-sections {
@@ -432,6 +623,29 @@
   margin: 0 0 16px;
 
   font-size: 20px;
+}
+
+.dashboard-panel-wide {
+
+  grid-column: 1 / -1;
+}
+
+.panel-title-row {
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: space-between;
+
+  gap: 12px;
+
+  margin-bottom: 16px;
+}
+
+.panel-title-row h2 {
+
+  margin: 0;
 }
 
 .panel-description {
@@ -469,6 +683,39 @@
   color: #6b7280;
 
   font-size: 14px;
+}
+
+.leave-history-groups {
+
+  display: grid;
+
+  gap: 16px;
+}
+
+.leave-history-group {
+
+  display: grid;
+
+  gap: 8px;
+}
+
+.leave-history-group h3 {
+
+  margin: 0;
+
+  color: var(--color-text);
+
+  font-size: 15px;
+
+  font-weight: 800;
+}
+
+.leave-history-table th,
+.leave-history-table td {
+
+  padding: 8px 10px;
+
+  font-size: 12px;
 }
 
 .module-tabs {

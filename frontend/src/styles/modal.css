@@ -73,6 +73,11 @@
   overflow-y: auto;
 }
 
+.directive-summary-modal {
+
+  width: min(1180px, calc(100vw - 40px));
+}
+
 .modal-title {
 
   margin-top: 0;
@@ -800,6 +805,229 @@
   text-transform: uppercase;
 }
 
+.leave-summary-print-area {
+
+  background: #f8fafc;
+
+  padding: 18px 0;
+
+  overflow: auto;
+}
+
+.leave-summary-print-page {
+
+  width: 210mm;
+
+  min-height: 297mm;
+
+  margin: 0 auto;
+
+  padding: 14mm;
+
+  box-sizing: border-box;
+
+  display: flex;
+
+  flex-direction: column;
+
+  background: #ffffff;
+
+  color: #111827;
+
+  border: 1px solid #e5e7eb;
+
+  transform: scale(0.75);
+
+  transform-origin: top center;
+}
+
+.employee-leaves-print-area {
+
+  background: #f8fafc;
+
+  padding: 18px 0;
+
+  overflow: auto;
+}
+
+.employee-leaves-print-page {
+
+  width: 210mm;
+
+  min-height: 297mm;
+
+  margin: 0 auto;
+
+  padding: 14mm;
+
+  box-sizing: border-box;
+
+  display: flex;
+
+  flex-direction: column;
+
+  background: #ffffff;
+
+  color: #111827;
+
+  border: 1px solid #e5e7eb;
+
+  transform: scale(0.75);
+
+  transform-origin: top center;
+}
+
+.employee-leaves-print-page .leave-history-groups {
+
+  gap: 12px;
+}
+
+.employee-leaves-print-page .leave-history-group h3 {
+
+  font-size: 13px;
+}
+
+.employee-leaves-print-page .leave-history-table th,
+.employee-leaves-print-page .leave-history-table td {
+
+  padding: 5px 7px;
+
+  font-size: 10px;
+}
+
+.leave-summary-print-header {
+
+  padding-bottom: 10px;
+}
+
+.leave-summary-print-header h2 {
+
+  margin: 0;
+
+  font-size: 22px;
+}
+
+.leave-summary-print-header p {
+
+  margin: 4px 0 0;
+
+  color: #4b5563;
+
+  font-size: 12px;
+}
+
+.leave-summary-print-section {
+
+  margin-top: 14px;
+}
+
+.leave-summary-print-section h3 {
+
+  margin: 0 0 8px;
+
+  font-size: 15px;
+}
+
+.leave-summary-print-grid {
+
+  display: grid;
+
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+
+  gap: 10px 18px;
+}
+
+.leave-summary-text-field {
+
+  display: grid;
+
+  gap: 2px;
+
+  font-size: 12px;
+}
+
+.leave-summary-text-field strong {
+
+  font-size: 12px;
+
+  font-weight: 800;
+}
+
+.leave-summary-text-field span {
+
+  font-size: 12px;
+
+  font-weight: 400;
+}
+
+.leave-summary-print-cards {
+
+  display: grid;
+
+  grid-template-columns: repeat(2, 1fr);
+
+  gap: 10px;
+}
+
+.leave-summary-print-card {
+
+  min-height: 72px;
+
+  padding: 10px;
+
+  border: 1px solid #d1d5db;
+
+  border-left: 4px solid #2563eb;
+
+  border-radius: 6px;
+}
+
+.leave-summary-print-card h4 {
+
+  margin: 0 0 5px;
+
+  color: #374151;
+
+  font-size: 13px;
+}
+
+.leave-summary-print-card strong {
+
+  display: block;
+
+  font-size: 24px;
+
+  line-height: 1;
+
+  font-weight: 700;
+}
+
+.leave-summary-print-card p {
+
+  margin: 7px 0 0;
+
+  color: #4b5563;
+
+  font-size: 12px;
+}
+
+.leave-summary-print-footer {
+
+  display: flex;
+
+  justify-content: space-between;
+
+  gap: 12px;
+
+  margin-top: auto;
+
+  padding-top: 8px;
+
+  color: #9ca3af;
+
+  font-size: 11px;
+}
+
 @media print {
 
   body * {
@@ -808,12 +1036,18 @@
   }
 
   .permission-print-area,
-  .permission-print-area * {
+  .permission-print-area *,
+  .leave-summary-print-area,
+  .leave-summary-print-area *,
+  .employee-leaves-print-area,
+  .employee-leaves-print-area * {
 
     visibility: visible;
   }
 
-  .permission-print-area {
+  .permission-print-area,
+  .leave-summary-print-area,
+  .employee-leaves-print-area {
 
     position: fixed;
 
@@ -865,5 +1099,45 @@
     border: 0;
 
     padding: 8mm 7mm;
+  }
+
+  .leave-summary-print-page {
+
+    width: auto;
+
+    min-height: auto;
+
+    border: 0;
+
+    padding: 10mm;
+
+    transform: none;
+  }
+
+  .employee-leaves-print-page {
+
+    width: auto;
+
+    min-height: auto;
+
+    border: 0;
+
+    padding: 10mm;
+
+    transform: none;
+  }
+
+  .leave-summary-print-area {
+
+    padding: 0;
+
+    background: #ffffff;
+  }
+
+  .employee-leaves-print-area {
+
+    padding: 0;
+
+    background: #ffffff;
   }
 }

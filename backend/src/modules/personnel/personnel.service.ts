@@ -3067,12 +3067,6 @@ export async function getEmployeeDirectiveSummary(
   const employee =
     employeeRows[0];
 
-  const period =
-    await getOrCreateAttendancePeriod(
-      year,
-      month
-    );
-
   const [attendanceRows]: any =
     await pool.query(
       `
@@ -3085,7 +3079,7 @@ export async function getEmployeeDirectiveSummary(
         INNER JOIN attendance_codes ac
           ON ac.id = ar.attendance_code_id
         WHERE ar.employee_id = ?
-          AND ar.attendance_period_id = ?
+          AND YEAR(ar.attendance_date) = ?
         GROUP BY
           ac.code,
           ac.description,
@@ -3094,7 +3088,7 @@ export async function getEmployeeDirectiveSummary(
       `,
       [
         employeeId,
-        period.id
+        year
       ]
     );
 
@@ -3138,6 +3132,7 @@ export async function getEmployeeDirectiveSummary(
       `
         SELECT
           lr.id,
+          lr.employee_id,
           ac.code,
           ac.description,
           lr.start_date,
@@ -3146,15 +3141,40 @@ export async function getEmployeeDirectiveSummary(
           lr.total_hours,
           lr.status,
           lr.requested_at,
+          lr.requested_by,
+          COALESCE(
+            NULLIF(
+              TRIM(CONCAT_WS(' ', requester.first_name, requester.last_name)),
+              ''
+            ),
+            requester.username,
+            requester.email,
+            '-'
+          ) AS requested_by_name,
+          lr.approved_by,
+          lr.approved_at,
+          COALESCE(
+            NULLIF(
+              TRIM(CONCAT_WS(' ', approver.first_name, approver.last_name)),
+              ''
+            ),
+            approver.username,
+            approver.email,
+            NULL
+          ) AS approved_by_name,
+          lr.rejected_reason,
           lr.notes
         FROM leave_requests lr
         INNER JOIN attendance_codes ac
           ON ac.id = lr.attendance_code_id
+        LEFT JOIN users requester
+          ON requester.id = lr.requested_by
+        LEFT JOIN users approver
+          ON approver.id = lr.approved_by
         WHERE lr.employee_id = ?
         ORDER BY
           lr.start_date DESC,
           lr.id DESC
-        LIMIT 10
       `,
       [employeeId]
     );
@@ -3163,19 +3183,38 @@ export async function getEmployeeDirectiveSummary(
     await pool.query(
       `
         SELECT
+          ar.id,
           ar.attendance_date,
           ac.code,
           ac.description,
-          ac.category
+          ac.category,
+          ar.source,
+          ar.created_at,
+          COALESCE(
+            NULLIF(
+              TRIM(CONCAT_WS(' ', creator.first_name, creator.last_name)),
+              ''
+            ),
+            creator.username,
+            creator.email,
+            '-'
+          ) AS created_by_name
         FROM attendance_records ar
         INNER JOIN attendance_codes ac
           ON ac.id = ar.attendance_code_id
+        LEFT JOIN users creator
+          ON creator.id = ar.created_by
         WHERE ar.employee_id = ?
+          AND YEAR(ar.attendance_date) = ?
           AND ac.code <> 'P'
-        ORDER BY ar.attendance_date DESC
-        LIMIT 10
+        ORDER BY
+          ar.attendance_date DESC,
+          ar.id DESC
       `,
-      [employeeId]
+      [
+        employeeId,
+        year
+      ]
     );
 
   return {
@@ -4555,8 +4594,8 @@ export async function updateLeaveRequestStatus(
         UPDATE leave_requests
         SET
           status = ?,
-          approved_by = CASE WHEN ? = 'aprobado' THEN ? ELSE approved_by END,
-          approved_at = CASE WHEN ? = 'aprobado' THEN CURRENT_TIMESTAMP ELSE approved_at END,
+          approved_by = CASE WHEN ? IN ('aprobado', 'rechazado', 'cancelado') THEN ? ELSE approved_by END,
+          approved_at = CASE WHEN ? IN ('aprobado', 'rechazado', 'cancelado') THEN CURRENT_TIMESTAMP ELSE approved_at END,
           rejected_reason = CASE WHEN ? = 'rechazado' THEN ? ELSE rejected_reason END
         WHERE id = ?
       `,
