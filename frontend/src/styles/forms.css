@@ -183,14 +183,6 @@
   text-transform: uppercase;
 }
 
-.access-permission-table th:not(:first-child),
-.access-permission-table td:not(:first-child) {
-
-  width: 140px;
-
-  text-align: center;
-}
-
 .access-permission-table tbody tr:last-child td {
 
   border-bottom: 0;
@@ -203,16 +195,33 @@
 
 .access-permission-table td:first-child {
 
+  width: 180px;
+
+  vertical-align: top;
+}
+
+.access-permission-table td:nth-child(2) {
+
   display: grid;
 
   gap: 2px;
 }
 
-.access-permission-table td:first-child span {
+.access-permission-table td:nth-child(2) span {
 
   color: var(--color-text-light);
 
   font-size: 12px;
+}
+
+.access-permission-table th:nth-child(3),
+.access-permission-table td:nth-child(3),
+.access-permission-table th:nth-child(4),
+.access-permission-table td:nth-child(4) {
+
+  width: 130px;
+
+  text-align: center;
 }
 
 .access-permission-table input,
@@ -221,6 +230,29 @@
   width: 17px;
 
   height: 17px;
+}
+
+.permission-source {
+
+  display: inline-flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  min-width: 96px;
+
+  padding: 4px 8px;
+
+  border-radius: 999px;
+
+  background: #eef2ff;
+
+  color: #3730a3;
+
+  font-size: 12px;
+
+  font-weight: 700;
 }
 
 .permissions-grid {

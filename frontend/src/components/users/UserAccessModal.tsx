@@ -113,15 +113,6 @@ export default function UserAccessModal({
       );
     }, [permissions]);
 
-  function findModulePermission(
-    items: Permission[],
-    action: 'view' | 'manage'
-  ) {
-    return items.find((permission) =>
-      permission.permission_key.endsWith(`.${action}`)
-    );
-  }
-
   function togglePermission(
     permissionKey: string
   ) {
@@ -224,81 +215,83 @@ export default function UserAccessModal({
                   <thead>
                     <tr>
                       <th>Modulo</th>
-                      <th>Ver</th>
-                      <th>Administrar</th>
+                      <th>Permiso</th>
+                      <th>Habilitado</th>
+                      <th>Origen</th>
                     </tr>
                   </thead>
                   <tbody>
                     {Object.entries(permissionGroups)
                       .map(([moduleName, items]) => {
-                        const viewPermission =
-                          findModulePermission(items, 'view');
+                        const sortedItems =
+                          [...items].sort((a, b) => {
+                            const order = (key: string) => {
+                              if (key.endsWith('.view')) {
+                                return 1;
+                              }
 
-                        const managePermission =
-                          findModulePermission(items, 'manage');
+                              if (key.endsWith('.manage')) {
+                                return 2;
+                              }
 
-                        const singlePermission =
-                          !viewPermission && !managePermission
-                            ? items[0]
-                            : null;
+                              return 3;
+                            };
 
-                        return (
-                          <tr key={moduleName}>
-                            <td>
-                              <strong>{moduleName}</strong>
-                              {singlePermission && (
+                            return (
+                              order(a.permission_key) -
+                                order(b.permission_key) ||
+                              a.description.localeCompare(
+                                b.description
+                              )
+                            );
+                          });
+
+                        return sortedItems.map(
+                          (permission, index) => (
+                            <tr key={permission.permission_key}>
+                              {index === 0 && (
+                                <td rowSpan={sortedItems.length}>
+                                  <strong>{moduleName}</strong>
+                                </td>
+                              )}
+                              <td>
+                                <strong>
+                                  {permission.description}
+                                </strong>
                                 <span>
-                                  {singlePermission.description}
+                                  {permission.permission_key}
                                 </span>
-                              )}
-                            </td>
-                            <td>
-                              {(viewPermission || singlePermission) ? (
+                              </td>
+                              <td>
                                 <input
                                   type="checkbox"
-                                  aria-label={`Ver ${moduleName}`}
+                                  aria-label={
+                                    permission.description
+                                  }
                                   checked={
                                     selectedPermissions.includes(
-                                      (
-                                        viewPermission ||
-                                        singlePermission
-                                      )!.permission_key
+                                      permission.permission_key
                                     )
                                   }
                                   onChange={() =>
                                     togglePermission(
-                                      (
-                                        viewPermission ||
-                                        singlePermission
-                                      )!.permission_key
+                                      permission.permission_key
                                     )
                                   }
                                 />
-                              ) : (
-                                <span>-</span>
-                              )}
-                            </td>
-                            <td>
-                              {managePermission ? (
-                                <input
-                                  type="checkbox"
-                                  aria-label={`Administrar ${moduleName}`}
-                                  checked={
-                                    selectedPermissions.includes(
-                                      managePermission.permission_key
-                                    )
+                              </td>
+                              <td>
+                                <span className="permission-source">
+                                  {
+                                    permission.source ===
+                                      'personalizado'
+                                      ? 'Personalizado'
+                                      : 'Rol'
                                   }
-                                  onChange={() =>
-                                    togglePermission(
-                                      managePermission.permission_key
-                                    )
-                                  }
-                                />
-                              ) : (
-                                <span>-</span>
-                              )}
-                            </td>
-                          </tr>
+                                </span>
+                              </td>
+                            </tr>
+                          )
                         );
                       })}
                   </tbody>
