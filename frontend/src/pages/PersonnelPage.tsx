@@ -884,7 +884,7 @@ function getAutomaticEndDate(
     }
   > = {
     '14': {
-      days: 3,
+      days: 5,
       business: false
     },
     '15': {
@@ -2099,10 +2099,28 @@ export default function PersonnelPage() {
 
     if (
       automaticEndDate &&
-      !isSingleDayLeaveCode(nextCode)
+      !isSingleDayLeaveCode(nextCode) &&
+      (
+        target.name === 'code' ||
+        target.name === 'start_date'
+      )
     ) {
       nextForm.end_date =
         automaticEndDate;
+    }
+
+    if (
+      !automaticEndDate &&
+      !isSingleDayLeaveCode(nextCode) &&
+      nextStartDate &&
+      !nextForm.end_date &&
+      (
+        target.name === 'code' ||
+        target.name === 'start_date'
+      )
+    ) {
+      nextForm.end_date =
+        nextStartDate;
     }
 
     const hasVacationPart =
