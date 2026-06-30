@@ -4436,6 +4436,15 @@ export async function updateLeaveRequest(
       );
     }
 
+    if (
+      previousStatus === 'aprobado' &&
+      !['admin', 'dir'].includes(user?.role)
+    ) {
+      throw new Error(
+        'No se puede editar una licencia aprobada. Solo admin o dir pueden modificarla'
+      );
+    }
+
     if (previousStatus === 'aprobado') {
       await adjustVacationBalanceForRequest(
         connection,

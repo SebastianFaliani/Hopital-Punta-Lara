@@ -967,6 +967,31 @@ export default function PersonnelPage() {
       ['admin', 'dir']
     );
 
+  const canEditApprovedLeaves =
+    user?.role === 'admin' ||
+    user?.role === 'dir';
+
+  function canEditLeaveRequest(
+    request: LeaveRequest
+  ) {
+    if (!canManageLeaves) {
+      return false;
+    }
+
+    if (
+      request.status === 'cancelado' ||
+      request.status === 'rechazado'
+    ) {
+      return false;
+    }
+
+    if (request.status === 'aprobado') {
+      return canEditApprovedLeaves;
+    }
+
+    return true;
+  }
+
   const canManageBalances =
     hasPermission(
       user,
@@ -6395,8 +6420,7 @@ export default function PersonnelPage() {
                       {canManageLeaves && (
                         <td>
                         <div className="table-actions">
-                          {canManageLeaves &&
-                            !['cancelado', 'rechazado'].includes(request.status) && (
+                          {canEditLeaveRequest(request) && (
                             <button
                               className="btn-primary"
                               type="button"
@@ -7143,7 +7167,7 @@ export default function PersonnelPage() {
                       {(canManageLeaves || canApproveLeaves) && (
                         <td>
                         <div className="table-actions">
-                          {!['cancelado', 'rechazado'].includes(request.status) && (
+                          {canEditLeaveRequest(request) && (
                             <button
                               className="btn-primary"
                               type="button"
