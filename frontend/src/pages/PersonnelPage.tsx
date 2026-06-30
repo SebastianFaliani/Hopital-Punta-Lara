@@ -6432,7 +6432,8 @@ export default function PersonnelPage() {
                             </button>
                           )}
 
-                          {isPrintableLeaveCode(request.code) && (
+                          {isPrintableLeaveCode(request.code) &&
+                            !isCancelledLeaveRequest(request) && (
                             <button
                               className="btn-secondary"
                               type="button"
@@ -7179,7 +7180,8 @@ export default function PersonnelPage() {
                             </button>
                           )}
 
-                          {isPrintableLeaveCode(request.code) && (
+                          {isPrintableLeaveCode(request.code) &&
+                            !isCancelledLeaveRequest(request) && (
                             <button
                               className="btn-secondary"
                               type="button"
@@ -7585,7 +7587,11 @@ function groupLeaveRequestsByCode(
   leaves: LeaveRequest[]
 ): LeaveRequestGroup[] {
   const sortedLeaves =
-    [...leaves].sort((a, b) => {
+    leaves
+      .filter((leave) =>
+        !isCancelledLeaveRequest(leave)
+      )
+      .sort((a, b) => {
       const dateDiff =
         new Date(b.start_date).getTime() -
         new Date(a.start_date).getTime();
@@ -7595,7 +7601,7 @@ function groupLeaveRequestsByCode(
       }
 
       return b.id - a.id;
-    });
+      });
 
   const groups =
     new Map<string, LeaveRequestGroup>();
@@ -7687,6 +7693,12 @@ function formatLeaveResolvedBy(
   }
 
   return leave.approved_by_name || '-';
+}
+
+function isCancelledLeaveRequest(
+  leave: LeaveRequest
+) {
+  return leave.status === 'cancelado';
 }
 
 function GroupedLeavesHistory({
@@ -7857,7 +7869,11 @@ function buildDirectiveKeyCards(
   const addedCodes =
     new Set<string>();
 
-  summary.recentLeaves.forEach((leave) => {
+  summary.recentLeaves
+    .filter((leave) =>
+      !isCancelledLeaveRequest(leave)
+    )
+    .forEach((leave) => {
     const normalizedCode =
       String(leave.code).toUpperCase();
 
@@ -7870,6 +7886,7 @@ function buildDirectiveKeyCards(
 
     const sameCodeLeaves =
       summary.recentLeaves.filter((item) =>
+        !isCancelledLeaveRequest(item) &&
         String(item.code).toUpperCase() === normalizedCode
       );
 
@@ -7893,7 +7910,7 @@ function buildDirectiveKeyCards(
     });
 
     addedCodes.add(normalizedCode);
-  });
+    });
 
   summary.attendance.byCode.forEach((item) => {
     const normalizedCode =
@@ -7993,7 +8010,9 @@ function getDirectiveLeavesForPrint(
   mode: DirectivePrintMode
 ) {
   const leaves =
-    summary.recentLeaves;
+    summary.recentLeaves.filter((leave) =>
+      !isCancelledLeaveRequest(leave)
+    );
 
   if (
     mode === 'all' ||
@@ -8038,7 +8057,9 @@ function getDirectiveAttendanceForPrint(
     const leaveCodes =
       new Set(
         summary.recentLeaves.map((leave) =>
-          String(leave.code).toUpperCase()
+          isCancelledLeaveRequest(leave)
+            ? ''
+            : String(leave.code).toUpperCase()
         )
       );
 
