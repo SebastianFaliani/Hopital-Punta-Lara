@@ -20,6 +20,7 @@ import {
   createVacationRule,
   deleteLeaveBalanceAdjustment,
   getAttendanceMonth,
+  getAttendanceEmployeeYear,
   getAttendanceCodes,
   getDepartments,
   getEmployees,
@@ -298,6 +299,47 @@ export async function handleGetAttendanceMonth(
           year,
           month,
           departmentId,
+          req.user,
+          req.query.facility_id
+            ? Number(req.query.facility_id)
+            : null
+        )
+    });
+
+  } catch (error: any) {
+    return res.status(400).json({
+      success: false,
+      message: error.message
+    });
+  }
+}
+
+export async function handleGetAttendanceEmployeeYear(
+  req: AuthRequest,
+  res: Response
+) {
+
+  try {
+    const year =
+      Number(req.query.year);
+
+    const employeeId =
+      Number(req.query.employee_id);
+
+    if (!year || !employeeId) {
+      return res.status(400).json({
+        success: false,
+        message:
+          'Anio y empleado son obligatorios'
+      });
+    }
+
+    return res.json({
+      success: true,
+      data:
+        await getAttendanceEmployeeYear(
+          year,
+          employeeId,
           req.user,
           req.query.facility_id
             ? Number(req.query.facility_id)

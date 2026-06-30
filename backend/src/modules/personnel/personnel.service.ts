@@ -724,7 +724,8 @@ export async function getAttendanceMonth(
   month: number,
   departmentId: number | null,
   user?: any,
-  facilityId?: number | null
+  facilityId?: number | null,
+  employeeId?: number | null
 ) {
 
   const period =
@@ -741,6 +742,12 @@ export async function getAttendanceMonth(
     departmentFilter =
       'AND e.department_id = ?';
     params.push(departmentId);
+  }
+
+  if (employeeId) {
+    departmentFilter +=
+      ' AND e.id = ?';
+    params.push(employeeId);
   }
 
   const facilityFilter =
@@ -788,11 +795,14 @@ export async function getAttendanceMonth(
         LEFT JOIN attendance_codes ac
           ON ac.id = ar.attendance_code_id
         WHERE ar.attendance_period_id = ?
+          ${employeeId ? 'AND ar.employee_id = ?' : ''}
         ORDER BY
           ar.employee_id ASC,
           ar.attendance_date ASC
       `,
-      [period.id]
+      employeeId
+        ? [period.id, employeeId]
+        : [period.id]
     );
 
   const [permissionRows]: any =
@@ -812,14 +822,21 @@ export async function getAttendanceMonth(
         WHERE ac.code IN ('24', '43')
           AND lr.status IN ('pendiente', 'aprobado')
           AND lr.start_date BETWEEN ? AND ?
+          ${employeeId ? 'AND lr.employee_id = ?' : ''}
         ORDER BY
           lr.employee_id ASC,
           lr.start_date ASC
       `,
-      [
-        getDateKey(year, month, 1),
-        getDateKey(year, month, getDaysInMonth(year, month))
-      ]
+      employeeId
+        ? [
+          getDateKey(year, month, 1),
+          getDateKey(year, month, getDaysInMonth(year, month)),
+          employeeId
+        ]
+        : [
+          getDateKey(year, month, 1),
+          getDateKey(year, month, getDaysInMonth(year, month))
+        ]
     );
 
   const [plannedOffRows]: any =
@@ -832,14 +849,21 @@ export async function getAttendanceMonth(
           notes
         FROM employee_planned_days_off
         WHERE off_date BETWEEN ? AND ?
+          ${employeeId ? 'AND employee_id = ?' : ''}
         ORDER BY
           employee_id ASC,
           off_date ASC
       `,
-      [
-        getDateKey(year, month, 1),
-        getDateKey(year, month, getDaysInMonth(year, month))
-      ]
+      employeeId
+        ? [
+          getDateKey(year, month, 1),
+          getDateKey(year, month, getDaysInMonth(year, month)),
+          employeeId
+        ]
+        : [
+          getDateKey(year, month, 1),
+          getDateKey(year, month, getDaysInMonth(year, month))
+        ]
     );
 
   const recordMap =
@@ -930,6 +954,60 @@ export async function getAttendanceMonth(
     period,
     days,
     employees: rows
+  };
+}
+
+export async function getAttendanceEmployeeYear(
+  year: number,
+  employeeId: number,
+  user?: any,
+  facilityId?: number | null
+) {
+
+  const months = [];
+  let employee = null;
+
+  for (let month = 1; month <= 12; month += 1) {
+    const monthData =
+      await getAttendanceMonth(
+        year,
+        month,
+        null,
+        user,
+        facilityId,
+        employeeId
+      );
+
+    const employeeRow =
+      monthData.employees[0] || null;
+
+    if (employeeRow && !employee) {
+      const {
+        attendance,
+        ...employeeInfo
+      } = employeeRow;
+
+      employee = employeeInfo;
+    }
+
+    months.push({
+      month,
+      days: monthData.days,
+      attendance:
+        employeeRow?.attendance || {}
+    });
+  }
+
+  if (!employee) {
+    throw new Error(
+      'No se encontro el empleado o no tenes permiso para verlo'
+    );
+  }
+
+  return {
+    year,
+    employee,
+    months
   };
 }
 

@@ -98,6 +98,12 @@ type AttendanceEmployee = {
   >;
 };
 
+type AnnualAttendanceMonth = {
+  month: number;
+  days: number;
+  attendance: AttendanceEmployee['attendance'];
+};
+
 type PlannedDaysOffEmployee = {
   id: number;
   full_name: string;
@@ -1086,6 +1092,9 @@ export default function PersonnelPage() {
   const [attendanceDays, setAttendanceDays] =
     useState(0);
 
+  const [attendanceViewMode, setAttendanceViewMode] =
+    useState<'month' | 'employee'>('month');
+
   const attendanceGridRef =
     useRef<HTMLDivElement | null>(null);
 
@@ -1118,6 +1127,24 @@ export default function PersonnelPage() {
 
   const [attendanceEdits, setAttendanceEdits] =
     useState<Record<string, string>>({});
+
+  const [annualAttendanceEmployeeId, setAnnualAttendanceEmployeeId] =
+    useState('');
+
+  const [annualAttendanceEmployeeSearch, setAnnualAttendanceEmployeeSearch] =
+    useState('');
+
+  const [annualAttendanceEmployee, setAnnualAttendanceEmployee] =
+    useState<AttendanceEmployee | null>(null);
+
+  const [annualAttendanceMonths, setAnnualAttendanceMonths] =
+    useState<AnnualAttendanceMonth[]>([]);
+
+  const [annualAttendanceEdits, setAnnualAttendanceEdits] =
+    useState<Record<string, string>>({});
+
+  const [loadingAnnualAttendance, setLoadingAnnualAttendance] =
+    useState(false);
 
   const [plannedOffRows, setPlannedOffRows] =
     useState<PlannedDaysOffEmployee[]>([]);
@@ -1414,6 +1441,55 @@ export default function PersonnelPage() {
     } catch (error: any) {
 
       setError(error.message);
+    }
+  }
+
+  async function loadAnnualAttendance(
+    employeeId = annualAttendanceEmployeeId
+  ) {
+
+    if (!employeeId) {
+      setAnnualAttendanceEmployee(null);
+      setAnnualAttendanceMonths([]);
+      setAnnualAttendanceEdits({});
+      return;
+    }
+
+    setLoadingAnnualAttendance(true);
+    setError('');
+
+    try {
+      const params =
+        new URLSearchParams({
+          year: attendanceFilters.year,
+          employee_id: employeeId
+        });
+
+      if (attendanceFilters.facility_id !== 'todos') {
+        params.set(
+          'facility_id',
+          attendanceFilters.facility_id
+        );
+      }
+
+      const attendanceRes =
+        await apiFetch(
+          `/personnel/attendance/employee-year?${params.toString()}`
+        );
+
+      setAnnualAttendanceEmployee(
+        attendanceRes.data.employee
+      );
+      setAnnualAttendanceMonths(
+        attendanceRes.data.months
+      );
+      setAnnualAttendanceEdits({});
+
+    } catch (error: any) {
+      setError(error.message);
+      showSystemAlert(error.message);
+    } finally {
+      setLoadingAnnualAttendance(false);
     }
   }
 
@@ -2816,6 +2892,37 @@ export default function PersonnelPage() {
     return employee.attendance[String(day)]?.code || '';
   }
 
+  function getAnnualAttendanceEditKey(
+    employeeId: number,
+    month: number,
+    day: number
+  ) {
+    return `${employeeId}-${month}-${day}`;
+  }
+
+  function getAnnualAttendanceValue(
+    monthRow: AnnualAttendanceMonth,
+    day: number
+  ) {
+
+    if (!annualAttendanceEmployee) {
+      return '';
+    }
+
+    const key =
+      getAnnualAttendanceEditKey(
+        annualAttendanceEmployee.id,
+        monthRow.month,
+        day
+      );
+
+    if (key in annualAttendanceEdits) {
+      return annualAttendanceEdits[key];
+    }
+
+    return monthRow.attendance[String(day)]?.code || '';
+  }
+
   function getAttendanceCodeDescription(
     employee: AttendanceEmployee,
     day: number
@@ -2860,6 +2967,78 @@ export default function PersonnelPage() {
     const plannedOffText =
       plannedOff
         ? hasWorkedPlannedDayOff(employee, day)
+          ? 'Franco programado trabajado: suma 2 compensatorios'
+          : 'Franco programado'
+        : '';
+
+    if (permissions.length === 0) {
+      return plannedOffText
+        ? `${baseDescription} | ${plannedOffText}`
+        : baseDescription;
+    }
+
+    const permissionText =
+      permissions
+        .map((permission) =>
+          `Permiso ${permission.code} - ${permission.description} (${permission.status})`
+        )
+        .join(' | ');
+
+    return [
+      baseDescription,
+      plannedOffText,
+      permissionText
+    ]
+      .filter(Boolean)
+      .join(' | ');
+  }
+
+  function getAnnualAttendanceCodeDescription(
+    monthRow: AnnualAttendanceMonth,
+    day: number
+  ) {
+
+    const value =
+      getAnnualAttendanceValue(
+        monthRow,
+        day
+      )
+        .trim()
+        .toUpperCase();
+
+    if (!value) {
+      return 'Sin cargar';
+    }
+
+    const editedCode =
+      codes.find((code) =>
+        code.code.toUpperCase() === value
+      );
+
+    const savedDescription =
+      monthRow.attendance[String(day)]
+        ?.description;
+
+    const baseDescription =
+      editedCode
+        ? `${value} - ${editedCode.description}`
+        : savedDescription
+          ? `${value} - ${savedDescription}`
+          : value;
+
+    const permissions =
+      monthRow.attendance[String(day)]
+        ?.permissions || [];
+
+    const plannedOff =
+      monthRow.attendance[String(day)]
+        ?.planned_off;
+
+    const plannedOffText =
+      plannedOff
+        ? getAnnualAttendanceValue(monthRow, day)
+          .trim()
+          .toUpperCase() === 'P'
           ? 'Franco programado trabajado: suma 2 compensatorios'
           : 'Franco programado'
         : '';
@@ -2942,6 +3121,22 @@ export default function PersonnelPage() {
     );
   }
 
+  function isAnnualAttendanceCellLocked(
+    monthRow: AnnualAttendanceMonth,
+    day: number
+  ) {
+
+    const savedCode =
+      monthRow.attendance[String(day)]?.code
+        ?.trim()
+        .toUpperCase();
+
+    return Boolean(
+      savedCode &&
+      attendanceCodesOnlyFromLeaves.has(savedCode)
+    );
+  }
+
   function getAttendanceInputClass(
     employee: AttendanceEmployee,
     day: number
@@ -2985,6 +3180,48 @@ export default function PersonnelPage() {
     return classes.join(' ');
   }
 
+  function getAnnualAttendanceInputClass(
+    monthRow: AnnualAttendanceMonth,
+    day: number
+  ) {
+
+    const value =
+      getAnnualAttendanceValue(
+        monthRow,
+        day
+      );
+
+    const classes =
+      ['attendance-code-input'];
+
+    if (isAnnualAttendanceCellLocked(monthRow, day)) {
+      classes.push('attendance-code-locked');
+    }
+
+    if (isNonPresentCode(value)) {
+      classes.push('attendance-code-danger');
+    }
+
+    if (
+      value.trim().toUpperCase() === 'P' &&
+      (
+        monthRow.attendance[String(day)]
+          ?.permissions?.length || 0
+      ) > 0
+    ) {
+      classes.push('attendance-code-permission');
+    }
+
+    if (
+      monthRow.attendance[String(day)]
+        ?.planned_off
+    ) {
+      classes.push('attendance-code-planned-off');
+    }
+
+    return classes.join(' ');
+  }
+
   function getPlannedOffValue(
     employee: PlannedDaysOffEmployee,
     day: number
@@ -3021,6 +3258,27 @@ export default function PersonnelPage() {
     setAttendanceEdits({
       ...attendanceEdits,
       [`${employeeId}-${day}`]:
+      value.toUpperCase()
+    });
+  }
+
+  function updateAnnualAttendanceCell(
+    month: number,
+    day: number,
+    value: string
+  ) {
+
+    if (!annualAttendanceEmployee) {
+      return;
+    }
+
+    setAnnualAttendanceEdits({
+      ...annualAttendanceEdits,
+      [getAnnualAttendanceEditKey(
+        annualAttendanceEmployee.id,
+        month,
+        day
+      )]:
         value.toUpperCase()
     });
   }
@@ -3065,9 +3323,61 @@ export default function PersonnelPage() {
     showSystemAlert(message);
   }
 
+  function validateAnnualAttendanceCellOnBlur(
+    month: number,
+    day: number
+  ) {
+
+    if (!annualAttendanceEmployee) {
+      return;
+    }
+
+    const key =
+      getAnnualAttendanceEditKey(
+        annualAttendanceEmployee.id,
+        month,
+        day
+      );
+
+    const value =
+      (annualAttendanceEdits[key] || '')
+        .trim()
+        .toUpperCase();
+
+    if (
+      !value ||
+      !attendanceCodesOnlyFromLeaves.has(value)
+    ) {
+      return;
+    }
+
+    const description =
+      codes.find((item) =>
+        item.code.toUpperCase() === value
+      )?.description;
+
+    const message =
+      `La clave ${description ? `${value} - ${description}` : value} debe cargarse desde Licencias, no desde Presentismo.`;
+
+    setAnnualAttendanceEdits((current) => {
+      const next =
+        { ...current };
+
+      delete next[key];
+
+      return next;
+    });
+
+    setError(message);
+    showSystemAlert(message);
+  }
+
   function hasPendingAttendanceChanges() {
 
-    return Object.keys(attendanceEdits).length > 0;
+    return (
+      Object.keys(attendanceEdits).length > 0 ||
+      Object.keys(annualAttendanceEdits).length > 0
+    );
   }
 
   function confirmDiscardAttendanceChanges() {
@@ -3098,6 +3408,7 @@ export default function PersonnelPage() {
       tab !== 'attendance'
     ) {
       setAttendanceEdits({});
+      setAnnualAttendanceEdits({});
     }
 
     setActiveTab(tab);
@@ -3117,6 +3428,7 @@ export default function PersonnelPage() {
 
     if (shouldDiscardEdits) {
       setAttendanceEdits({});
+      setAnnualAttendanceEdits({});
     }
 
     setAttendanceFilters({
@@ -3210,6 +3522,99 @@ export default function PersonnelPage() {
     if (e.key === 'ArrowLeft') {
       e.preventDefault();
       focusNextEditableAttendanceInput(
+        rowIndex,
+        day,
+        0,
+        -1
+      );
+    }
+  }
+
+  function focusNextEditableAnnualAttendanceInput(
+    rowIndex: number,
+    day: number,
+    rowStep: number,
+    dayStep: number
+  ) {
+
+    let nextRow =
+      rowIndex + rowStep;
+
+    let nextDay =
+      day + dayStep;
+
+    const maxAttempts =
+      Math.max(
+        1,
+        annualAttendanceMonths.length * 31
+      );
+
+    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+      const input =
+        document.querySelector<HTMLInputElement>(
+          `[data-annual-attendance-row="${nextRow}"][data-annual-attendance-day="${nextDay}"]:not(:disabled)`
+        );
+
+      if (input) {
+        input.focus();
+        input.select();
+        return;
+      }
+
+      nextRow += rowStep;
+      nextDay += dayStep;
+    }
+  }
+
+  function handleAnnualAttendanceKeyDown(
+    e: React.KeyboardEvent<HTMLInputElement>,
+    rowIndex: number,
+    day: number
+  ) {
+
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      focusNextEditableAnnualAttendanceInput(
+        rowIndex,
+        day,
+        1,
+        0
+      );
+    }
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      focusNextEditableAnnualAttendanceInput(
+        rowIndex,
+        day,
+        1,
+        0
+      );
+    }
+
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      focusNextEditableAnnualAttendanceInput(
+        rowIndex,
+        day,
+        -1,
+        0
+      );
+    }
+
+    if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      focusNextEditableAnnualAttendanceInput(
+        rowIndex,
+        day,
+        0,
+        1
+      );
+    }
+
+    if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      focusNextEditableAnnualAttendanceInput(
         rowIndex,
         day,
         0,
@@ -3330,6 +3735,146 @@ export default function PersonnelPage() {
     }
   }
 
+  async function saveAnnualAttendance() {
+
+    if (!annualAttendanceEmployee) {
+      return;
+    }
+
+    setSavingAttendance(true);
+    setError('');
+
+    try {
+      const activeCodes =
+        new Set(
+          codes
+            .filter((code) => code.is_active)
+            .map((code) => code.code.toUpperCase())
+        );
+
+      const invalidCodes =
+        Array.from(
+          new Set(
+            Object.values(annualAttendanceEdits)
+              .map((code) => code.trim().toUpperCase())
+              .filter((code) => code && !activeCodes.has(code))
+          )
+        );
+
+      if (invalidCodes.length > 0) {
+        const message =
+          `La clave ${invalidCodes.join(', ')} no existe. Claves disponibles: ${Array.from(activeCodes).sort().join(', ')}`;
+
+        setError(message);
+        showSystemAlert(message);
+        return;
+      }
+
+      const leaveOnlyCodes =
+        Array.from(
+          new Set(
+            Object.values(annualAttendanceEdits)
+              .map((code) => code.trim().toUpperCase())
+              .filter((code) =>
+                code &&
+                attendanceCodesOnlyFromLeaves.has(code)
+              )
+          )
+        );
+
+      if (leaveOnlyCodes.length > 0) {
+        const detail =
+          leaveOnlyCodes
+            .map((code) => {
+              const description =
+                codes.find((item) =>
+                  item.code.toUpperCase() === code
+                )?.description;
+
+              return description
+                ? `${code} - ${description}`
+                : code;
+            })
+            .join(', ');
+
+        const message =
+          `La clave ${detail} debe cargarse desde Licencias, no desde Presentismo.`;
+
+        setError(message);
+        showSystemAlert(message);
+        return;
+      }
+
+      const recordsByMonth =
+        new Map<number, Array<{
+          employee_id: number;
+          day: number;
+          code: string;
+        }>>();
+
+      Object.entries(annualAttendanceEdits)
+        .forEach(([key, code]) => {
+          const [
+            employeeId,
+            month,
+            day
+          ] = key.split('-');
+
+          const monthNumber =
+            Number(month);
+
+          const records =
+            recordsByMonth.get(monthNumber) || [];
+
+          records.push({
+            employee_id: Number(employeeId),
+            day: Number(day),
+            code
+          });
+
+          recordsByMonth.set(
+            monthNumber,
+            records
+          );
+        });
+
+      for (const [month, records] of recordsByMonth) {
+        await apiFetch(
+          '/personnel/attendance',
+          {
+            method: 'PUT',
+            body:
+              JSON.stringify({
+                year: Number(attendanceFilters.year),
+                month,
+                records
+              })
+          }
+        );
+      }
+
+      await loadAnnualAttendance();
+      await loadAttendance();
+
+      if (selectedLeaveEmployee) {
+        await loadLeaveSummary(
+          selectedLeaveEmployee.id
+        );
+      }
+
+      showSystemAlert(
+        'Presentismo del empleado guardado correctamente.',
+        'Listo',
+        'success'
+      );
+    } catch (error: any) {
+      setError(error.message);
+      showSystemAlert(error.message);
+    } finally {
+      setSavingAttendance(false);
+    }
+  }
+
   async function savePlannedDaysOff() {
 
     setSavingPlannedOff(true);
@@ -3397,7 +3942,7 @@ export default function PersonnelPage() {
   useEffect(() => {
 
     const hasChanges =
-      Object.keys(attendanceEdits).length > 0;
+      hasPendingAttendanceChanges();
 
     function handleBeforeUnload(
       event: BeforeUnloadEvent
@@ -3466,7 +4011,7 @@ export default function PersonnelPage() {
       );
     };
 
-  }, [attendanceEdits, activeTab]);
+  }, [attendanceEdits, annualAttendanceEdits, activeTab]);
 
   useEffect(() => {
 
@@ -3505,6 +4050,24 @@ export default function PersonnelPage() {
     attendanceFilters.facility_id,
     filters.facility_id,
     vacationYear
+  ]);
+
+  useEffect(() => {
+
+    if (
+      activeTab === 'attendance' &&
+      attendanceViewMode === 'employee' &&
+      annualAttendanceEmployeeId
+    ) {
+      loadAnnualAttendance();
+    }
+
+  }, [
+    activeTab,
+    attendanceViewMode,
+    annualAttendanceEmployeeId,
+    attendanceFilters.year,
+    attendanceFilters.facility_id
   ]);
 
   useEffect(() => {
@@ -3559,6 +4122,28 @@ export default function PersonnelPage() {
       (_, index) => index + 1
     );
 
+  const annualDayNumbers =
+    Array.from(
+      { length: 31 },
+      (_, index) => index + 1
+    );
+
+  const monthNames =
+    [
+      'Enero',
+      'Febrero',
+      'Marzo',
+      'Abril',
+      'Mayo',
+      'Junio',
+      'Julio',
+      'Agosto',
+      'Septiembre',
+      'Octubre',
+      'Noviembre',
+      'Diciembre'
+    ];
+
   const filteredAttendanceRows =
     attendanceRows.filter((employee) => {
 
@@ -3599,6 +4184,31 @@ export default function PersonnelPage() {
             .toLowerCase()
             .includes(search)
         )
+      );
+    });
+
+  const annualAttendanceEmployeeOptions =
+    attendanceRows.filter((employee) => {
+      const search =
+        annualAttendanceEmployeeSearch
+          .toLowerCase()
+          .trim();
+
+      if (!search) {
+        return true;
+      }
+
+      return (
+        matchesNameSearch(employee.full_name, search) ||
+        (employee.dni || '')
+          .toLowerCase()
+          .includes(search) ||
+        (employee.file_number || '')
+          .toLowerCase()
+          .includes(search) ||
+        (employee.department_name || '')
+          .toLowerCase()
+          .includes(search)
       );
     });
 
@@ -3848,6 +4458,18 @@ export default function PersonnelPage() {
     return new Date(
       Number(attendanceFilters.year),
       Number(attendanceFilters.month) - 1,
+      day
+    ).getDay() === 0;
+  }
+
+  function isSundayForDate(
+    month: number,
+    day: number
+  ) {
+
+    return new Date(
+      Number(attendanceFilters.year),
+      month - 1,
       day
     ).getDay() === 0;
   }
@@ -5598,12 +6220,67 @@ export default function PersonnelPage() {
         !isPersonnelSettingsPage &&
         activeTab === 'attendance' && (
           <>
+            <div className="module-tabs attendance-view-tabs">
+              <button
+                className={
+                  attendanceViewMode === 'month'
+                    ? 'module-tab module-tab-active'
+                    : 'module-tab'
+                }
+                type="button"
+                onClick={() => {
+                  if (!confirmDiscardAttendanceChanges()) {
+                    return;
+                  }
+                  setAttendanceEdits({});
+                  setAnnualAttendanceEdits({});
+                  setAttendanceViewMode('month');
+                }}
+              >
+                Por mes
+              </button>
+
+              <button
+                className={
+                  attendanceViewMode === 'employee'
+                    ? 'module-tab module-tab-active'
+                    : 'module-tab'
+                }
+                type="button"
+                onClick={() => {
+                  if (!confirmDiscardAttendanceChanges()) {
+                    return;
+                  }
+                  setAttendanceEdits({});
+                  setAnnualAttendanceEdits({});
+                  setAttendanceViewMode('employee');
+                }}
+              >
+                Por empleado
+              </button>
+            </div>
+
             <div className="attendance-toolbar">
               <input
                 className="form-input attendance-filter-small"
-                type="month"
-                value={attendanceMonthValue}
+                type={
+                  attendanceViewMode === 'month'
+                    ? 'month'
+                    : 'number'
+                }
+                value={
+                  attendanceViewMode === 'month'
+                    ? attendanceMonthValue
+                    : attendanceFilters.year
+                }
                 onChange={(e) => {
+                  if (attendanceViewMode === 'employee') {
+                    updateAttendanceFilters({
+                      year: e.target.value
+                    }, true);
+                    return;
+                  }
+
                   const [
                     year,
                     month
@@ -5657,28 +6334,87 @@ export default function PersonnelPage() {
                 ))}
               </select>
 
-              <input
-                className="form-input attendance-filter-wide"
-                placeholder="Filtrar sector"
-                value={attendanceFilters.departmentSearch}
-                onChange={(e) =>
-                  updateAttendanceFilters({
-                    departmentSearch: e.target.value,
-                    department: 'todos'
-                  })
-                }
-              />
+              {
+                attendanceViewMode === 'month' && (
+                  <>
+                    <input
+                      className="form-input attendance-filter-wide"
+                      placeholder="Filtrar sector"
+                      value={attendanceFilters.departmentSearch}
+                      onChange={(e) =>
+                        updateAttendanceFilters({
+                          departmentSearch: e.target.value,
+                          department: 'todos'
+                        })
+                      }
+                    />
 
-              <input
-                className="form-input attendance-filter-search"
-                placeholder="Buscar nombre, DNI o legajo"
-                value={attendanceFilters.search}
-                onChange={(e) =>
-                  updateAttendanceFilters({
-                    search: e.target.value
-                  })
-                }
-              />
+                    <input
+                      className="form-input attendance-filter-search"
+                      placeholder="Buscar nombre, DNI o legajo"
+                      value={attendanceFilters.search}
+                      onChange={(e) =>
+                        updateAttendanceFilters({
+                          search: e.target.value
+                        })
+                      }
+                    />
+                  </>
+                )
+              }
+
+              {
+                attendanceViewMode === 'employee' && (
+                  <>
+                    <input
+                      className="form-input attendance-filter-search"
+                      placeholder="Buscar empleado"
+                      value={annualAttendanceEmployeeSearch}
+                      onChange={(e) =>
+                        setAnnualAttendanceEmployeeSearch(
+                          e.target.value
+                        )
+                      }
+                    />
+
+                    <select
+                      className="form-input attendance-filter-wide"
+                      value={annualAttendanceEmployeeId}
+                      onChange={(e) => {
+                        if (!confirmDiscardAttendanceChanges()) {
+                          return;
+                        }
+
+                        setAnnualAttendanceEmployeeId(
+                          e.target.value
+                        );
+                        setAnnualAttendanceEdits({});
+
+                        if (e.target.value) {
+                          loadAnnualAttendance(
+                            e.target.value
+                          );
+                        } else {
+                          setAnnualAttendanceEmployee(null);
+                          setAnnualAttendanceMonths([]);
+                        }
+                      }}
+                    >
+                      <option value="">
+                        Seleccionar empleado
+                      </option>
+                      {annualAttendanceEmployeeOptions.map((employee) => (
+                        <option
+                          key={employee.id}
+                          value={employee.id}
+                        >
+                          {employee.full_name}
+                        </option>
+                      ))}
+                    </select>
+                  </>
+                )
+              }
 
               <button
                 className="btn-primary"
@@ -5688,7 +6424,11 @@ export default function PersonnelPage() {
                     return;
                   }
                   setAttendanceEdits({});
+                  setAnnualAttendanceEdits({});
                   loadAttendance();
+                  if (attendanceViewMode === 'employee') {
+                    loadAnnualAttendance();
+                  }
                 }}
               >
                 Actualizar
@@ -5699,10 +6439,18 @@ export default function PersonnelPage() {
                 type="button"
                 disabled={
                   savingAttendance ||
-                  Object.keys(attendanceEdits).length === 0 ||
+                  (
+                    attendanceViewMode === 'month'
+                      ? Object.keys(attendanceEdits).length === 0
+                      : Object.keys(annualAttendanceEdits).length === 0
+                  ) ||
                   attendanceReadOnly
                 }
-                onClick={saveAttendance}
+                onClick={
+                  attendanceViewMode === 'month'
+                    ? saveAttendance
+                    : saveAnnualAttendance
+                }
               >
                 {
                   savingAttendance
@@ -5712,135 +6460,315 @@ export default function PersonnelPage() {
               </button>
             </div>
 
-            <p className="results-summary">
-              {filteredAttendanceRows.length} de {attendanceRows.length} empleados activos. Cambios pendientes: {Object.keys(attendanceEdits).length}
-            </p>
+            {
+              attendanceViewMode === 'month' && (
+                <p className="results-summary">
+                  {filteredAttendanceRows.length} de {attendanceRows.length} empleados activos. Cambios pendientes: {Object.keys(attendanceEdits).length}
+                </p>
+              )
+            }
 
-            <div className="attendance-layout">
-              <div
-                className="attendance-grid-wrap"
-                ref={attendanceGridRef}
-              >
-                <table className="data-table attendance-grid">
-                  <colgroup>
-                    <col className="attendance-employee-col" />
-                    {dayNumbers.map((day) => (
-                      <col
-                        key={day}
-                        className="attendance-day-col"
-                      />
-                    ))}
-                  </colgroup>
-                  <thead>
-                    <tr>
-                      <th className="attendance-employee-cell">
-                        Empleado
-                      </th>
-                      {dayNumbers.map((day) => (
-                        <th
-                          key={day}
-                          className={
-                            isSunday(day)
-                              ? 'attendance-sunday'
-                              : ''
-                          }
-                        >
-                          {day}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredAttendanceRows.map((employee, rowIndex) => (
-                      <tr key={employee.id}>
-                        <td className="attendance-employee-cell">
-                          <strong>{employee.full_name}</strong>
-                          <span>
-                            {employee.department_name || 'Sin sector'}
-                          </span>
-                        </td>
-                        {dayNumbers.map((day) => {
-                          const lockedCell =
-                            isAttendanceCellLocked(
-                              employee,
-                              day
-                            );
+            {
+              attendanceViewMode === 'employee' && (
+                <p className="results-summary">
+                  {
+                    annualAttendanceEmployee
+                      ? `${annualAttendanceEmployee.full_name} - ${annualAttendanceEmployee.department_name || 'Sin sector'}`
+                      : 'Selecciona un empleado para ver el presentismo anual.'
+                  } Cambios pendientes: {Object.keys(annualAttendanceEdits).length}
+                </p>
+              )
+            }
 
-                          return (
-                            <td
+            {
+              attendanceViewMode === 'month' && (
+                <div className="attendance-layout">
+                  <div
+                    className="attendance-grid-wrap"
+                    ref={attendanceGridRef}
+                  >
+                    <table className="data-table attendance-grid">
+                      <colgroup>
+                        <col className="attendance-employee-col" />
+                        {dayNumbers.map((day) => (
+                          <col
+                            key={day}
+                            className="attendance-day-col"
+                          />
+                        ))}
+                      </colgroup>
+                      <thead>
+                        <tr>
+                          <th className="attendance-employee-cell">
+                            Empleado
+                          </th>
+                          {dayNumbers.map((day) => (
+                            <th
                               key={day}
                               className={
                                 isSunday(day)
-                                  ? 'attendance-sunday-cell'
+                                  ? 'attendance-sunday'
                                   : ''
                               }
                             >
-                              <input
-                                data-attendance-row={rowIndex}
-                                data-attendance-day={day}
-                                className={getAttendanceInputClass(
-                                  employee,
-                                  day
-                                )}
-                                value={getAttendanceValue(
-                                  employee,
-                                  day
-                                )}
-                                placeholder={
-                                  hasPlannedDayOff(employee, day)
-                                    ? 'F'
-                                    : ''
-                                }
-                                title={getAttendanceCodeDescription(
-                                  employee,
-                                  day
-                                )}
-                                onChange={(e) =>
-                                  !attendanceReadOnly &&
-                                  !lockedCell &&
-                                  updateAttendanceCell(
-                                    employee.id,
-                                    day,
-                                    e.target.value
-                                  )
-                                }
-                                onBlur={() =>
-                                  !attendanceReadOnly &&
-                                  !lockedCell &&
-                                  validateAttendanceCellOnBlur(
-                                    employee.id,
-                                    day
-                                  )
-                                }
-                                disabled={lockedCell}
-                                readOnly={attendanceReadOnly}
-                                onKeyDown={(e) =>
-                                  handleAttendanceKeyDown(
-                                    e,
-                                    rowIndex,
-                                    day
-                                  )
-                                }
-                              />
-                            </td>
-                          );
-                        })}
-                      </tr>
-                    ))}
-
-                    {
-                      filteredAttendanceRows.length === 0 && (
-                        <tr>
-                          <td colSpan={attendanceDays + 1}>
-                            No hay empleados activos para esos filtros.
-                          </td>
+                              {day}
+                            </th>
+                          ))}
                         </tr>
-                      )
-                    }
-                  </tbody>
-                </table>
-              </div>
-            </div>
+                      </thead>
+                      <tbody>
+                        {filteredAttendanceRows.map((employee, rowIndex) => (
+                          <tr key={employee.id}>
+                            <td className="attendance-employee-cell">
+                              <strong>{employee.full_name}</strong>
+                              <span>
+                                {employee.department_name || 'Sin sector'}
+                              </span>
+                            </td>
+                            {dayNumbers.map((day) => {
+                              const lockedCell =
+                                isAttendanceCellLocked(
+                                  employee,
+                                  day
+                                );
+
+                              return (
+                                <td
+                                  key={day}
+                                  className={
+                                    isSunday(day)
+                                      ? 'attendance-sunday-cell'
+                                      : ''
+                                  }
+                                >
+                                  <input
+                                    data-attendance-row={rowIndex}
+                                    data-attendance-day={day}
+                                    className={getAttendanceInputClass(
+                                      employee,
+                                      day
+                                    )}
+                                    value={getAttendanceValue(
+                                      employee,
+                                      day
+                                    )}
+                                    placeholder={
+                                      hasPlannedDayOff(employee, day)
+                                        ? 'F'
+                                        : ''
+                                    }
+                                    title={getAttendanceCodeDescription(
+                                      employee,
+                                      day
+                                    )}
+                                    onChange={(e) =>
+                                      !attendanceReadOnly &&
+                                      !lockedCell &&
+                                      updateAttendanceCell(
+                                        employee.id,
+                                        day,
+                                        e.target.value
+                                      )
+                                    }
+                                    onBlur={() =>
+                                      !attendanceReadOnly &&
+                                      !lockedCell &&
+                                      validateAttendanceCellOnBlur(
+                                        employee.id,
+                                        day
+                                      )
+                                    }
+                                    disabled={lockedCell}
+                                    readOnly={attendanceReadOnly}
+                                    onKeyDown={(e) =>
+                                      handleAttendanceKeyDown(
+                                        e,
+                                        rowIndex,
+                                        day
+                                      )
+                                    }
+                                  />
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        ))}
+
+                        {
+                          filteredAttendanceRows.length === 0 && (
+                            <tr>
+                              <td colSpan={attendanceDays + 1}>
+                                No hay empleados activos para esos filtros.
+                              </td>
+                            </tr>
+                          )
+                        }
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )
+            }
+
+            {
+              attendanceViewMode === 'employee' && (
+                <div className="attendance-layout">
+                  <div className="attendance-grid-wrap attendance-year-grid-wrap">
+                    <table className="data-table attendance-grid attendance-year-grid">
+                      <colgroup>
+                        <col className="attendance-employee-col" />
+                        {annualDayNumbers.map((day) => (
+                          <col
+                            key={day}
+                            className="attendance-day-col"
+                          />
+                        ))}
+                      </colgroup>
+                      <thead>
+                        <tr>
+                          <th className="attendance-employee-cell">
+                            Mes
+                          </th>
+                          {annualDayNumbers.map((day) => (
+                            <th key={day}>
+                              {day}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {
+                          loadingAnnualAttendance && (
+                            <tr>
+                              <td colSpan={32}>
+                                Cargando presentismo anual...
+                              </td>
+                            </tr>
+                          )
+                        }
+
+                        {
+                          !loadingAnnualAttendance &&
+                          !annualAttendanceEmployee && (
+                            <tr>
+                              <td colSpan={32}>
+                                Selecciona un empleado para ver el anio completo.
+                              </td>
+                            </tr>
+                          )
+                        }
+
+                        {
+                          !loadingAnnualAttendance &&
+                          annualAttendanceMonths.map((monthRow, rowIndex) => (
+                            <tr key={monthRow.month}>
+                              <td className="attendance-employee-cell">
+                                <strong>
+                                  {monthNames[monthRow.month - 1]}
+                                </strong>
+                                <span>
+                                  {attendanceFilters.year}
+                                </span>
+                              </td>
+                              {annualDayNumbers.map((day) => {
+                                const dayExists =
+                                  day <= monthRow.days;
+
+                                const lockedCell =
+                                  dayExists &&
+                                  isAnnualAttendanceCellLocked(
+                                    monthRow,
+                                    day
+                                  );
+
+                                return (
+                                  <td
+                                    key={day}
+                                    className={
+                                      dayExists &&
+                                      isSundayForDate(
+                                        monthRow.month,
+                                        day
+                                      )
+                                        ? 'attendance-sunday-cell'
+                                        : ''
+                                    }
+                                  >
+                                    <input
+                                      data-annual-attendance-row={rowIndex}
+                                      data-annual-attendance-day={day}
+                                      className={
+                                        dayExists
+                                          ? getAnnualAttendanceInputClass(
+                                            monthRow,
+                                            day
+                                          )
+                                          : 'attendance-code-input attendance-code-empty'
+                                      }
+                                      value={
+                                        dayExists
+                                          ? getAnnualAttendanceValue(
+                                            monthRow,
+                                            day
+                                          )
+                                          : ''
+                                      }
+                                      placeholder={
+                                        dayExists &&
+                                        monthRow.attendance[String(day)]
+                                          ?.planned_off
+                                          ? 'F'
+                                          : ''
+                                      }
+                                      title={
+                                        dayExists
+                                          ? getAnnualAttendanceCodeDescription(
+                                            monthRow,
+                                            day
+                                          )
+                                          : ''
+                                      }
+                                      onChange={(e) =>
+                                        dayExists &&
+                                        !attendanceReadOnly &&
+                                        !lockedCell &&
+                                        updateAnnualAttendanceCell(
+                                          monthRow.month,
+                                          day,
+                                          e.target.value
+                                        )
+                                      }
+                                      onBlur={() =>
+                                        dayExists &&
+                                        !attendanceReadOnly &&
+                                        !lockedCell &&
+                                        validateAnnualAttendanceCellOnBlur(
+                                          monthRow.month,
+                                          day
+                                        )
+                                      }
+                                      disabled={!dayExists || lockedCell}
+                                      readOnly={attendanceReadOnly}
+                                      onKeyDown={(e) =>
+                                        handleAnnualAttendanceKeyDown(
+                                          e,
+                                          rowIndex,
+                                          day
+                                        )
+                                      }
+                                    />
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          ))
+                        }
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )
+            }
           </>
         )
       }

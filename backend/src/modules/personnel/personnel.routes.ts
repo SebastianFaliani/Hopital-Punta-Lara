@@ -15,6 +15,7 @@ import {
   handleCreateVacationRule,
   handleDeleteLeaveBalanceAdjustment,
   handleGetAttendanceCodes,
+  handleGetAttendanceEmployeeYear,
   handleGetAttendanceMonth,
   handleGetAttendanceSummary,
   handleGetEmployeeDirectiveSummary,
@@ -86,6 +87,11 @@ router.put(
 router.get(
   '/attendance',
   handleGetAttendanceMonth
+);
+
+router.get(
+  '/attendance/employee-year',
+  handleGetAttendanceEmployeeYear
 );
 
 router.put(
