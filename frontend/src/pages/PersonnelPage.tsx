@@ -8064,7 +8064,8 @@ function getDirectiveAttendanceForPrint(
       );
 
     return records.filter((record) =>
-      !leaveCodes.has(String(record.code).toUpperCase())
+      !leaveCodes.has(String(record.code).toUpperCase()) &&
+      record.category !== 'franco'
     );
   }
 
@@ -8131,6 +8132,13 @@ function DirectiveSummaryPrintModal({
       summary,
       mode
     );
+
+  const totalFrancos =
+    mode === 'all'
+      ? summary.recentAttendance.filter((record) =>
+        record.category === 'franco'
+      ).length
+      : 0;
 
   const showBalances =
     mode === 'all' ||
@@ -8242,6 +8250,13 @@ function DirectiveSummaryPrintModal({
                     value={summary.balances.compensatory.remaining_days}
                     detail={`Ganados ${summary.balances.compensatory.earned_days}, usados ${summary.balances.compensatory.used_days}, pendientes ${summary.balances.compensatory.pending_days}`}
                   />
+                  {mode === 'all' && (
+                    <LeaveSummaryPrintCard
+                      title="Francos"
+                      value={totalFrancos}
+                      detail="Total de francos del periodo"
+                    />
+                  )}
                 </div>
               </section>
             )}
