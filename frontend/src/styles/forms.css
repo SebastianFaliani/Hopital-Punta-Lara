@@ -314,11 +314,29 @@
   display: grid;
 
   grid-template-columns:
-    minmax(170px, 1.2fr)
-    minmax(170px, 1.2fr)
-    minmax(130px, 0.8fr);
+    repeat(12, minmax(0, 1fr));
 
   gap: 10px;
+}
+
+.laboratory-field-name {
+
+  grid-column: span 4;
+}
+
+.laboratory-field-compact {
+
+  grid-column: span 3;
+}
+
+.laboratory-field-date {
+
+  grid-column: span 2;
+}
+
+.laboratory-field-phone {
+
+  grid-column: span 4;
 }
 
 .laboratory-patient-grid .form-input {

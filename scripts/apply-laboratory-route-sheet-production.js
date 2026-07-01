@@ -224,6 +224,13 @@ async function main() {
     await addColumnIfMissing(
       connection,
       'laboratory_records',
+      'patient_phone',
+      'VARCHAR(80) NULL AFTER patient_birth_date'
+    );
+
+    await addColumnIfMissing(
+      connection,
+      'laboratory_records',
       'status',
       "ENUM('enviado','parcial','completo','retirado') NOT NULL DEFAULT 'enviado' AFTER is_complete"
     );

@@ -34,6 +34,7 @@ type LaboratoryRecord = {
   patient_first_name: string;
   patient_document: string | null;
   patient_birth_date: string | null;
+  patient_phone: string | null;
   has_blood_extraction: boolean | number;
   has_urine_sample: boolean | number;
   is_complete: boolean | number;
@@ -69,6 +70,7 @@ const emptyForm = {
   patient_first_name: '',
   patient_document: '',
   patient_birth_date: '',
+  patient_phone: '',
   has_blood_extraction: false,
   has_urine_sample: false,
   requested_test_ids: [] as number[],
@@ -363,6 +365,7 @@ export default function LaboratoryPage() {
       patient_first_name: record.patient_first_name || '',
       patient_document: record.patient_document || '',
       patient_birth_date: toDateInput(record.patient_birth_date),
+      patient_phone: record.patient_phone || '',
       has_blood_extraction: yesNo(record.has_blood_extraction),
       has_urine_sample: yesNo(record.has_urine_sample),
       requested_test_ids:
@@ -717,7 +720,7 @@ export default function LaboratoryPage() {
       <div className="filter-bar">
         <input
           className="form-input"
-          placeholder="Buscar paciente, DNI, protocolo o quien retiro"
+          placeholder="Buscar paciente, DNI, telefono, protocolo o quien retiro"
           value={filters.search}
           onChange={(e) =>
             setFilters({
@@ -888,6 +891,7 @@ export default function LaboratoryPage() {
               <th>Protocolo</th>
               <th>Paciente</th>
               <th>DNI</th>
+              <th>Teléfono</th>
               <th>Prácticas</th>
               <th>Estado</th>
               <th>Retiro</th>
@@ -917,6 +921,7 @@ export default function LaboratoryPage() {
                     {record.patient_last_name} {record.patient_first_name}
                   </td>
                   <td>{record.patient_document || '-'}</td>
+                  <td>{record.patient_phone || '-'}</td>
                   <td>
                     <div className="laboratory-practice-preview">
                       <strong>
@@ -1044,7 +1049,7 @@ export default function LaboratoryPage() {
               onSubmit={handleSubmit}
             >
               <div className="laboratory-patient-grid">
-                <label className="form-field">
+                <label className="form-field laboratory-field-name">
                   <span>Apellido</span>
                   <input
                     className="form-input"
@@ -1058,7 +1063,7 @@ export default function LaboratoryPage() {
                   />
                 </label>
 
-                <label className="form-field">
+                <label className="form-field laboratory-field-name">
                   <span>Nombre</span>
                   <input
                     className="form-input"
@@ -1072,7 +1077,7 @@ export default function LaboratoryPage() {
                   />
                 </label>
 
-                <label className="form-field">
+                <label className="form-field laboratory-field-compact">
                   <span>Protocolo</span>
                   <input
                     className="form-input"
@@ -1086,7 +1091,7 @@ export default function LaboratoryPage() {
                   />
                 </label>
 
-                <label className="form-field">
+                <label className="form-field laboratory-field-date">
                   <span>Fecha</span>
                   <input
                     className="form-input"
@@ -1101,7 +1106,7 @@ export default function LaboratoryPage() {
                   />
                 </label>
 
-                <label className="form-field">
+                <label className="form-field laboratory-field-compact">
                   <span>DNI</span>
                   <input
                     className="form-input"
@@ -1115,7 +1120,7 @@ export default function LaboratoryPage() {
                   />
                 </label>
 
-                <label className="form-field">
+                <label className="form-field laboratory-field-date">
                   <span>Fecha nacimiento</span>
                   <input
                     className="form-input"
@@ -1125,6 +1130,20 @@ export default function LaboratoryPage() {
                       setForm({
                         ...form,
                         patient_birth_date: e.target.value
+                      })
+                    }
+                  />
+                </label>
+
+                <label className="form-field laboratory-field-phone">
+                  <span>Teléfono (ejemplo: 2219876543)</span>
+                  <input
+                    className="form-input"
+                    value={form.patient_phone}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        patient_phone: e.target.value
                       })
                     }
                   />

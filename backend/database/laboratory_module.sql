@@ -4,6 +4,7 @@ CREATE TABLE IF NOT EXISTS laboratory_records (
   patient_last_name VARCHAR(150) NOT NULL,
   patient_first_name VARCHAR(150) NOT NULL,
   patient_document VARCHAR(50) NULL,
+  patient_phone VARCHAR(80) NULL,
   has_blood_extraction BOOLEAN NOT NULL DEFAULT FALSE,
   has_urine_sample BOOLEAN NOT NULL DEFAULT FALSE,
   is_complete BOOLEAN NOT NULL DEFAULT TRUE,

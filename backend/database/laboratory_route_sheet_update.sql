@@ -5,6 +5,9 @@ ALTER TABLE laboratory_records
   ADD COLUMN patient_birth_date DATE NULL AFTER patient_document;
 
 ALTER TABLE laboratory_records
+  ADD COLUMN patient_phone VARCHAR(80) NULL AFTER patient_birth_date;
+
+ALTER TABLE laboratory_records
   ADD COLUMN status ENUM('enviado','parcial','completo','retirado') NOT NULL DEFAULT 'enviado' AFTER is_complete;
 
 CREATE TABLE IF NOT EXISTS laboratory_test_catalog (

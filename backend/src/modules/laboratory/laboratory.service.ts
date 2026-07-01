@@ -12,6 +12,35 @@ type LaboratoryFilters = {
   per_page?: string | number;
 };
 
+let patientPhoneColumnCache: boolean | null =
+  null;
+
+async function hasPatientPhoneColumn() {
+  if (patientPhoneColumnCache !== null) {
+    return patientPhoneColumnCache;
+  }
+
+  const [rows]: any =
+    await pool.query(
+      `
+        SELECT COUNT(*) AS total
+        FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'laboratory_records'
+          AND COLUMN_NAME = 'patient_phone'
+      `
+    );
+
+  const exists =
+    Number(rows[0]?.total || 0) > 0;
+
+  if (exists) {
+    patientPhoneColumnCache = true;
+  }
+
+  return exists;
+}
+
 function getPagination(
   filters: LaboratoryFilters
 ) {
@@ -39,7 +68,8 @@ function getPagination(
 }
 
 function buildWhereClause(
-  filters: LaboratoryFilters
+  filters: LaboratoryFilters,
+  hasPhoneColumn = false
 ) {
   const where: string[] = [];
   const values: any[] = [];
@@ -55,6 +85,7 @@ function buildWhereClause(
         OR CONCAT(laboratory_records.patient_last_name, ' ', laboratory_records.patient_first_name) LIKE ?
         OR CONCAT(laboratory_records.patient_first_name, ' ', laboratory_records.patient_last_name) LIKE ?
         OR laboratory_records.patient_document LIKE ?
+        ${hasPhoneColumn ? 'OR laboratory_records.patient_phone LIKE ?' : ''}
         OR laboratory_records.protocol_number LIKE ?
         OR laboratory_records.picked_up_by LIKE ?
       )`
@@ -69,6 +100,10 @@ function buildWhereClause(
       search,
       search
     );
+
+    if (hasPhoneColumn) {
+      values.splice(5, 0, search);
+    }
   }
 
   if (filters.date_from) {
@@ -372,8 +407,14 @@ async function getSampleFlagsFromTests(
 export async function getLaboratoryRecords(
   filters: LaboratoryFilters
 ) {
+  const hasPhoneColumn =
+    await hasPatientPhoneColumn();
+
   const where =
-    buildWhereClause(filters);
+    buildWhereClause(
+      filters,
+      hasPhoneColumn
+    );
 
   const pagination =
     getPagination(filters);
@@ -399,6 +440,11 @@ export async function getLaboratoryRecords(
           laboratory_records.patient_first_name,
           laboratory_records.patient_document,
           laboratory_records.patient_birth_date,
+          ${
+            hasPhoneColumn
+              ? 'laboratory_records.patient_phone'
+              : 'NULL'
+          } AS patient_phone,
           laboratory_records.has_blood_extraction,
           laboratory_records.has_urine_sample,
           laboratory_records.is_complete,
@@ -451,8 +497,14 @@ export async function getLaboratoryRecords(
 export async function getLaboratoryStats(
   filters: LaboratoryFilters
 ) {
+  const hasPhoneColumn =
+    await hasPatientPhoneColumn();
+
   const where =
-    buildWhereClause(filters);
+    buildWhereClause(
+      filters,
+      hasPhoneColumn
+    );
 
   const [rows]: any =
     await pool.query(
@@ -538,6 +590,9 @@ export async function createLaboratoryRecord(
         requestedTestIds
       );
 
+    const hasPhoneColumn =
+      await hasPatientPhoneColumn();
+
     const [result]: any =
       await connection.query(
         `
@@ -548,6 +603,7 @@ export async function createLaboratoryRecord(
             patient_first_name,
             patient_document,
             patient_birth_date,
+            ${hasPhoneColumn ? 'patient_phone,' : ''}
             has_blood_extraction,
             has_urine_sample,
             is_complete,
@@ -559,7 +615,7 @@ export async function createLaboratoryRecord(
             created_by,
             updated_by
           )
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          VALUES (?, ?, ?, ?, ?, ?, ${hasPhoneColumn ? '?,' : ''} ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `,
         [
           data.protocol_number || null,
@@ -568,6 +624,9 @@ export async function createLaboratoryRecord(
           data.patient_first_name,
           data.patient_document || null,
           data.patient_birth_date || null,
+          ...(hasPhoneColumn
+            ? [data.patient_phone || null]
+            : []),
           sampleFlags.hasBlood,
           sampleFlags.hasUrine,
           false,
@@ -627,6 +686,9 @@ export async function updateLaboratoryRecord(
         requestedTestIds
       );
 
+    const hasPhoneColumn =
+      await hasPatientPhoneColumn();
+
     await connection.query(
       `
         UPDATE laboratory_records
@@ -637,6 +699,7 @@ export async function updateLaboratoryRecord(
           patient_first_name = ?,
           patient_document = ?,
           patient_birth_date = ?,
+          ${hasPhoneColumn ? 'patient_phone = ?,' : ''}
           has_blood_extraction = ?,
           has_urine_sample = ?,
           notes = ?,
@@ -650,6 +713,9 @@ export async function updateLaboratoryRecord(
         data.patient_first_name,
         data.patient_document || null,
         data.patient_birth_date || null,
+        ...(hasPhoneColumn
+          ? [data.patient_phone || null]
+          : []),
         sampleFlags.hasBlood,
         sampleFlags.hasUrine,
         data.notes || null,
