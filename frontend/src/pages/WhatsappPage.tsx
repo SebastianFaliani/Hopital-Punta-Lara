@@ -899,7 +899,7 @@ export default function WhatsappPage() {
       window.setInterval(() => {
         loadWebStatus();
         loadConversations();
-      }, 5000);
+      }, 15000);
 
     return () =>
       window.clearInterval(interval);
@@ -919,7 +919,7 @@ export default function WhatsappPage() {
     const interval =
       window.setInterval(() => {
         loadChatMessages(selectedPhone);
-      }, 5000);
+      }, 10000);
 
     return () =>
       window.clearInterval(interval);
@@ -929,12 +929,19 @@ export default function WhatsappPage() {
   useEffect(() => {
 
     conversations
-      .slice(0, 30)
+      .slice(0, 12)
+      .filter(
+        (conversation) =>
+          !Object.prototype.hasOwnProperty.call(
+            profilePictures,
+            conversation.phone
+          )
+      )
       .forEach((conversation) => {
         loadProfilePicture(conversation.phone);
       });
 
-  }, [conversations, profilePictures]);
+  }, [conversations]);
 
   useEffect(() => {
 

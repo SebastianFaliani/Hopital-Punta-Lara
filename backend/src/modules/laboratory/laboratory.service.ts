@@ -29,14 +29,28 @@ const defaultResultNotificationTemplate =
     'Recorda traer DNI.'
   ].join('\n');
 
+type LaboratoryColumnCacheEntry = {
+  exists: boolean;
+  checkedAt: number;
+};
+
 const laboratoryColumnCache =
-  new Map<string, boolean>();
+  new Map<string, LaboratoryColumnCacheEntry>();
+
+const laboratoryColumnCacheTtlMs =
+  60_000;
 
 async function hasLaboratoryColumn(
   columnName: string
 ) {
-  if (laboratoryColumnCache.get(columnName)) {
-    return true;
+  const cached =
+    laboratoryColumnCache.get(columnName);
+
+  if (
+    cached &&
+    Date.now() - cached.checkedAt < laboratoryColumnCacheTtlMs
+  ) {
+    return cached.exists;
   }
 
   const [rows]: any =
@@ -55,12 +69,13 @@ async function hasLaboratoryColumn(
   const exists =
     Number(rows[0]?.total || 0) > 0;
 
-  if (exists) {
-    laboratoryColumnCache.set(
-      columnName,
-      true
-    );
-  }
+  laboratoryColumnCache.set(
+    columnName,
+    {
+      exists,
+      checkedAt: Date.now()
+    }
+  );
 
   return exists;
 }
