@@ -6220,12 +6220,15 @@ export default function PersonnelPage() {
         !isPersonnelSettingsPage &&
         activeTab === 'attendance' && (
           <>
-            <div className="module-tabs attendance-view-tabs">
+            <div className="attendance-view-toggle">
+              <span className="attendance-view-toggle-label">
+                Vista
+              </span>
               <button
                 className={
                   attendanceViewMode === 'month'
-                    ? 'module-tab module-tab-active'
-                    : 'module-tab'
+                    ? 'attendance-view-toggle-button attendance-view-toggle-button-active'
+                    : 'attendance-view-toggle-button'
                 }
                 type="button"
                 onClick={() => {
@@ -6243,8 +6246,8 @@ export default function PersonnelPage() {
               <button
                 className={
                   attendanceViewMode === 'employee'
-                    ? 'module-tab module-tab-active'
-                    : 'module-tab'
+                    ? 'attendance-view-toggle-button attendance-view-toggle-button-active'
+                    : 'attendance-view-toggle-button'
                 }
                 type="button"
                 onClick={() => {

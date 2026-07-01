@@ -417,6 +417,48 @@ export default function LaboratoryPage() {
     }));
   }
 
+  function areAllRequestedTestsSelected(
+    tests: LaboratoryTest[]
+  ) {
+    return tests.length > 0 &&
+      tests.every((test) =>
+        form.requested_test_ids.includes(test.id)
+      );
+  }
+
+  function toggleRequestedCategory(
+    tests: LaboratoryTest[]
+  ) {
+    const testIds =
+      tests.map((test) =>
+        test.id
+      );
+
+    const allSelected =
+      testIds.every((id) =>
+        form.requested_test_ids.includes(id)
+      );
+
+    setForm((current) => {
+      const selected =
+        new Set(current.requested_test_ids);
+
+      testIds.forEach((id) => {
+        if (allSelected) {
+          selected.delete(id);
+        } else {
+          selected.add(id);
+        }
+      });
+
+      return {
+        ...current,
+        requested_test_ids:
+          Array.from(selected)
+      };
+    });
+  }
+
   function toggleReceivedTest(
     testId: number
   ) {
@@ -430,6 +472,50 @@ export default function LaboratoryPage() {
           testId
         ]
     );
+  }
+
+  function getLaboratoryTestIdentifier(
+    test: LaboratoryTest
+  ) {
+    return Number(test.test_id || test.id);
+  }
+
+  function areAllReceivedTestsSelected(
+    tests: LaboratoryTest[]
+  ) {
+    return tests.length > 0 &&
+      tests.every((test) =>
+        receivedTestIds.includes(
+          getLaboratoryTestIdentifier(test)
+        )
+      );
+  }
+
+  function toggleReceivedCategory(
+    tests: LaboratoryTest[]
+  ) {
+    const testIds =
+      tests.map(getLaboratoryTestIdentifier);
+
+    const allSelected =
+      testIds.every((id) =>
+        receivedTestIds.includes(id)
+      );
+
+    setReceivedTestIds((current) => {
+      const selected =
+        new Set(current);
+
+      testIds.forEach((id) => {
+        if (allSelected) {
+          selected.delete(id);
+        } else {
+          selected.add(id);
+        }
+      });
+
+      return Array.from(selected);
+    });
   }
 
   async function handleSubmit(
@@ -1051,7 +1137,22 @@ export default function LaboratoryPage() {
                     className="laboratory-test-group"
                     key={category}
                   >
-                    <h3>{category}</h3>
+                    <div className="laboratory-test-group-header">
+                      <h3>{category}</h3>
+                      <button
+                        className="laboratory-select-section-button"
+                        type="button"
+                        onClick={() =>
+                          toggleRequestedCategory(tests)
+                        }
+                      >
+                        {
+                          areAllRequestedTestsSelected(tests)
+                            ? 'Quitar todo'
+                            : 'Seleccionar todo'
+                        }
+                      </button>
+                    </div>
                     <div className="laboratory-test-options">
                       {tests.map((test) => (
                         <label
@@ -1154,21 +1255,36 @@ export default function LaboratoryPage() {
                     className="laboratory-test-group"
                     key={category}
                   >
-                    <h3>{category}</h3>
+                    <div className="laboratory-test-group-header">
+                      <h3>{category}</h3>
+                      <button
+                        className="laboratory-select-section-button"
+                        type="button"
+                        onClick={() =>
+                          toggleReceivedCategory(tests)
+                        }
+                      >
+                        {
+                          areAllReceivedTestsSelected(tests)
+                            ? 'Quitar todo'
+                            : 'Seleccionar todo'
+                        }
+                      </button>
+                    </div>
                     <div className="laboratory-test-options">
                       {tests.map((test) => (
                         <label
                           className="checkbox-row"
-                          key={test.test_id || test.id}
+                          key={getLaboratoryTestIdentifier(test)}
                         >
                           <input
                             type="checkbox"
                             checked={receivedTestIds.includes(
-                              Number(test.test_id || test.id)
+                              getLaboratoryTestIdentifier(test)
                             )}
                             onChange={() =>
                               toggleReceivedTest(
-                                Number(test.test_id || test.id)
+                                getLaboratoryTestIdentifier(test)
                               )
                             }
                           />

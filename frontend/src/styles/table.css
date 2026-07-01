@@ -980,9 +980,70 @@
   margin-bottom: 10px;
 }
 
-.attendance-view-tabs {
+.attendance-view-toggle {
 
-  margin-bottom: 14px;
+  display: inline-flex;
+
+  align-items: center;
+
+  gap: 6px;
+
+  width: fit-content;
+
+  margin-bottom: 12px;
+
+  padding: 4px;
+
+  background: #f8fafc;
+
+  border:
+    1px solid var(--color-border);
+
+  border-radius: 8px;
+}
+
+.attendance-view-toggle-label {
+
+  padding: 0 8px;
+
+  color: #64748b;
+
+  font-size: 12px;
+
+  font-weight: 700;
+}
+
+.attendance-view-toggle-button {
+
+  min-height: 30px;
+
+  padding: 0 12px;
+
+  color: #475569;
+
+  background: transparent;
+
+  border: 0;
+
+  border-radius: 6px;
+
+  cursor: pointer;
+
+  font-family: inherit;
+
+  font-size: 12px;
+
+  font-weight: 700;
+}
+
+.attendance-view-toggle-button-active {
+
+  color: #ffffff;
+
+  background: var(--color-primary);
+
+  box-shadow:
+    0 4px 10px rgba(37, 99, 235, 0.22);
 }
 
 .attendance-toolbar .form-input {
