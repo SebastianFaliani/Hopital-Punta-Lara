@@ -1,4 +1,10 @@
 import { pool } from '../../config/database';
+import {
+  saveWhatsappChatMessage
+} from '../whatsapp/whatsapp.service';
+import {
+  sendWhatsappTextMessage
+} from '../whatsapp/whatsapp-web.service';
 
 type LaboratoryFilters = {
   search?: string;
@@ -12,12 +18,25 @@ type LaboratoryFilters = {
   per_page?: string | number;
 };
 
-let patientPhoneColumnCache: boolean | null =
-  null;
+const defaultResultNotificationTemplate =
+  [
+    'Hospital Municipal de Punta Lara',
+    '',
+    'Hola {nombre}. Te avisamos que los resultados de laboratorio ya se encuentran disponibles para retirar.',
+    '',
+    'Podes pasar de lunes a viernes de 08:00 a 12:00 hs por el hospital.',
+    '',
+    'Recorda traer DNI.'
+  ].join('\n');
 
-async function hasPatientPhoneColumn() {
-  if (patientPhoneColumnCache !== null) {
-    return patientPhoneColumnCache;
+const laboratoryColumnCache =
+  new Map<string, boolean>();
+
+async function hasLaboratoryColumn(
+  columnName: string
+) {
+  if (laboratoryColumnCache.get(columnName)) {
+    return true;
   }
 
   const [rows]: any =
@@ -27,18 +46,121 @@ async function hasPatientPhoneColumn() {
         FROM information_schema.COLUMNS
         WHERE TABLE_SCHEMA = DATABASE()
           AND TABLE_NAME = 'laboratory_records'
-          AND COLUMN_NAME = 'patient_phone'
+          AND COLUMN_NAME = ?
       `
+      ,
+      [columnName]
     );
 
   const exists =
     Number(rows[0]?.total || 0) > 0;
 
   if (exists) {
-    patientPhoneColumnCache = true;
+    laboratoryColumnCache.set(
+      columnName,
+      true
+    );
   }
 
   return exists;
+}
+
+async function getLaboratoryOptionalColumns() {
+  const [
+    hasPhoneColumn,
+    hasNotificationAtColumn,
+    hasNotificationMessageColumn,
+    hasNotificationByColumn
+  ] =
+    await Promise.all([
+      hasLaboratoryColumn('patient_phone'),
+      hasLaboratoryColumn('result_notified_at'),
+      hasLaboratoryColumn('result_notification_message'),
+      hasLaboratoryColumn('result_notified_by')
+    ]);
+
+  return {
+    hasPhoneColumn,
+    hasNotificationAtColumn,
+    hasNotificationMessageColumn,
+    hasNotificationByColumn
+  };
+}
+
+export async function getLaboratoryResultNotificationTemplate() {
+  try {
+    await pool.query(
+      `
+        CREATE TABLE IF NOT EXISTS laboratory_settings (
+          setting_key VARCHAR(120) PRIMARY KEY,
+          setting_value TEXT NOT NULL,
+          updated_by BIGINT NULL,
+          updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        )
+      `
+    );
+
+    const [rows]: any =
+      await pool.query(
+        `
+          SELECT setting_value
+          FROM laboratory_settings
+          WHERE setting_key = 'result_notification_template'
+          LIMIT 1
+        `
+      );
+
+    return rows[0]?.setting_value ||
+      defaultResultNotificationTemplate;
+  } catch (error) {
+    return defaultResultNotificationTemplate;
+  }
+}
+
+export async function updateLaboratoryResultNotificationTemplate(
+  template: string,
+  userId?: number
+) {
+  const cleanTemplate =
+    String(template || '').trim();
+
+  if (!cleanTemplate) {
+    throw new Error(
+      'El mensaje predeterminado no puede estar vacio'
+    );
+  }
+
+  await pool.query(
+    `
+      CREATE TABLE IF NOT EXISTS laboratory_settings (
+        setting_key VARCHAR(120) PRIMARY KEY,
+        setting_value TEXT NOT NULL,
+        updated_by BIGINT NULL,
+        updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      )
+    `
+  );
+
+  await pool.query(
+    `
+      INSERT INTO laboratory_settings (
+        setting_key,
+        setting_value,
+        updated_by
+      )
+      VALUES ('result_notification_template', ?, ?)
+      ON DUPLICATE KEY UPDATE
+        setting_value = VALUES(setting_value),
+        updated_by = VALUES(updated_by),
+        updated_at = CURRENT_TIMESTAMP
+    `,
+    [
+      cleanTemplate,
+      userId || null
+    ]
+  );
+
+  return cleanTemplate;
 }
 
 function getPagination(
@@ -407,13 +529,13 @@ async function getSampleFlagsFromTests(
 export async function getLaboratoryRecords(
   filters: LaboratoryFilters
 ) {
-  const hasPhoneColumn =
-    await hasPatientPhoneColumn();
+  const optionalColumns =
+    await getLaboratoryOptionalColumns();
 
   const where =
     buildWhereClause(
       filters,
-      hasPhoneColumn
+      optionalColumns.hasPhoneColumn
     );
 
   const pagination =
@@ -441,10 +563,20 @@ export async function getLaboratoryRecords(
           laboratory_records.patient_document,
           laboratory_records.patient_birth_date,
           ${
-            hasPhoneColumn
+            optionalColumns.hasPhoneColumn
               ? 'laboratory_records.patient_phone'
               : 'NULL'
           } AS patient_phone,
+          ${
+            optionalColumns.hasNotificationAtColumn
+              ? 'laboratory_records.result_notified_at'
+              : 'NULL'
+          } AS result_notified_at,
+          ${
+            optionalColumns.hasNotificationMessageColumn
+              ? 'laboratory_records.result_notification_message'
+              : 'NULL'
+          } AS result_notification_message,
           laboratory_records.has_blood_extraction,
           laboratory_records.has_urine_sample,
           laboratory_records.is_complete,
@@ -497,13 +629,13 @@ export async function getLaboratoryRecords(
 export async function getLaboratoryStats(
   filters: LaboratoryFilters
 ) {
-  const hasPhoneColumn =
-    await hasPatientPhoneColumn();
+  const optionalColumns =
+    await getLaboratoryOptionalColumns();
 
   const where =
     buildWhereClause(
       filters,
-      hasPhoneColumn
+      optionalColumns.hasPhoneColumn
     );
 
   const [rows]: any =
@@ -590,8 +722,10 @@ export async function createLaboratoryRecord(
         requestedTestIds
       );
 
-    const hasPhoneColumn =
-      await hasPatientPhoneColumn();
+    const {
+      hasPhoneColumn
+    } =
+      await getLaboratoryOptionalColumns();
 
     const [result]: any =
       await connection.query(
@@ -686,8 +820,10 @@ export async function updateLaboratoryRecord(
         requestedTestIds
       );
 
-    const hasPhoneColumn =
-      await hasPatientPhoneColumn();
+    const {
+      hasPhoneColumn
+    } =
+      await getLaboratoryOptionalColumns();
 
     await connection.query(
       `
@@ -810,6 +946,145 @@ export async function updateLaboratoryCompletion(
     throw error;
   } finally {
     connection.release();
+  }
+
+  return true;
+}
+
+function normalizeWhatsappPhone(
+  phone: string
+) {
+  const trimmed =
+    String(phone || '').trim();
+
+  if (trimmed.includes('@')) {
+    return trimmed;
+  }
+
+  let digits =
+    trimmed.replace(/\D/g, '');
+
+  if (!digits) {
+    throw new Error(
+      'El paciente no tiene un telefono valido para WhatsApp'
+    );
+  }
+
+  digits =
+    digits.replace(/^00+/, '');
+
+  if (digits.startsWith('549')) {
+    return `${digits}@c.us`;
+  }
+
+  if (digits.startsWith('54')) {
+    const nationalNumber =
+      digits.slice(2);
+
+    if (nationalNumber.startsWith('9')) {
+      return `${digits}@c.us`;
+    }
+
+    return `549${nationalNumber}@c.us`;
+  }
+
+  if (digits.startsWith('0')) {
+    digits = digits.replace(/^0+/, '');
+  }
+
+  if (digits.startsWith('15')) {
+    digits = digits.slice(2);
+  }
+
+  if (digits.length < 8) {
+    throw new Error(
+      'El telefono del paciente parece incompleto. Cargalo con codigo de area, por ejemplo 2215062920'
+    );
+  }
+
+  return `549${digits}@c.us`;
+}
+
+export async function notifyLaboratoryResultByWhatsapp(
+  id: number,
+  message: string,
+  userId?: number
+) {
+  const record =
+    await getLaboratoryRecordById(id);
+
+  if (!record) {
+    throw new Error(
+      'Estudio de laboratorio no encontrado'
+    );
+  }
+
+  if (!record.is_complete) {
+    throw new Error(
+      'El estudio todavia no esta completo'
+    );
+  }
+
+  if (!record.patient_phone) {
+    throw new Error(
+      'El paciente no tiene telefono cargado'
+    );
+  }
+
+  const cleanMessage =
+    String(message || '').trim();
+
+  if (!cleanMessage) {
+    throw new Error(
+      'El mensaje es obligatorio'
+    );
+  }
+
+  const phone =
+    normalizeWhatsappPhone(record.patient_phone);
+
+  await sendWhatsappTextMessage(
+    phone,
+    cleanMessage
+  );
+
+  await saveWhatsappChatMessage({
+    phone,
+    direction: 'outgoing',
+    message: cleanMessage,
+    source: 'laboratorio'
+  });
+
+  const optionalColumns =
+    await getLaboratoryOptionalColumns();
+
+  if (
+    optionalColumns.hasNotificationAtColumn &&
+    optionalColumns.hasNotificationMessageColumn
+  ) {
+    await pool.query(
+      `
+        UPDATE laboratory_records
+        SET
+          result_notified_at = NOW(),
+          result_notification_message = ?,
+          ${
+            optionalColumns.hasNotificationByColumn
+              ? 'result_notified_by = ?,'
+              : ''
+          }
+          updated_by = ?
+        WHERE id = ?
+      `,
+      [
+        cleanMessage,
+        ...(optionalColumns.hasNotificationByColumn
+          ? [userId || null]
+          : []),
+        userId || null,
+        id
+      ]
+    );
   }
 
   return true;

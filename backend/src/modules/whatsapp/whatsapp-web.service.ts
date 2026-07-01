@@ -130,6 +130,60 @@ export function getWhatsappWebStatus() {
   };
 }
 
+async function refreshWhatsappReadyState() {
+  if (!client) {
+    state.isReady = false;
+    return false;
+  }
+
+  try {
+    const clientState =
+      await client.getState();
+
+    if (clientState === 'CONNECTED') {
+      initializing = false;
+      state.isReady = true;
+      state.qr = null;
+      state.qrDataUrl = null;
+      state.phone =
+        client?.info?.wid?.user || state.phone || null;
+      setEvent(
+        'connected',
+        'WhatsApp conectado'
+      );
+
+      return true;
+    }
+  } catch (error) {
+    // Si el cliente todavia no responde, se mantiene el estado actual.
+  }
+
+  return state.isReady;
+}
+
+async function waitUntilWhatsappReady(
+  timeoutMs = 12000
+) {
+  const startedAt =
+    Date.now();
+
+  while (Date.now() - startedAt < timeoutMs) {
+    if (await refreshWhatsappReadyState()) {
+      return true;
+    }
+
+    await wait(750);
+  }
+
+  return false;
+}
+
+export async function getWhatsappWebStatusFresh() {
+  await refreshWhatsappReadyState();
+
+  return getWhatsappWebStatus();
+}
+
 function getWhatsappMessageId(
   message: any
 ) {
@@ -296,8 +350,20 @@ export async function sendWhatsappTextMessage(
   phone: string,
   message: string
 ) {
-  if (!client || !state.isReady) {
-    throw new Error('WhatsApp no esta conectado');
+  if (!client) {
+    throw new Error(
+      'WhatsApp Web no esta iniciado. Ingresa al menu WhatsApp, presiona Iniciar y verifica que el telefono este vinculado.'
+    );
+  }
+
+  if (!state.isReady) {
+    await waitUntilWhatsappReady();
+  }
+
+  if (!state.isReady) {
+    throw new Error(
+      'WhatsApp Web esta autenticado pero todavia no esta listo para enviar. Espera unos segundos o reinicia la conexion desde el menu WhatsApp.'
+    );
   }
 
   await client.sendMessage(

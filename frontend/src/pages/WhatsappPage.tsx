@@ -954,7 +954,7 @@ export default function WhatsappPage() {
         : webStatus?.status === 'initializing'
           ? 'Iniciando'
           : webStatus?.status === 'authenticated'
-            ? 'Autenticado'
+            ? 'Autenticado, esperando conexion'
             : webStatus?.status === 'not_configured'
               ? 'No configurado'
               : webStatus?.status === 'failed'

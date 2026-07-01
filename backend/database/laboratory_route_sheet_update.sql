@@ -8,6 +8,15 @@ ALTER TABLE laboratory_records
   ADD COLUMN patient_phone VARCHAR(80) NULL AFTER patient_birth_date;
 
 ALTER TABLE laboratory_records
+  ADD COLUMN result_notified_at DATETIME NULL AFTER completed_by;
+
+ALTER TABLE laboratory_records
+  ADD COLUMN result_notification_message TEXT NULL AFTER result_notified_at;
+
+ALTER TABLE laboratory_records
+  ADD COLUMN result_notified_by BIGINT NULL AFTER result_notification_message;
+
+ALTER TABLE laboratory_records
   ADD COLUMN status ENUM('enviado','parcial','completo','retirado') NOT NULL DEFAULT 'enviado' AFTER is_complete;
 
 CREATE TABLE IF NOT EXISTS laboratory_test_catalog (

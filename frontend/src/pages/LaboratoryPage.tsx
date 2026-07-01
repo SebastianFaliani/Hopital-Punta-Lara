@@ -41,6 +41,8 @@ type LaboratoryRecord = {
   status: string;
   missing_details: string | null;
   completed_at: string | null;
+  result_notified_at: string | null;
+  result_notification_message: string | null;
   pickup_date: string | null;
   picked_up_by: string | null;
   pickup_document: string | null;
@@ -103,6 +105,23 @@ function formatDate(
   value?: string | null
 ) {
   return formatDisplayDate(value);
+}
+
+function formatDateTime(
+  value?: string | null
+) {
+  if (!value) {
+    return '-';
+  }
+
+  return new Date(value)
+    .toLocaleString(
+      'es-AR',
+      {
+        dateStyle: 'short',
+        timeStyle: 'short'
+      }
+    );
 }
 
 function yesNo(
@@ -228,6 +247,18 @@ export default function LaboratoryPage() {
 
   const [completionRecord, setCompletionRecord] =
     useState<LaboratoryRecord | null>(null);
+
+  const [notificationRecord, setNotificationRecord] =
+    useState<LaboratoryRecord | null>(null);
+
+  const [notificationMessage, setNotificationMessage] =
+    useState('');
+
+  const [notificationTemplate, setNotificationTemplate] =
+    useState('');
+
+  const [saveNotificationTemplate, setSaveNotificationTemplate] =
+    useState(false);
 
   const [receivedTestIds, setReceivedTestIds] =
     useState<number[]>([]);
@@ -400,6 +431,74 @@ export default function LaboratoryPage() {
       (record.tests || [])
         .filter((test) => test.received)
         .map((test) => Number(test.test_id || test.id))
+    );
+  }
+
+  function buildDefaultNotificationMessage(
+    record: LaboratoryRecord
+  ) {
+    const template =
+      notificationTemplate ||
+      [
+        'Hospital Municipal de Punta Lara',
+        '',
+        'Hola {nombre}. Te avisamos que los resultados de laboratorio ya se encuentran disponibles para retirar.',
+        '',
+        'Podes pasar de lunes a viernes de 08:00 a 12:00 hs por el hospital.',
+        '',
+        'Recorda traer DNI.'
+      ].join('\n');
+
+    return template
+      .replaceAll(
+        '{nombre}',
+        record.patient_first_name || ''
+      )
+      .replaceAll(
+        '{apellido}',
+        record.patient_last_name || ''
+      )
+      .replaceAll(
+        '{dni}',
+        record.patient_document || ''
+      );
+  }
+
+  async function loadNotificationTemplate() {
+    try {
+      const res =
+        await apiFetch(
+          '/laboratory/notification-template'
+        );
+
+      setNotificationTemplate(
+        res.data.template || ''
+      );
+
+      return res.data.template || '';
+    } catch (error) {
+      return notificationTemplate;
+    }
+  }
+
+  async function openNotification(
+    record: LaboratoryRecord
+  ) {
+    const template =
+      await loadNotificationTemplate();
+
+    setNotificationRecord(record);
+    setSaveNotificationTemplate(false);
+    setNotificationMessage(
+      record.result_notification_message ||
+      (
+        template ||
+        notificationTemplate
+      )
+        .replaceAll('{nombre}', record.patient_first_name || '')
+        .replaceAll('{apellido}', record.patient_last_name || '')
+        .replaceAll('{dni}', record.patient_document || '') ||
+      buildDefaultNotificationMessage(record)
     );
   }
 
@@ -599,6 +698,64 @@ export default function LaboratoryPage() {
       setPickupRecord(null);
       setShowIncompletePickupWarning(false);
       await loadLaboratory();
+    } catch (error: any) {
+      showSystemAlert(error.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function sendResultNotification() {
+    if (!notificationRecord) {
+      return;
+    }
+
+    if (!notificationMessage.trim()) {
+      showSystemAlert('El mensaje es obligatorio');
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      if (saveNotificationTemplate) {
+        const templateRes =
+          await apiFetch(
+            '/laboratory/notification-template',
+            {
+              method: 'PUT',
+              body:
+                JSON.stringify({
+                  template: notificationMessage
+                })
+            }
+          );
+
+        setNotificationTemplate(
+          templateRes.data.template || notificationMessage
+        );
+      }
+
+      await apiFetch(
+        `/laboratory/${notificationRecord.id}/notify-result`,
+        {
+          method: 'POST',
+          body:
+            JSON.stringify({
+              message: notificationMessage
+            })
+        }
+      );
+
+      setNotificationRecord(null);
+      setNotificationMessage('');
+      setSaveNotificationTemplate(false);
+      await loadLaboratory();
+      showSystemAlert(
+        'Notificación enviada por WhatsApp.',
+        'Listo',
+        'success'
+      );
     } catch (error: any) {
       showSystemAlert(error.message);
     } finally {
@@ -953,8 +1110,18 @@ export default function LaboratoryPage() {
                     </div>
                   </td>
                   <td>
-                    <span className={status.className}>
-                      {status.text}
+                    <span className="laboratory-status-cell">
+                      <span className={status.className}>
+                        {status.text}
+                      </span>
+                      {record.result_notified_at && (
+                        <span
+                          className="laboratory-whatsapp-dot"
+                          title={`Avisado ${formatDateTime(record.result_notified_at)}`}
+                        >
+                          W
+                        </span>
+                      )}
                     </span>
                   </td>
                   <td>
@@ -1009,6 +1176,20 @@ export default function LaboratoryPage() {
                           Registrar retiro
                         </button>
                       )}
+
+                      {canChangeCompletion &&
+                        yesNo(record.is_complete) &&
+                        !record.pickup_date &&
+                        record.patient_phone && (
+                        <button
+                          className="btn-success"
+                          onClick={() =>
+                            openNotification(record)
+                          }
+                        >
+                          WhatsApp
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -1017,7 +1198,7 @@ export default function LaboratoryPage() {
 
             {records.length === 0 && (
               <tr>
-                <td colSpan={9}>
+                <td colSpan={10}>
                   No hay estudios para esos filtros.
                 </td>
               </tr>
@@ -1339,6 +1520,82 @@ export default function LaboratoryPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {notificationRecord && (
+        <div className="modal-overlay">
+          <div className="modal-content modal-content-wide">
+            <button
+              className="modal-close-button"
+              type="button"
+              onClick={() =>
+                setNotificationRecord(null)
+              }
+              aria-label="Cerrar"
+            >
+              x
+            </button>
+
+            <h2 className="modal-title">
+              Enviar aviso por WhatsApp
+            </h2>
+
+            <p className="page-subtitle">
+              {notificationRecord.patient_last_name} {notificationRecord.patient_first_name} · {notificationRecord.patient_phone}
+            </p>
+
+            {notificationRecord.result_notified_at && (
+              <p className="form-note">
+                Último aviso enviado: {formatDateTime(notificationRecord.result_notified_at)}
+              </p>
+            )}
+
+            <textarea
+              className="form-input"
+              rows={8}
+              value={notificationMessage}
+              onChange={(e) =>
+                setNotificationMessage(e.target.value)
+              }
+            />
+
+            <label className="checkbox-row">
+              <input
+                type="checkbox"
+                checked={saveNotificationTemplate}
+                onChange={(e) =>
+                  setSaveNotificationTemplate(e.target.checked)
+                }
+              />
+              Guardar este texto como mensaje predeterminado
+            </label>
+
+            <p className="form-note">
+              Para el mensaje predeterminado podés usar: {'{nombre}'}, {'{apellido}'} y {'{dni}'}.
+            </p>
+
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() =>
+                  setNotificationRecord(null)
+                }
+              >
+                Cancelar
+              </button>
+
+              <button
+                type="button"
+                className="btn-success"
+                disabled={loading}
+                onClick={sendResultNotification}
+              >
+                {loading ? 'Enviando...' : 'Enviar WhatsApp'}
+              </button>
+            </div>
           </div>
         </div>
       )}

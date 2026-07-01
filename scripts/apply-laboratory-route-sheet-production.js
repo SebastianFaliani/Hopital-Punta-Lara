@@ -231,6 +231,71 @@ async function main() {
     await addColumnIfMissing(
       connection,
       'laboratory_records',
+      'result_notified_at',
+      'DATETIME NULL AFTER completed_by'
+    );
+
+    await addColumnIfMissing(
+      connection,
+      'laboratory_records',
+      'result_notification_message',
+      'TEXT NULL AFTER result_notified_at'
+    );
+
+    await addColumnIfMissing(
+      connection,
+      'laboratory_records',
+      'result_notified_by',
+      'BIGINT NULL AFTER result_notification_message'
+    );
+
+    await addIndexIfMissing(
+      connection,
+      'laboratory_records',
+      'idx_laboratory_records_result_notified_at',
+      'INDEX idx_laboratory_records_result_notified_at (result_notified_at)'
+    );
+
+    await connection.query(
+      `
+        CREATE TABLE IF NOT EXISTS laboratory_settings (
+          setting_key VARCHAR(120) PRIMARY KEY,
+          setting_value TEXT NOT NULL,
+          updated_by BIGINT NULL,
+          updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        )
+      `
+    );
+
+    await connection.query(
+      `
+        INSERT INTO laboratory_settings (
+          setting_key,
+          setting_value
+        )
+        VALUES (
+          'result_notification_template',
+          ?
+        )
+        ON DUPLICATE KEY UPDATE
+          setting_value = setting_value
+      `,
+      [
+        [
+          'Hospital Municipal de Punta Lara',
+          '',
+          'Hola {nombre}. Te avisamos que los resultados de laboratorio ya se encuentran disponibles para retirar.',
+          '',
+          'Podes pasar de lunes a viernes de 08:00 a 12:00 hs por el hospital.',
+          '',
+          'Recorda traer DNI.'
+        ].join('\n')
+      ]
+    );
+
+    await addColumnIfMissing(
+      connection,
+      'laboratory_records',
       'status',
       "ENUM('enviado','parcial','completo','retirado') NOT NULL DEFAULT 'enviado' AFTER is_complete"
     );

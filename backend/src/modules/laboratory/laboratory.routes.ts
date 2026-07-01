@@ -5,7 +5,10 @@ import {
   handleGetLaboratoryTestCatalog,
   handleGetLaboratoryRecords,
   handleGetLaboratoryStats,
+  handleGetLaboratoryNotificationTemplate,
+  handleNotifyLaboratoryResult,
   handleRegisterLaboratoryPickup,
+  handleUpdateLaboratoryNotificationTemplate,
   handleUpdateLaboratoryCompletion,
   handleUpdateLaboratoryRecord
 } from './laboratory.controller';
@@ -61,6 +64,20 @@ router.get(
   handleGetLaboratoryTestCatalog
 );
 
+router.get(
+  '/notification-template',
+  authenticateToken,
+  authorizeRoles(...laboratoryCompletionRoles),
+  handleGetLaboratoryNotificationTemplate
+);
+
+router.put(
+  '/notification-template',
+  authenticateToken,
+  authorizeRoles(...laboratoryCompletionRoles),
+  handleUpdateLaboratoryNotificationTemplate
+);
+
 router.post(
   '/',
   authenticateToken,
@@ -80,6 +97,13 @@ router.patch(
   authenticateToken,
   authorizeRoles(...laboratoryCompletionRoles),
   handleUpdateLaboratoryCompletion
+);
+
+router.post(
+  '/:id/notify-result',
+  authenticateToken,
+  authorizeRoles(...laboratoryCompletionRoles),
+  handleNotifyLaboratoryResult
 );
 
 router.patch(

@@ -11,6 +11,9 @@ CREATE TABLE IF NOT EXISTS laboratory_records (
   missing_details TEXT NULL,
   completed_at DATETIME NULL,
   completed_by BIGINT NULL,
+  result_notified_at DATETIME NULL,
+  result_notification_message TEXT NULL,
+  result_notified_by BIGINT NULL,
   pickup_date DATE NULL,
   picked_up_by VARCHAR(255) NULL,
   pickup_document VARCHAR(50) NULL,
@@ -29,6 +32,10 @@ CREATE TABLE IF NOT EXISTS laboratory_records (
     ON DELETE SET NULL,
   CONSTRAINT fk_laboratory_records_completed_by
     FOREIGN KEY (completed_by)
+    REFERENCES users(id)
+    ON DELETE SET NULL,
+  CONSTRAINT fk_laboratory_records_result_notified_by
+    FOREIGN KEY (result_notified_by)
     REFERENCES users(id)
     ON DELETE SET NULL,
   INDEX idx_laboratory_records_study_date (study_date),
