@@ -12,6 +12,7 @@ import {
   useAuth
 } from '../auth/useAuth';
 import { hasPermission } from '../auth/permissions';
+import { IconButton } from '../components/IconButton';
 import MedicationModuleTabs from '../components/medications/MedicationModuleTabs';
 import {
   formatDisplayDate
@@ -954,23 +955,23 @@ export default function MedicationDeliveriesPage() {
                 </td>
                 <td>
                   <div className="table-actions">
-                    <button
-                      className="btn-secondary"
+                    <IconButton
+                      icon="eye"
+                      label="Ver detalle"
                       onClick={() =>
                         loadDeliveryDetail(delivery.id)
                       }
-                    >
-                      Ver
-                    </button>
+                      variant="secondary"
+                    />
                     {canEdit && delivery.status === 'entregado' && (
-                      <button
-                        className="btn-danger"
+                      <IconButton
+                        icon="close"
+                        label="Cancelar entrega"
                         onClick={() =>
                           cancelDelivery(delivery.id)
                         }
-                      >
-                        Cancelar
-                      </button>
+                        variant="danger"
+                      />
                     )}
                   </div>
                 </td>

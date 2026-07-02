@@ -8,6 +8,7 @@ import { apiFetch }
 import { useAuth }
   from '../auth/useAuth';
 import { hasPermission } from '../auth/permissions';
+import { IconButton } from '../components/IconButton';
 
 import TransfersNav
   from '../components/transfers/TransfersNav';
@@ -311,30 +312,26 @@ export default function AmbulancesPage() {
                 {canEdit && (
                   <td>
                     <div className="table-actions">
-                      <button
-                        className="btn-primary"
+                      <IconButton
+                        icon="edit"
+                        label="Editar ambulancia"
                         onClick={() =>
                           startEdit(ambulance)
                         }
-                      >
-                        Editar
-                      </button>
-                      <button
-                        className={
-                          ambulance.is_active
-                            ? 'btn-danger'
-                            : 'btn-success'
-                        }
+                        variant="primary"
+                      />
+                      <IconButton
+                        icon={ambulance.is_active ? 'lock' : 'unlock'}
+                        label={ambulance.is_active ? 'Desactivar ambulancia' : 'Activar ambulancia'}
                         onClick={() =>
                           handleToggle(ambulance.id)
                         }
-                      >
-                        {
+                        variant={
                           ambulance.is_active
-                            ? 'Desactivar'
-                            : 'Activar'
+                            ? 'danger'
+                            : 'success'
                         }
-                      </button>
+                      />
                     </div>
                   </td>
                 )}

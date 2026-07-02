@@ -12,6 +12,7 @@ import {
   useAuth
 } from '../auth/useAuth';
 import { hasPermission } from '../auth/permissions';
+import { IconButton } from '../components/IconButton';
 import MedicationModuleTabs from '../components/medications/MedicationModuleTabs';
 import {
   formatDisplayDate,
@@ -966,39 +967,39 @@ export default function MedicationTransfersPage() {
                 </td>
                 <td>
                   <div className="table-actions">
-                    <button
-                      className="btn-secondary"
+                    <IconButton
+                      icon="eye"
+                      label="Ver detalle"
                       onClick={() =>
                         loadTransferDetail(transfer.id)
                       }
-                    >
-                      Ver
-                    </button>
+                      variant="secondary"
+                    />
                     {canEdit && transfer.status === 'enviado' && (
-                      <button
-                        className="btn-success"
+                      <IconButton
+                        icon="check"
+                        label="Recibir traslado"
                         onClick={() =>
                           updateTransferStatus(
                             transfer.id,
                             'receive'
                           )
                         }
-                      >
-                        Recibir
-                      </button>
+                        variant="success"
+                      />
                     )}
                     {canEdit && transfer.status === 'enviado' && (
-                      <button
-                        className="btn-danger"
+                      <IconButton
+                        icon="close"
+                        label="Cancelar traslado"
                         onClick={() =>
                           updateTransferStatus(
                             transfer.id,
                             'cancel'
                           )
                         }
-                      >
-                        Cancelar
-                      </button>
+                        variant="danger"
+                      />
                     )}
                   </div>
                 </td>

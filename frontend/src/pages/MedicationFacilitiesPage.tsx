@@ -10,6 +10,7 @@ import {
 import {
   useAuth
 } from '../auth/useAuth';
+import { IconButton } from '../components/IconButton';
 
 type Facility = {
   id: number;
@@ -378,32 +379,28 @@ export default function MedicationFacilitiesPage() {
                 <td>
                   <div className="table-actions">
                     {canEdit && (
-                      <button
-                        className="btn-primary"
+                      <IconButton
+                        icon="edit"
+                        label="Editar dependencia"
                         onClick={() =>
                           startEdit(facility)
                         }
-                      >
-                        Editar
-                      </button>
+                        variant="primary"
+                      />
                     )}
                     {canEdit && (
-                      <button
-                        className={
-                          facility.is_active
-                            ? 'btn-danger'
-                            : 'btn-success'
-                        }
+                      <IconButton
+                        icon={facility.is_active ? 'lock' : 'unlock'}
+                        label={facility.is_active ? 'Desactivar dependencia' : 'Activar dependencia'}
                         onClick={() =>
                           handleToggle(facility.id)
                         }
-                      >
-                        {
+                        variant={
                           facility.is_active
-                            ? 'Desactivar'
-                            : 'Activar'
+                            ? 'danger'
+                            : 'success'
                         }
-                      </button>
+                      />
                     )}
                   </div>
                 </td>

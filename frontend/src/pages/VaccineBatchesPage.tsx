@@ -11,6 +11,7 @@ import {
 import { apiFetch } from '../api/api';
 import { useAuth } from '../auth/useAuth';
 import { hasPermission } from '../auth/permissions';
+import { IconButton } from '../components/IconButton';
 import {
   formatDisplayDate,
   formatDisplayDateTime
@@ -522,40 +523,40 @@ export default function VaccineBatchesPage() {
                 <td>
                   <div className="table-actions">
                     {canEdit && (
-                      <button
-                        className="btn-primary"
+                      <IconButton
+                        icon="edit"
+                        label="Editar lote"
                         onClick={() =>
                           openEditBatch(batch)
                         }
-                      >
-                        Editar
-                      </button>
+                        variant="primary"
+                      />
                     )}
 
                     {canEdit && (
-                      <button
-                        className="btn-secondary"
+                      <IconButton
+                        icon="eye"
+                        label="Ver movimientos"
                         onClick={() =>
                           openMovements(batch)
                         }
-                      >
-                        Movimientos
-                      </button>
+                        variant="secondary"
+                      />
                     )}
 
                     {canEdit && (
-                      <button
-                        className={
-                          batch.is_active
-                            ? 'btn-danger'
-                            : 'btn-success'
-                        }
+                      <IconButton
+                        icon={batch.is_active ? 'lock' : 'unlock'}
+                        label={batch.is_active ? 'Desactivar lote' : 'Activar lote'}
                         onClick={() =>
                           handleToggleBatch(batch.id)
                         }
-                      >
-                        {batch.is_active ? 'Desactivar' : 'Activar'}
-                      </button>
+                        variant={
+                          batch.is_active
+                            ? 'danger'
+                            : 'success'
+                        }
+                      />
                     )}
                   </div>
                 </td>

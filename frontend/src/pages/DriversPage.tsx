@@ -8,6 +8,7 @@ import { apiFetch }
 import { useAuth }
   from '../auth/useAuth';
 import { hasPermission } from '../auth/permissions';
+import { IconButton } from '../components/IconButton';
 
 import TransfersNav
   from '../components/transfers/TransfersNav';
@@ -263,30 +264,26 @@ export default function DriversPage() {
                 {canEdit && (
                   <td>
                     <div className="table-actions">
-                      <button
-                        className="btn-primary"
+                      <IconButton
+                        icon="edit"
+                        label="Editar chofer"
                         onClick={() =>
                           startEdit(driver)
                         }
-                      >
-                        Editar
-                      </button>
-                      <button
-                        className={
-                          driver.is_active
-                            ? 'btn-danger'
-                            : 'btn-success'
-                        }
+                        variant="primary"
+                      />
+                      <IconButton
+                        icon={driver.is_active ? 'lock' : 'unlock'}
+                        label={driver.is_active ? 'Desactivar chofer' : 'Activar chofer'}
                         onClick={() =>
                           handleToggle(driver.id)
                         }
-                      >
-                        {
+                        variant={
                           driver.is_active
-                            ? 'Desactivar'
-                            : 'Activar'
+                            ? 'danger'
+                            : 'success'
                         }
-                      </button>
+                      />
                     </div>
                   </td>
                 )}
