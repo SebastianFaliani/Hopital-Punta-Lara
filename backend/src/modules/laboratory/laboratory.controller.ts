@@ -10,12 +10,9 @@ import {
   createLaboratoryRecord,
   getLaboratoryRecordById,
   getLaboratoryRecords,
-  getLaboratoryResultNotificationTemplate,
   getLaboratoryStats,
   getLaboratoryTestCatalog,
-  notifyLaboratoryResultByWhatsapp,
   registerLaboratoryPickup,
-  updateLaboratoryResultNotificationTemplate,
   updateLaboratoryCompletion,
   updateLaboratoryRecord
 } from './laboratory.service';
@@ -96,61 +93,6 @@ export async function handleGetLaboratoryTestCatalog(
     return res.status(500).json({
       success: false,
       message: 'Error al obtener practicas de laboratorio'
-    });
-  }
-}
-
-export async function handleGetLaboratoryNotificationTemplate(
-  req: AuthRequest,
-  res: Response
-) {
-  try {
-    return res.json({
-      success: true,
-      data: {
-        template:
-          await getLaboratoryResultNotificationTemplate()
-      }
-    });
-  } catch (error: any) {
-    return res.status(400).json({
-      success: false,
-      message: error.message
-    });
-  }
-}
-
-export async function handleUpdateLaboratoryNotificationTemplate(
-  req: AuthRequest,
-  res: Response
-) {
-  try {
-    const template =
-      await updateLaboratoryResultNotificationTemplate(
-        req.body.template,
-        req.user?.userId || req.user?.id
-      );
-
-    await logAudit({
-      user: req.user,
-      module: 'laboratorio',
-      action: 'actualizar_mensaje_whatsapp_resultados',
-      entityType: 'laboratory_settings',
-      entityId: null,
-      description: 'Actualizo mensaje predeterminado de aviso de resultados por WhatsApp',
-      newData: { template },
-      ipAddress: req.ip,
-      userAgent: req.headers['user-agent'] || null
-    });
-
-    return res.json({
-      success: true,
-      data: { template }
-    });
-  } catch (error: any) {
-    return res.status(400).json({
-      success: false,
-      message: error.message
     });
   }
 }
@@ -428,59 +370,6 @@ export async function handleUpdateLaboratoryCompletion(
     return res.status(400).json({
       success: false,
       message: error.message || 'Error al actualizar estado del estudio'
-    });
-  }
-}
-
-export async function handleNotifyLaboratoryResult(
-  req: AuthRequest,
-  res: Response
-) {
-  try {
-    const previous =
-      await getLaboratoryRecordById(
-        Number(req.params.id)
-      );
-
-    if (!previous) {
-      return res.status(404).json({
-        success: false,
-        message: 'Estudio de laboratorio no encontrado'
-      });
-    }
-
-    await notifyLaboratoryResultByWhatsapp(
-      Number(req.params.id),
-      req.body.message,
-      req.user?.userId || req.user?.id
-    );
-
-    await logAudit({
-      user: req.user,
-      module: 'laboratorio',
-      action: 'notificar_resultado_whatsapp',
-      entityType: 'laboratory_record',
-      entityId: Number(req.params.id),
-      description:
-        `Envio aviso de resultado por WhatsApp para ${previous.patient_last_name}, ${previous.patient_first_name}`,
-      oldData: previous,
-      newData: {
-        message: req.body.message
-      },
-      ipAddress: req.ip,
-      userAgent: req.headers['user-agent'] || null
-    });
-
-    return res.json({
-      success: true,
-      message: 'Notificacion enviada'
-    });
-  } catch (error: any) {
-    console.error(error);
-
-    return res.status(400).json({
-      success: false,
-      message: error.message || 'Error al enviar notificacion'
     });
   }
 }

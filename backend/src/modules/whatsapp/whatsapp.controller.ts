@@ -28,7 +28,6 @@ import {
 
 import {
   getWhatsappWebStatus,
-  getWhatsappWebStatusFresh,
   getWhatsappProfilePictureUrl,
   logoutWhatsappWebSession,
   sendWhatsappTextMessage,
@@ -279,8 +278,7 @@ export async function getWhatsappConnectionStatus(
 
   return res.json({
     success: true,
-    data:
-      await getWhatsappWebStatusFresh()
+    data: getWhatsappWebStatus()
   });
 }
 
