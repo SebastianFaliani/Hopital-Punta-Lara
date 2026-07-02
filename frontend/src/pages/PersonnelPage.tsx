@@ -7562,7 +7562,13 @@ export default function PersonnelPage() {
                   {
                     selectedEmployeeLeaveRequests.length === 0 && (
                       <tr>
-                        <td colSpan={(canManageLeaves || canApproveLeaves) ? 8 : 7}>
+                        <td
+                          colSpan={
+                            7 +
+                            (canSeeLeaveCreator ? 3 : 0) +
+                            ((canManageLeaves || canApproveLeaves) ? 1 : 0)
+                          }
+                        >
                           {
                             selectedLeaveEmployee
                               ? 'Este empleado todavia no tiene solicitudes cargadas.'
@@ -8165,6 +8171,9 @@ export default function PersonnelPage() {
                     <th>Dias</th>
                     <th>Horas</th>
                     <th>Estado</th>
+                    {canSeeLeaveCreator && (
+                      <th>Cargada por</th>
+                    )}
                     {(canManageLeaves || canApproveLeaves) && (
                       <th>Acciones</th>
                     )}
@@ -8210,6 +8219,14 @@ export default function PersonnelPage() {
                           {request.status}
                         </span>
                       </td>
+                      {canSeeLeaveCreator && (
+                        <td>
+                          <PersonDateCell
+                            name={request.requested_by_name}
+                            date={request.requested_at}
+                          />
+                        </td>
+                      )}
                       {(canManageLeaves || canApproveLeaves) && (
                         <td>
                         <div className="table-actions">
@@ -8316,7 +8333,13 @@ export default function PersonnelPage() {
                   {
                     filteredLeaveRequests.length === 0 && (
                       <tr>
-                        <td colSpan={(canManageLeaves || canApproveLeaves) ? 8 : 7}>
+                        <td
+                          colSpan={
+                            7 +
+                            (canSeeLeaveCreator ? 1 : 0) +
+                            ((canManageLeaves || canApproveLeaves) ? 1 : 0)
+                          }
+                        >
                           No hay solicitudes para esos filtros.
                         </td>
                       </tr>
