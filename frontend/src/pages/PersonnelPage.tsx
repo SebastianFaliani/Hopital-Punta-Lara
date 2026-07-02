@@ -1497,6 +1497,24 @@ export default function PersonnelPage() {
     }
   }
 
+  function openEmployeeAttendance(
+    employee: Pick<Employee, 'id' | 'full_name'>
+  ) {
+    if (!confirmDiscardAttendanceChanges()) {
+      return;
+    }
+
+    const employeeId =
+      String(employee.id);
+
+    setActiveTab('attendance');
+    setAttendanceViewMode('employee');
+    setAnnualAttendanceEmployeeId(employeeId);
+    setAnnualAttendanceEmployeeSearch(employee.full_name);
+    setAnnualAttendanceEdits({});
+    loadAnnualAttendance(employeeId);
+  }
+
   async function loadPlannedDaysOff() {
 
     try {
@@ -5123,7 +5141,18 @@ export default function PersonnelPage() {
                 <tbody>
                   {filteredEmployees.map((employee) => (
                     <tr key={employee.id}>
-                      <td>{employee.full_name}</td>
+                      <td>
+                        <button
+                          className="text-link-button"
+                          type="button"
+                          onClick={() =>
+                            openEmployeeAttendance(employee)
+                          }
+                          title="Ver presentismo del empleado"
+                        >
+                          {employee.full_name}
+                        </button>
+                      </td>
                       <td>{employee.dni || '-'}</td>
                       <td>{employee.facility_name || '-'}</td>
                       <td>{employee.department_name || '-'}</td>
@@ -5147,45 +5176,41 @@ export default function PersonnelPage() {
                       </td>
                       {(readOnly || user?.role === 'admin') && (
                         <td>
-                          <button
-                            className="btn-secondary"
+                          <IconButton
+                            icon="eye"
+                            label="Ver resumen"
                             type="button"
                             onClick={() =>
                               loadDirectiveSummary(employee)
                             }
-                          >
-                            Ver resumen
-                          </button>
+                            variant="secondary"
+                          />
                         </td>
                       )}
                       {canManageEmployees && (
                         <td>
                           <div className="table-actions">
-                            <button
-                              className="btn-primary"
+                            <IconButton
+                              icon="edit"
+                              label="Editar empleado"
                               onClick={() =>
                                 startEditEmployee(employee)
                               }
-                            >
-                              Editar
-                            </button>
+                              variant="primary"
+                            />
 
-                            <button
-                              className={
-                                employee.is_active
-                                  ? 'btn-danger'
-                                  : 'btn-success'
-                              }
+                            <IconButton
+                              icon={employee.is_active ? 'lock' : 'unlock'}
+                              label={employee.is_active ? 'Desactivar empleado' : 'Activar empleado'}
                               onClick={() =>
                                 handleToggleEmployee(employee.id)
                               }
-                            >
-                              {
+                              variant={
                                 employee.is_active
-                                  ? 'Desactivar'
-                                  : 'Activar'
+                                  ? 'danger'
+                                  : 'success'
                               }
-                            </button>
+                            />
                           </div>
                         </td>
                       )}
@@ -6856,7 +6881,18 @@ export default function PersonnelPage() {
                             : ''
                         }
                       >
-                        <td>{employee.full_name}</td>
+                        <td>
+                          <button
+                            className="text-link-button"
+                            type="button"
+                            onClick={() =>
+                              openEmployeeAttendance(employee)
+                            }
+                            title="Ver presentismo del empleado"
+                          >
+                            {employee.full_name}
+                          </button>
+                        </td>
                         <td>{employee.dni || '-'}</td>
                         <td>{employee.file_number || '-'}</td>
                         <td>{employee.facility_name || '-'}</td>
@@ -7323,7 +7359,19 @@ export default function PersonnelPage() {
                   {selectedEmployeeLeaveRequests.map((request) => (
                     <tr key={request.id}>
                       <td>
-                        <strong>{request.full_name}</strong>
+                        <button
+                          className="text-link-button"
+                          type="button"
+                          onClick={() =>
+                            openEmployeeAttendance({
+                              id: request.employee_id,
+                              full_name: request.full_name
+                            })
+                          }
+                          title="Ver presentismo del empleado"
+                        >
+                          {request.full_name}
+                        </button>
                         <br />
                         <span>{request.department_name || '-'}</span>
                       </td>
@@ -8098,7 +8146,19 @@ export default function PersonnelPage() {
                   {filteredLeaveRequests.map((request) => (
                     <tr key={request.id}>
                       <td>
-                        <strong>{request.full_name}</strong>
+                        <button
+                          className="text-link-button"
+                          type="button"
+                          onClick={() =>
+                            openEmployeeAttendance({
+                              id: request.employee_id,
+                              full_name: request.full_name
+                            })
+                          }
+                          title="Ver presentismo del empleado"
+                        >
+                          {request.full_name}
+                        </button>
                         <br />
                         <span>{request.department_name || '-'}</span>
                       </td>
@@ -8126,37 +8186,35 @@ export default function PersonnelPage() {
                         <td>
                         <div className="table-actions">
                           {canEditLeaveRequest(request) && (
-                            <button
-                              className="btn-primary"
-                              type="button"
+                            <IconButton
+                              icon="edit"
+                              label="Editar licencia"
                               onClick={() =>
                                 startEditLeaveRequest(request)
                               }
-                            >
-                              Editar
-                            </button>
+                              variant="primary"
+                            />
                           )}
 
                           {isPrintableLeaveCode(request.code) &&
                             !isCancelledLeaveRequest(request) && (
-                            <button
-                              className="btn-secondary"
-                              type="button"
+                            <IconButton
+                              icon="print"
+                              label="Imprimir comprobante"
                               onClick={() =>
                                 setPrintLeaveRequest(request)
                               }
-                            >
-                              Comprobante
-                            </button>
+                              variant="secondary"
+                            />
                           )}
 
                           {canManageLeaves &&
                             request.code === '43' &&
                             !request.no_return &&
                             (!request.return_time || !Number(request.total_hours || 0)) && (
-                              <button
-                                className="btn-primary"
-                                type="button"
+                              <IconButton
+                                icon="check"
+                                label="Completar regreso"
                                 onClick={() => {
                                   const returnTime =
                                     request.return_time || '';
@@ -8172,57 +8230,53 @@ export default function PersonnelPage() {
                                       )
                                   });
                                 }}
-                              >
-                                Completar regreso
-                              </button>
+                                variant="primary"
+                              />
                             )}
 
                           {
                             canApproveLeaves &&
                             request.status === 'pendiente' && (
                               <>
-                                <button
-                                  className="btn-success"
-                                  type="button"
+                                <IconButton
+                                  icon="check"
+                                  label="Aprobar licencia"
                                   onClick={() =>
                                     updateLeaveStatus(
                                       request.id,
                                       'aprobado'
                                     )
                                   }
-                                >
-                                  Aprobar
-                                </button>
-                                <button
-                                  className="btn-danger"
-                                  type="button"
+                                  variant="success"
+                                />
+                                <IconButton
+                                  icon="close"
+                                  label="Rechazar licencia"
                                   onClick={() =>
                                     updateLeaveStatus(
                                       request.id,
                                       'rechazado'
                                     )
                                   }
-                                >
-                                  Rechazar
-                                </button>
+                                  variant="danger"
+                                />
                               </>
                             )
                           }
                           {
                             canApproveLeaves &&
                             request.status !== 'cancelado' && (
-                              <button
-                                className="btn-secondary"
-                                type="button"
+                              <IconButton
+                                icon="close"
+                                label="Cancelar licencia"
                                 onClick={() =>
                                   updateLeaveStatus(
                                     request.id,
                                     'cancelado'
                                   )
                                 }
-                              >
-                                Cancelar
-                              </button>
+                                variant="secondary"
+                              />
                             )
                           }
                           </div>

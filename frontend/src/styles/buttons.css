@@ -133,3 +133,19 @@ button {
   color: white;
 }
 
+.text-link-button {
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--color-primary);
+  font: inherit;
+  font-weight: 700;
+  text-align: left;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.text-link-button:hover {
+  color: var(--color-primary-dark);
+}
+
