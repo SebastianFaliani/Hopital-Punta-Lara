@@ -787,7 +787,18 @@ export async function rejectAppointmentRequest(
     const nextOpen =
       request.next_open_at
         ? new Date(request.next_open_at)
-          .toLocaleString('es-AR')
+          .toLocaleString(
+            'es-AR',
+            {
+              day: '2-digit',
+              month: '2-digit',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
+              hour12: false,
+              timeZone: 'America/Argentina/Buenos_Aires'
+            }
+          )
         : 'a confirmar';
 
     const message =

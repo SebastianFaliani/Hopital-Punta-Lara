@@ -9,6 +9,7 @@ import { getApiUrl }
   from '../api/api';
 import { useAuth }
   from '../auth/useAuth';
+import { IconButton } from '../components/IconButton';
 import {
   formatDisplayDate,
   formatDisplayDateTime
@@ -1261,33 +1262,27 @@ export default function WhatsappPage() {
                   </td>
                   <td>
                     <div className="table-actions">
-                      <button
-                        className="btn-primary"
-                        type="button"
+                      <IconButton
+                        icon="edit"
+                        label="Editar medico"
                         onClick={() =>
                           startEditDoctor(doctor)
                         }
-                      >
-                        Editar
-                      </button>
+                        variant="primary"
+                      />
 
-                      <button
-                        className={
-                          doctor.is_booking_open
-                            ? 'btn-danger'
-                            : 'btn-success'
-                        }
-                        type="button"
+                      <IconButton
+                        icon={doctor.is_booking_open ? 'lock' : 'unlock'}
+                        label={doctor.is_booking_open ? 'Cerrar turnera' : 'Abrir turnera'}
                         onClick={() =>
                           toggleDoctorBooking(doctor)
                         }
-                      >
-                        {
+                        variant={
                           doctor.is_booking_open
-                            ? 'Cerrar'
-                            : 'Abrir'
+                            ? 'danger'
+                            : 'success'
                         }
-                      </button>
+                      />
                     </div>
                   </td>
                 </tr>
@@ -1402,25 +1397,23 @@ export default function WhatsappPage() {
                   </td>
                   <td>
                     <div className="table-actions">
-                      <button
-                        className="btn-success"
-                        type="button"
+                      <IconButton
+                        icon="check"
+                        label="Confirmar turno"
                         onClick={() =>
                           startConfirmRequest(request)
                         }
-                      >
-                        Confirmar
-                      </button>
+                        variant="success"
+                      />
 
-                      <button
-                        className="btn-danger"
-                        type="button"
+                      <IconButton
+                        icon="close"
+                        label="Marcar sin lugar"
                         onClick={() =>
                           markNoAvailability(request)
                         }
-                      >
-                        Sin lugar
-                      </button>
+                        variant="danger"
+                      />
                     </div>
                   </td>
                 </tr>

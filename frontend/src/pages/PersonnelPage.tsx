@@ -981,6 +981,9 @@ export default function PersonnelPage() {
     user?.role === 'admin' ||
     user?.role === 'dir';
 
+  const canRevertCancelledLeaves =
+    user?.role === 'admin';
+
   function canEditLeaveRequest(
     request: LeaveRequest
   ) {
@@ -6193,7 +6196,16 @@ export default function PersonnelPage() {
                   {filteredPlannedOffRows.map((employee) => (
                     <tr key={employee.id}>
                       <td className="attendance-employee-cell">
-                        <strong>{employee.full_name}</strong>
+                        <button
+                          className="text-link-button"
+                          type="button"
+                          onClick={() =>
+                            openEmployeeAttendance(employee)
+                          }
+                          title="Ver presentismo del empleado"
+                        >
+                          {employee.full_name}
+                        </button>
                         <span>
                           {employee.department_name || 'Sin sector'}
                         </span>
@@ -7525,6 +7537,22 @@ export default function PersonnelPage() {
                               />
                             )
                           }
+                          {
+                            canRevertCancelledLeaves &&
+                            request.status === 'cancelado' && (
+                              <IconButton
+                                icon="unlock"
+                                label="Revertir a pendiente"
+                                onClick={() =>
+                                  updateLeaveStatus(
+                                    request.id,
+                                    'pendiente'
+                                  )
+                                }
+                                variant="success"
+                              />
+                            )
+                          }
                           </div>
                         </td>
                       )}
@@ -8582,16 +8610,14 @@ function formatPrintTime(
 function formatPrintDateTime(
   value: Date
 ) {
-  return value.toLocaleString(
-    'es-AR',
-    {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    }
-  );
+  return value.toLocaleString('es-AR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  });
 }
 
 function formatDisplayDateTime(
@@ -8608,16 +8634,14 @@ function formatDisplayDateTime(
     return value;
   }
 
-  return date.toLocaleString(
-    'es-AR',
-    {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    }
-  );
+  return date.toLocaleString('es-AR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  });
 }
 
 function PersonDateCell({

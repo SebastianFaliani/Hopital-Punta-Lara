@@ -12,6 +12,7 @@ import {
   useAuth
 } from '../auth/useAuth';
 import { hasPermission } from '../auth/permissions';
+import { IconButton } from '../components/IconButton';
 import MedicationModuleTabs from '../components/medications/MedicationModuleTabs';
 
 type Facility = {
@@ -1477,33 +1478,33 @@ export default function ChronicMedicationsPage() {
                       </td>
                       <td>
                         <div className="table-actions">
-                          <button
-                            className="btn-secondary"
+                          <IconButton
+                            icon="eye"
+                            label="Ver paquete"
                             onClick={() =>
                               loadPackageDetail(item.id)
                             }
-                          >
-                            Ver
-                          </button>
+                            variant="secondary"
+                          />
                           {canEdit && item.status === 'preparado' && (
-                            <button
-                              className="btn-danger"
+                            <IconButton
+                              icon="close"
+                              label="Marcar no retirado"
                               onClick={() =>
                                 markNotPickedUp(item.id)
                               }
-                            >
-                              No retiro
-                            </button>
+                              variant="danger"
+                            />
                           )}
                           {canEdit && item.status === 'no_retirado' && (
-                            <button
-                              className="btn-success"
+                            <IconButton
+                              icon="unlock"
+                              label="Reabrir paquete"
                               onClick={() =>
                                 reopenPackage(item.id)
                               }
-                            >
-                              Reabrir
-                            </button>
+                              variant="success"
+                            />
                           )}
                         </div>
                       </td>

@@ -60,7 +60,8 @@ function formatDateTimeForMessage(
       {
         dateStyle: 'short',
         timeStyle: 'short',
-        timeZone: 'America/Argentina/Buenos_Aires'
+        timeZone: 'America/Argentina/Buenos_Aires',
+        hour12: false
       }
     );
 }

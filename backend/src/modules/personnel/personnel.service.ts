@@ -4718,6 +4718,16 @@ export async function updateLeaveRequestStatus(
     const previousStatus =
       existingRows[0].status;
 
+    if (
+      previousStatus === 'cancelado' &&
+      status !== 'cancelado' &&
+      user?.role !== 'admin'
+    ) {
+      throw new Error(
+        'Solo un administrador puede revertir una licencia cancelada'
+      );
+    }
+
     await connection.query(
       `
         UPDATE leave_requests
