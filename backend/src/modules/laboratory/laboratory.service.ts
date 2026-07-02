@@ -4,6 +4,8 @@ type LaboratoryFilters = {
   search?: string;
   date_from?: string;
   date_to?: string;
+  month?: string | number;
+  year?: string | number;
   sample_type?: string;
   pickup_status?: string;
   completion_status?: string;
@@ -15,9 +17,16 @@ type LaboratoryFilters = {
 let patientPhoneColumnCache: boolean | null =
   null;
 
-async function hasPatientPhoneColumn() {
-  if (patientPhoneColumnCache !== null) {
-    return patientPhoneColumnCache;
+const laboratoryColumnCache =
+  new Map<string, boolean>();
+
+async function hasLaboratoryColumn(
+  columnName: string
+) {
+  if (laboratoryColumnCache.has(columnName)) {
+    return Boolean(
+      laboratoryColumnCache.get(columnName)
+    );
   }
 
   const [rows]: any =
@@ -27,18 +36,32 @@ async function hasPatientPhoneColumn() {
         FROM information_schema.COLUMNS
         WHERE TABLE_SCHEMA = DATABASE()
           AND TABLE_NAME = 'laboratory_records'
-          AND COLUMN_NAME = 'patient_phone'
+          AND COLUMN_NAME = ?
       `
+      ,
+      [columnName]
     );
 
   const exists =
     Number(rows[0]?.total || 0) > 0;
 
-  if (exists) {
-    patientPhoneColumnCache = true;
-  }
+  laboratoryColumnCache.set(
+    columnName,
+    exists
+  );
 
   return exists;
+}
+
+async function hasPatientPhoneColumn() {
+  if (patientPhoneColumnCache !== null) {
+    return patientPhoneColumnCache;
+  }
+
+  patientPhoneColumnCache =
+    await hasLaboratoryColumn('patient_phone');
+
+  return patientPhoneColumnCache;
 }
 
 function getPagination(
@@ -118,6 +141,26 @@ function buildWhereClause(
       'laboratory_records.study_date <= ?'
     );
     values.push(filters.date_to);
+  }
+
+  if (
+    filters.year &&
+    filters.year !== 'todos'
+  ) {
+    where.push(
+      'YEAR(laboratory_records.study_date) = ?'
+    );
+    values.push(Number(filters.year));
+  }
+
+  if (
+    filters.month &&
+    filters.month !== 'todos'
+  ) {
+    where.push(
+      'MONTH(laboratory_records.study_date) = ?'
+    );
+    values.push(Number(filters.month));
   }
 
   if (filters.sample_type === 'sangre') {
@@ -410,6 +453,15 @@ export async function getLaboratoryRecords(
   const hasPhoneColumn =
     await hasPatientPhoneColumn();
 
+  const [
+    hasPickupRegisteredByColumn,
+    hasPickupRegisteredAtColumn
+  ] =
+    await Promise.all([
+      hasLaboratoryColumn('pickup_registered_by'),
+      hasLaboratoryColumn('pickup_registered_at')
+    ]);
+
   const where =
     buildWhereClause(
       filters,
@@ -454,16 +506,41 @@ export async function getLaboratoryRecords(
           laboratory_records.pickup_date,
           laboratory_records.picked_up_by,
           laboratory_records.pickup_document,
+          ${
+            hasPickupRegisteredByColumn
+              ? 'laboratory_records.pickup_registered_by'
+              : 'NULL'
+          } AS pickup_registered_by,
+          ${
+            hasPickupRegisteredAtColumn
+              ? 'laboratory_records.pickup_registered_at'
+              : 'NULL'
+          } AS pickup_registered_at,
           laboratory_records.notes,
           laboratory_records.created_at,
           laboratory_records.updated_at,
           cu.username AS created_by_username,
-          uu.username AS updated_by_username
+          uu.username AS updated_by_username,
+          COALESCE(
+            NULLIF(
+              TRIM(CONCAT_WS(' ', pu.first_name, pu.last_name)),
+              ''
+            ),
+            pu.username,
+            pu.email,
+            NULL
+          ) AS pickup_registered_by_name
         FROM laboratory_records
         LEFT JOIN users cu
           ON cu.id = laboratory_records.created_by
         LEFT JOIN users uu
           ON uu.id = laboratory_records.updated_by
+        LEFT JOIN users pu
+          ON pu.id = ${
+            hasPickupRegisteredByColumn
+              ? 'laboratory_records.pickup_registered_by'
+              : 'NULL'
+          }
         ${where.sql}
         ORDER BY laboratory_records.study_date DESC, laboratory_records.id DESC
         LIMIT ? OFFSET ?
@@ -820,6 +897,15 @@ export async function registerLaboratoryPickup(
   data: any,
   userId?: number
 ) {
+  const [
+    hasPickupRegisteredByColumn,
+    hasPickupRegisteredAtColumn
+  ] =
+    await Promise.all([
+      hasLaboratoryColumn('pickup_registered_by'),
+      hasLaboratoryColumn('pickup_registered_at')
+    ]);
+
   await pool.query(
     `
       UPDATE laboratory_records
@@ -827,6 +913,16 @@ export async function registerLaboratoryPickup(
         pickup_date = ?,
         picked_up_by = ?,
         pickup_document = ?,
+        ${
+          hasPickupRegisteredByColumn
+            ? 'pickup_registered_by = ?,'
+            : ''
+        }
+        ${
+          hasPickupRegisteredAtColumn
+            ? 'pickup_registered_at = CURRENT_TIMESTAMP,'
+            : ''
+        }
         status = 'retirado',
         notes = ?,
         updated_by = ?
@@ -836,6 +932,11 @@ export async function registerLaboratoryPickup(
       data.pickup_date,
       data.picked_up_by,
       data.pickup_document || null,
+      ...(
+        hasPickupRegisteredByColumn
+          ? [userId || null]
+          : []
+      ),
       data.notes || null,
       userId || null,
       id

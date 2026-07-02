@@ -933,6 +933,20 @@
   margin-bottom: 0;
 }
 
+.laboratory-filter-bar {
+  grid-template-columns:
+    minmax(280px, 2fr)
+    repeat(auto-fit, minmax(130px, 0.8fr));
+}
+
+.laboratory-search-filter {
+  min-width: 280px;
+}
+
+.laboratory-compact-filter {
+  min-width: 130px;
+}
+
 .filters-grid {
   display: grid;
   grid-template-columns:

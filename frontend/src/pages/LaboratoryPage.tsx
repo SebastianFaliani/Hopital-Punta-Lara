@@ -13,7 +13,8 @@ import { useAuth } from '../auth/useAuth';
 import { hasPermission } from '../auth/permissions';
 import { IconButton } from '../components/IconButton';
 import {
-  formatDisplayDate
+  formatDisplayDate,
+  formatDisplayDateTime
 } from '../utils/dateFormat';
 
 type LaboratoryTest = {
@@ -45,6 +46,9 @@ type LaboratoryRecord = {
   pickup_date: string | null;
   picked_up_by: string | null;
   pickup_document: string | null;
+  pickup_registered_by: number | null;
+  pickup_registered_by_name?: string | null;
+  pickup_registered_at?: string | null;
   notes: string | null;
   requested_tests_count: number;
   received_tests_count: number;
@@ -89,6 +93,33 @@ const initialStats = {
   sent_records: 0,
   partial_records: 0
 };
+
+const monthOptions = [
+  { value: 'todos', label: 'Todos los meses' },
+  { value: '1', label: 'Enero' },
+  { value: '2', label: 'Febrero' },
+  { value: '3', label: 'Marzo' },
+  { value: '4', label: 'Abril' },
+  { value: '5', label: 'Mayo' },
+  { value: '6', label: 'Junio' },
+  { value: '7', label: 'Julio' },
+  { value: '8', label: 'Agosto' },
+  { value: '9', label: 'Septiembre' },
+  { value: '10', label: 'Octubre' },
+  { value: '11', label: 'Noviembre' },
+  { value: '12', label: 'Diciembre' }
+];
+
+const currentYear =
+  new Date().getFullYear();
+
+const yearOptions =
+  Array.from(
+    {
+      length: 6
+    },
+    (_, index) => String(currentYear - index)
+  );
 
 function toDateInput(
   value?: string | null
@@ -197,8 +228,8 @@ export default function LaboratoryPage() {
   const [filters, setFilters] =
     useState({
       search: '',
-      date_from: '',
-      date_to: '',
+      month: 'todos',
+      year: String(currentYear),
       sample_type: 'todas',
       pickup_status: 'todos',
       completion_status: 'todos',
@@ -274,6 +305,9 @@ export default function LaboratoryPage() {
       'laboratory.view',
       ['admin', 'lab', 'user', 'dir']
     );
+
+  const canSeePickupAudit =
+    user?.role === 'admin';
 
   const testsByCategory =
     useMemo(() => {
@@ -718,9 +752,9 @@ export default function LaboratoryPage() {
         </div>
       </div>
 
-      <div className="filter-bar">
+      <div className="filter-bar laboratory-filter-bar">
         <input
-          className="form-input"
+          className="form-input laboratory-search-filter"
           placeholder="Buscar paciente, DNI, telefono, protocolo o quien retiro"
           value={filters.search}
           onChange={(e) =>
@@ -732,34 +766,51 @@ export default function LaboratoryPage() {
           }
         />
 
-        <input
-          className="form-input"
-          type="date"
-          value={filters.date_from}
+        <select
+          className="form-input laboratory-compact-filter"
+          value={filters.month}
           onChange={(e) =>
             setFilters({
               ...filters,
-              date_from: e.target.value,
+              month: e.target.value,
               page: 1
             })
           }
-        />
-
-        <input
-          className="form-input"
-          type="date"
-          value={filters.date_to}
-          onChange={(e) =>
-            setFilters({
-              ...filters,
-              date_to: e.target.value,
-              page: 1
-            })
-          }
-        />
+        >
+          {monthOptions.map((month) => (
+            <option
+              key={month.value}
+              value={month.value}
+            >
+              {month.label}
+            </option>
+          ))}
+        </select>
 
         <select
-          className="form-input"
+          className="form-input laboratory-compact-filter"
+          value={filters.year}
+          onChange={(e) =>
+            setFilters({
+              ...filters,
+              year: e.target.value,
+              page: 1
+            })
+          }
+        >
+          <option value="todos">Todos los años</option>
+          {yearOptions.map((year) => (
+            <option
+              key={year}
+              value={year}
+            >
+              {year}
+            </option>
+          ))}
+        </select>
+
+        <select
+          className="form-input laboratory-compact-filter"
           value={filters.sample_type}
           onChange={(e) =>
             setFilters({
@@ -776,7 +827,7 @@ export default function LaboratoryPage() {
         </select>
 
         <select
-          className="form-input"
+          className="form-input laboratory-compact-filter"
           value={filters.pickup_status}
           onChange={(e) =>
             setFilters({
@@ -792,7 +843,7 @@ export default function LaboratoryPage() {
         </select>
 
         <select
-          className="form-input"
+          className="form-input laboratory-compact-filter"
           value={filters.completion_status}
           onChange={(e) =>
             setFilters({
@@ -812,8 +863,8 @@ export default function LaboratoryPage() {
           onClick={() =>
             setFilters({
               search: '',
-              date_from: '',
-              date_to: '',
+              month: 'todos',
+              year: String(currentYear),
               sample_type: 'todas',
               pickup_status: 'todos',
               completion_status: 'todos',
@@ -897,6 +948,9 @@ export default function LaboratoryPage() {
               <th>Estado</th>
               <th>Retiro</th>
               <th>Retiro por</th>
+              {canSeePickupAudit && (
+                <th>Entregado por</th>
+              )}
               <th>Acciones</th>
             </tr>
           </thead>
@@ -976,6 +1030,21 @@ export default function LaboratoryPage() {
                     )}
                   </td>
                   <td>{record.picked_up_by || '-'}</td>
+                  {canSeePickupAudit && (
+                    <td>
+                      {record.pickup_registered_by_name || '-'}
+                      {record.pickup_registered_at && (
+                        <>
+                          <br />
+                          <span className="muted">
+                            {formatDisplayDateTime(
+                              record.pickup_registered_at
+                            )}
+                          </span>
+                        </>
+                      )}
+                    </td>
+                  )}
                   <td>
                     <div className="table-actions">
                       {canEdit && canModifyRecord && (
@@ -1002,8 +1071,17 @@ export default function LaboratoryPage() {
 
                       {canPickup && (
                         <IconButton
+                          disabled={
+                            record.status === 'enviado' &&
+                            !yesNo(record.is_complete)
+                          }
                           icon="download"
-                          label="Registrar retiro"
+                          label={
+                            record.status === 'enviado' &&
+                            !yesNo(record.is_complete)
+                              ? 'No se puede retirar: resultados enviados sin completar'
+                              : 'Registrar retiro'
+                          }
                           onClick={() =>
                             openPickup(record)
                           }
@@ -1018,7 +1096,7 @@ export default function LaboratoryPage() {
 
             {records.length === 0 && (
               <tr>
-                <td colSpan={9}>
+                <td colSpan={canSeePickupAudit ? 11 : 10}>
                   No hay estudios para esos filtros.
                 </td>
               </tr>
