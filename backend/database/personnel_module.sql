@@ -189,6 +189,8 @@ CREATE TABLE IF NOT EXISTS leave_requests (
   ) DEFAULT 'pendiente',
   requested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   requested_by BIGINT NULL,
+  edited_by BIGINT NULL,
+  edited_at DATETIME NULL,
   approved_by BIGINT NULL,
   approved_at DATETIME NULL,
   rejected_reason TEXT,
@@ -207,6 +209,10 @@ CREATE TABLE IF NOT EXISTS leave_requests (
     REFERENCES attendance_codes(id),
   CONSTRAINT fk_leave_requests_requested_by
     FOREIGN KEY (requested_by)
+    REFERENCES users(id)
+    ON DELETE SET NULL,
+  CONSTRAINT fk_leave_requests_edited_by
+    FOREIGN KEY (edited_by)
     REFERENCES users(id)
     ON DELETE SET NULL,
   CONSTRAINT fk_leave_requests_approved_by

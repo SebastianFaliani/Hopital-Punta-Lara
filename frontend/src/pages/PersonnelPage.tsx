@@ -152,6 +152,9 @@ type LeaveRequest = {
   requested_at: string;
   requested_by: number | null;
   requested_by_name: string | null;
+  edited_by?: number | null;
+  edited_by_name?: string | null;
+  edited_at?: string | null;
   approved_by?: number | null;
   approved_by_name?: string | null;
   approved_at?: string | null;
@@ -7304,7 +7307,11 @@ export default function PersonnelPage() {
                     <th>Horas</th>
                     <th>Estado</th>
                     {canSeeLeaveCreator && (
-                      <th>Cargada por</th>
+                      <>
+                        <th>Cargada por</th>
+                        <th>Editada por</th>
+                        <th>Resuelta por</th>
+                      </>
                     )}
                     {canManageLeaves && (
                       <th>Acciones</th>
@@ -7345,7 +7352,31 @@ export default function PersonnelPage() {
                       </td>
                       {canSeeLeaveCreator && (
                         <td>
-                          {request.requested_by_name || '-'}
+                          <PersonDateCell
+                            name={request.requested_by_name}
+                            date={request.requested_at}
+                          />
+                        </td>
+                      )}
+                      {canSeeLeaveCreator && (
+                        <td>
+                          <PersonDateCell
+                            name={request.edited_by_name}
+                            date={request.edited_at}
+                          />
+                        </td>
+                      )}
+                      {canSeeLeaveCreator && (
+                        <td>
+                          <PersonDateCell
+                            name={request.approved_by_name}
+                            date={request.approved_at}
+                            empty={
+                              request.status === 'pendiente'
+                                ? 'Pendiente'
+                                : '-'
+                            }
+                          />
                         </td>
                       )}
                       {canManageLeaves && (
@@ -8514,6 +8545,56 @@ function formatPrintDateTime(
   );
 }
 
+function formatDisplayDateTime(
+  value?: string | null
+) {
+  if (!value) {
+    return '-';
+  }
+
+  const date =
+    new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleString(
+    'es-AR',
+    {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    }
+  );
+}
+
+function PersonDateCell({
+  name,
+  date,
+  empty = '-'
+}: {
+  name?: string | null;
+  date?: string | null;
+  empty?: string;
+}) {
+  if (!name && !date) {
+    return <>{empty}</>;
+  }
+
+  return (
+    <>
+      <strong>{name || '-'}</strong>
+      <br />
+      <span className="muted">
+        {formatDisplayDateTime(date)}
+      </span>
+    </>
+  );
+}
+
 function groupLeaveRequestsByCode(
   leaves: LeaveRequest[]
 ): LeaveRequestGroup[] {
@@ -8654,8 +8735,9 @@ function GroupedLeavesHistory({
                   <th>Fecha</th>
                   <th>Cantidad</th>
                   <th>Estado</th>
-                  <th>Cargo</th>
-                  <th>Aprobo / rechazo</th>
+                  <th>Cargada</th>
+                  <th>Editada</th>
+                  <th>Resuelta</th>
                 </tr>
               </thead>
               <tbody>
@@ -8668,8 +8750,33 @@ function GroupedLeavesHistory({
                         {formatLeaveStatus(leave.status)}
                       </span>
                     </td>
-                    <td>{leave.requested_by_name || '-'}</td>
-                    <td>{formatLeaveResolvedBy(leave)}</td>
+                    <td>
+                      <PersonDateCell
+                        name={leave.requested_by_name}
+                        date={leave.requested_at}
+                      />
+                    </td>
+                    <td>
+                      <PersonDateCell
+                        name={leave.edited_by_name}
+                        date={leave.edited_at}
+                      />
+                    </td>
+                    <td>
+                      <PersonDateCell
+                        name={
+                          leave.status === 'pendiente'
+                            ? null
+                            : formatLeaveResolvedBy(leave)
+                        }
+                        date={leave.approved_at}
+                        empty={
+                          leave.status === 'pendiente'
+                            ? 'Pendiente'
+                            : '-'
+                        }
+                      />
+                    </td>
                   </tr>
                 ))}
               </tbody>

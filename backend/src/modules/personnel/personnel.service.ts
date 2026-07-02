@@ -3229,6 +3229,17 @@ export async function getEmployeeDirectiveSummary(
             requester.email,
             '-'
           ) AS requested_by_name,
+          lr.edited_by,
+          lr.edited_at,
+          COALESCE(
+            NULLIF(
+              TRIM(CONCAT_WS(' ', editor.first_name, editor.last_name)),
+              ''
+            ),
+            editor.username,
+            editor.email,
+            NULL
+          ) AS edited_by_name,
           lr.approved_by,
           lr.approved_at,
           COALESCE(
@@ -3247,6 +3258,8 @@ export async function getEmployeeDirectiveSummary(
           ON ac.id = lr.attendance_code_id
         LEFT JOIN users requester
           ON requester.id = lr.requested_by
+        LEFT JOIN users editor
+          ON editor.id = lr.edited_by
         LEFT JOIN users approver
           ON approver.id = lr.approved_by
         WHERE lr.employee_id = ?
@@ -4293,12 +4306,38 @@ export async function getLeaveRequests(
             u.email,
             '-'
           ) AS requested_by_name,
+          lr.edited_by,
+          lr.edited_at,
+          COALESCE(
+            NULLIF(
+              TRIM(CONCAT_WS(' ', editor.first_name, editor.last_name)),
+              ''
+            ),
+            editor.username,
+            editor.email,
+            NULL
+          ) AS edited_by_name,
+          lr.approved_by,
+          lr.approved_at,
+          COALESCE(
+            NULLIF(
+              TRIM(CONCAT_WS(' ', approver.first_name, approver.last_name)),
+              ''
+            ),
+            approver.username,
+            approver.email,
+            NULL
+          ) AS approved_by_name,
           lr.notes
         FROM leave_requests lr
         INNER JOIN employees e
           ON e.id = lr.employee_id
         LEFT JOIN users u
           ON u.id = lr.requested_by
+        LEFT JOIN users editor
+          ON editor.id = lr.edited_by
+        LEFT JOIN users approver
+          ON approver.id = lr.approved_by
         LEFT JOIN employee_departments d
           ON d.id = e.department_id
         INNER JOIN attendance_codes ac
@@ -4555,7 +4594,9 @@ export async function updateLeaveRequest(
           exam_type = ?,
           is_exception = ?,
           exception_reason = ?,
-          notes = ?
+          notes = ?,
+          edited_by = ?,
+          edited_at = CURRENT_TIMESTAMP
         WHERE id = ?
       `,
       [
@@ -4589,6 +4630,7 @@ export async function updateLeaveRequest(
         Boolean(data.is_exception),
         data.exception_reason || null,
         data.notes || null,
+        userId || null,
         id
       ]
     );
