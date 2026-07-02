@@ -11,6 +11,7 @@ import type {
 import { apiFetch } from '../api/api';
 import { useAuth } from '../auth/useAuth';
 import { hasPermission } from '../auth/permissions';
+import { IconButton } from '../components/IconButton';
 import {
   formatDisplayDate
 } from '../utils/dateFormat';
@@ -978,36 +979,36 @@ export default function LaboratoryPage() {
                   <td>
                     <div className="table-actions">
                       {canEdit && canModifyRecord && (
-                        <button
-                          className="btn-primary"
+                        <IconButton
+                          icon="edit"
+                          label="Editar hoja de ruta"
                           onClick={() =>
                             openEdit(record)
                           }
-                        >
-                          Editar
-                        </button>
+                          variant="primary"
+                        />
                       )}
 
                       {canChangeCompletion && canModifyRecord && (
-                        <button
-                          className="btn-secondary"
+                        <IconButton
+                          icon="check"
+                          label="Cargar resultados"
                           onClick={() =>
                             openCompletion(record)
                           }
-                        >
-                          Resultados
-                        </button>
+                          variant="secondary"
+                        />
                       )}
 
                       {canPickup && (
-                        <button
-                          className="btn-secondary"
+                        <IconButton
+                          icon="download"
+                          label="Registrar retiro"
                           onClick={() =>
                             openPickup(record)
                           }
-                        >
-                          Registrar retiro
-                        </button>
+                          variant="secondary"
+                        />
                       )}
                     </div>
                   </td>

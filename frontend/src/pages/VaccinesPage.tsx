@@ -1,8 +1,4 @@
 import {
-  Link
-} from 'react-router-dom';
-
-import {
   useEffect,
   useState
 } from 'react';
@@ -10,6 +6,10 @@ import {
 import { apiFetch } from '../api/api';
 import { useAuth } from '../auth/useAuth';
 import { hasPermission } from '../auth/permissions';
+import {
+  IconButton,
+  IconLink
+} from '../components/IconButton';
 import VaccineModuleTabs from '../components/vaccines/VaccineModuleTabs';
 import {
   formatDisplayDate
@@ -605,36 +605,35 @@ export default function VaccinesPage() {
                 <td>
                   <div className="table-actions">
                     {canEdit && (
-                      <button
-                        className="btn-primary"
+                      <IconButton
+                        icon="edit"
+                        label="Editar vacuna"
                         onClick={() =>
                           openEdit(vaccine)
                         }
-                      >
-                        Editar
-                      </button>
+                        variant="primary"
+                      />
                     )}
 
-                    <Link
-                      className="btn-secondary table-link-button"
+                    <IconLink
+                      icon="eye"
+                      label="Ver lotes"
                       to={`/vaccines/${vaccine.id}/batches`}
-                    >
-                      Ver lotes
-                    </Link>
+                    />
 
                     {canEdit && (
-                      <button
-                        className={
-                          vaccine.is_active
-                            ? 'btn-danger'
-                            : 'btn-success'
-                        }
+                      <IconButton
+                        icon={vaccine.is_active ? 'lock' : 'unlock'}
+                        label={vaccine.is_active ? 'Desactivar vacuna' : 'Activar vacuna'}
                         onClick={() =>
                           handleToggle(vaccine.id)
                         }
-                      >
-                        {vaccine.is_active ? 'Desactivar' : 'Activar'}
-                      </button>
+                        variant={
+                          vaccine.is_active
+                            ? 'danger'
+                            : 'success'
+                        }
+                      />
                     )}
                   </div>
                 </td>

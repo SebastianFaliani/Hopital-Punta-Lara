@@ -1,8 +1,4 @@
 import {
-  Link
-} from 'react-router-dom';
-
-import {
   useEffect,
   useState
 } from 'react';
@@ -12,6 +8,10 @@ import { useAuth } from '../auth/useAuth';
 import { hasPermission } from '../auth/permissions';
 import CreateMedicationModal from '../components/medications/CreateMedicationModal';
 import EditMedicationModal from '../components/medications/EditMedicationModal';
+import {
+  IconButton,
+  IconLink
+} from '../components/IconButton';
 import MedicationModuleTabs from '../components/medications/MedicationModuleTabs';
 import {
   formatDisplayDate
@@ -671,40 +671,35 @@ export default function MedicationsPage() {
                 <div className="table-actions">
 
                   {canEdit && (
-                    <button
-                      className="btn-primary"
+                    <IconButton
+                      icon="edit"
+                      label="Editar medicamento"
                       onClick={() =>
                         setSelectedMedication(m)
                       }
-                    >
-                      Editar
-                    </button>
+                      variant="primary"
+                    />
                   )}
 
-                  <Link
-                    className="btn-secondary table-link-button"
+                  <IconLink
+                    icon="eye"
+                    label="Ver lotes"
                     to={`/medications/${m.id}/batches`}
-                  >
-                    Ver lotes
-                  </Link>
+                  />
 
                   {canEdit && (
-                    <button
-                      className={
-                        m.is_active
-                          ? 'btn-danger'
-                          : 'btn-success'
-                      }
+                    <IconButton
+                      icon={m.is_active ? 'lock' : 'unlock'}
+                      label={m.is_active ? 'Desactivar medicamento' : 'Activar medicamento'}
                       onClick={() =>
                         handleToggle(m.id)
                       }
-                    >
-                      {
+                      variant={
                         m.is_active
-                          ? 'Desactivar'
-                          : 'Activar'
+                          ? 'danger'
+                          : 'success'
                       }
-                    </button>
+                    />
                   )}
 
                 </div>

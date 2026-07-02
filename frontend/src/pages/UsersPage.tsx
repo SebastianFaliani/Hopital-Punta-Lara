@@ -10,6 +10,7 @@ import CreateUserModal  from '../components/users/CreateUserModal';
 import EditUserModal   from '../components/users/EditUserModal';
 import AdminResetPasswordModal from '../components/users/AdminResetPasswordModal';
 import UserAccessModal from '../components/users/UserAccessModal';
+import { IconButton } from '../components/IconButton';
 
 type User = {
   id: number;
@@ -609,49 +610,45 @@ export default function UsersPage() {
 
                 <div className="table-actions">
 
-                  <button
-                    className="btn-primary"
+                  <IconButton
+                    icon="edit"
+                    label="Editar usuario"
                     onClick={() =>
                       setEditUser(u)
                     }
-                  >
-                    Editar
-                  </button>
+                    variant="primary"
+                  />
 
-                  <button
-                    className="btn-secondary"
+                  <IconButton
+                    icon="eye"
+                    label="Administrar permisos"
                     onClick={() =>
                       setAccessUser(u)
                     }
-                  >
-                    Permisos
-                  </button>
+                    variant="secondary"
+                  />
 
-                  <button
-                    className="btn-secondary"
+                  <IconButton
+                    icon="lock"
+                    label="Asignar nueva contraseña"
                     onClick={() =>
                       setPasswordUser(u)
                     }
-                  >
-                    Nueva contraseña
-                  </button>
+                    variant="secondary"
+                  />
 
-                  <button
-                    className={
-                      u.is_active
-                        ? 'btn-danger'
-                        : 'btn-success'
-                    }
+                  <IconButton
+                    icon={u.is_active ? 'lock' : 'unlock'}
+                    label={u.is_active ? 'Desactivar usuario' : 'Activar usuario'}
                     onClick={() =>
                       handleToggle(u.id)
                     }
-                  >
-                    {
+                    variant={
                       u.is_active
-                        ? 'Desactivar'
-                        : 'Activar'
+                        ? 'danger'
+                        : 'success'
                     }
-                  </button>
+                  />
 
                 </div>
 
@@ -776,15 +773,14 @@ export default function UsersPage() {
                       <td>{role.description || role.name}</td>
 
                       <td>
-                        <button
-                          className="btn-primary"
-                          type="button"
+                        <IconButton
+                          icon="edit"
+                          label="Editar rol"
                           onClick={() =>
                             openRoleEditor(role)
                           }
-                        >
-                          Editar
-                        </button>
+                          variant="primary"
+                        />
                       </td>
 
                     </tr>

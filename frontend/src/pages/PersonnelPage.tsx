@@ -10,6 +10,7 @@ import { apiFetch }
   from '../api/api';
 import { useAuth } from '../auth/useAuth';
 import { hasPermission } from '../auth/permissions';
+import { IconButton } from '../components/IconButton';
 import {
   formatDisplayDate
 } from '../utils/dateFormat';
@@ -7383,37 +7384,35 @@ export default function PersonnelPage() {
                         <td>
                         <div className="table-actions">
                           {canEditLeaveRequest(request) && (
-                            <button
-                              className="btn-primary"
-                              type="button"
+                            <IconButton
+                              icon="edit"
+                              label="Editar licencia"
                               onClick={() =>
                                 startEditLeaveRequest(request)
                               }
-                            >
-                              Editar
-                            </button>
+                              variant="primary"
+                            />
                           )}
 
                           {isPrintableLeaveCode(request.code) &&
                             !isCancelledLeaveRequest(request) && (
-                            <button
-                              className="btn-secondary"
-                              type="button"
+                            <IconButton
+                              icon="print"
+                              label="Imprimir comprobante"
                               onClick={() =>
                                 setPrintLeaveRequest(request)
                               }
-                            >
-                              Comprobante
-                            </button>
+                              variant="secondary"
+                            />
                           )}
 
                           {canManageLeaves &&
                             request.code === '43' &&
                             !request.no_return &&
                             (!request.return_time || !Number(request.total_hours || 0)) && (
-                              <button
-                                className="btn-primary"
-                                type="button"
+                              <IconButton
+                                icon="check"
+                                label="Completar regreso"
                                 onClick={() => {
                                   const returnTime =
                                     request.return_time || '';
@@ -7429,57 +7428,53 @@ export default function PersonnelPage() {
                                       )
                                   });
                                 }}
-                              >
-                                Completar regreso
-                              </button>
+                                variant="primary"
+                              />
                             )}
 
                           {
                             canApproveLeaves &&
                             request.status === 'pendiente' && (
                               <>
-                                <button
-                                  className="btn-success"
-                                  type="button"
+                                <IconButton
+                                  icon="check"
+                                  label="Aprobar licencia"
                                   onClick={() =>
                                     updateLeaveStatus(
                                       request.id,
                                       'aprobado'
                                     )
                                   }
-                                >
-                                  Aprobar
-                                </button>
-                                <button
-                                  className="btn-danger"
-                                  type="button"
+                                  variant="success"
+                                />
+                                <IconButton
+                                  icon="close"
+                                  label="Rechazar licencia"
                                   onClick={() =>
                                     updateLeaveStatus(
                                       request.id,
                                       'rechazado'
                                     )
                                   }
-                                >
-                                  Rechazar
-                                </button>
+                                  variant="danger"
+                                />
                               </>
                             )
                           }
                           {
                             canApproveLeaves &&
                             request.status !== 'cancelado' && (
-                              <button
-                                className="btn-secondary"
-                                type="button"
+                              <IconButton
+                                icon="close"
+                                label="Cancelar licencia"
                                 onClick={() =>
                                   updateLeaveStatus(
                                     request.id,
                                     'cancelado'
                                   )
                                 }
-                              >
-                                Cancelar
-                              </button>
+                                variant="secondary"
+                              />
                             )
                           }
                           </div>
