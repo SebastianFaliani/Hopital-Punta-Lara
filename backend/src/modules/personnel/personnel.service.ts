@@ -3397,18 +3397,25 @@ async function validateLeaveRequest(
           AND DATE(lr.end_date) >= DATE(?)
           ${overlapExcludeSql}
         ORDER BY lr.start_date ASC, lr.id ASC
-        LIMIT 1
       `,
       overlapValues
     );
 
   if (overlapRows.length > 0) {
-    const existing =
-      overlapRows[0];
+    const canShareDayWithHourPermission =
+      ['24', '43'].includes(code.code) &&
+      overlapRows.every((row: any) =>
+        ['24', '43'].includes(String(row.code))
+      );
 
-    throw new Error(
-      `No se puede cargar esta licencia porque ya existe la clave ${existing.code} - ${existing.description} entre ${toDateOnly(existing.start_date)} y ${toDateOnly(existing.end_date)} para este empleado`
-    );
+    if (!canShareDayWithHourPermission) {
+      const existing =
+        overlapRows[0];
+
+      throw new Error(
+        `No se puede cargar esta licencia porque ya existe la clave ${existing.code} - ${existing.description} entre ${toDateOnly(existing.start_date)} y ${toDateOnly(existing.end_date)} para este empleado`
+      );
+    }
   }
 
   const totalDays =
@@ -3828,6 +3835,40 @@ async function validateLeaveRequest(
     if (totalHours > 2 && !isException) {
       throw new Error(
         'Las claves 24 y 43 permiten hasta 2 horas por dia'
+      );
+    }
+
+    const [dailyRows]: any =
+      await pool.query(
+        `
+          SELECT COALESCE(SUM(lr.total_hours), 0) AS hours
+          FROM leave_requests lr
+          INNER JOIN attendance_codes ac
+            ON ac.id = lr.attendance_code_id
+          WHERE lr.employee_id = ?
+            AND ac.code IN ('24', '43')
+            AND lr.status IN ('pendiente', 'aprobado')
+            AND DATE(lr.start_date) <= DATE(?)
+            AND DATE(lr.end_date) >= DATE(?)
+            ${overlapExcludeSql}
+        `,
+        [
+          employee.id,
+          startDate,
+          startDate,
+          ...(excludeLeaveRequestId ? [excludeLeaveRequestId] : [])
+        ]
+      );
+
+    const dailyHours =
+      Number(dailyRows[0]?.hours || 0);
+
+    if (
+      dailyHours + totalHours > 2 &&
+      !isException
+    ) {
+      throw new Error(
+        `Las claves 24 y 43 no pueden superar 2 horas por dia. Ese dia ya tiene ${dailyHours} hs cargadas; puede cargar como maximo ${Math.max(0, 2 - dailyHours)} hs`
       );
     }
 
