@@ -219,10 +219,20 @@ export function authenticateToken(
     const userId =
       decoded.userId || decoded.id;
 
+    const sessionId =
+      decoded.sessionId;
+
     if (!userId) {
       return res.status(401).json({
         success: false,
         message: 'Token invalido'
+      });
+    }
+
+    if (!sessionId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Sesion invalida'
       });
     }
 
@@ -261,6 +271,40 @@ export function authenticateToken(
         }
 
         const user = rows[0];
+
+        const [sessionRows]: any =
+          await pool.query(
+            `
+              SELECT id
+              FROM user_sessions
+              WHERE id = ?
+                AND user_id = ?
+                AND revoked = FALSE
+                AND expires_at > NOW()
+              LIMIT 1
+            `,
+            [
+              sessionId,
+              user.id
+            ]
+          );
+
+        if (sessionRows.length === 0) {
+          return res.status(401).json({
+            success: false,
+            message:
+              'Sesion expirada o iniciada en otro dispositivo'
+          });
+        }
+
+        await pool.query(
+          `
+            UPDATE user_sessions
+            SET expires_at = DATE_ADD(NOW(), INTERVAL 15 MINUTE)
+            WHERE id = ?
+          `,
+          [sessionId]
+        );
 
         let permissions: string[] = [];
         let facilityIds: number[] =

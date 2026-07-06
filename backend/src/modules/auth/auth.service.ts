@@ -94,15 +94,6 @@ export async function registerUser(
       ]
     );
 
-  // access token
-  const accessToken =
-    generateAccessToken({
-      userId: result.insertId,
-      email,
-      username: cleanUsername,
-      role: 'user'
-    });
-
   // refresh token
   const refreshToken =
     generateRefreshToken({
@@ -120,7 +111,7 @@ export async function registerUser(
       VALUES (
         ?,
         ?,
-        DATE_ADD(NOW(), INTERVAL 7 DAY)
+        DATE_ADD(NOW(), INTERVAL 15 MINUTE)
       )
     `,
     [
@@ -128,6 +119,27 @@ export async function registerUser(
       refreshToken
     ]
   );
+
+  const [sessionRows]: any =
+    await pool.query(
+      `
+        SELECT id
+        FROM user_sessions
+        WHERE refresh_token = ?
+        LIMIT 1
+      `,
+      [refreshToken]
+    );
+
+  // access token
+  const accessToken =
+    generateAccessToken({
+      userId: result.insertId,
+      sessionId: sessionRows[0].id,
+      email,
+      username: cleanUsername,
+      role: 'user'
+    });
 
   return {
     accessToken,
@@ -223,20 +235,15 @@ export async function loginUser(
     [user.id]
   );
 
-  // access token
-  const accessToken =
-    generateAccessToken({
-      userId: user.id,
-      first_name: user.first_name,
-      last_name: user.last_name,
-      email: user.email,
-      username: user.username,
-      role: user.role,
-      role_description: user.role_description,
-      facility_id: user.facility_id,
-      facility_name: user.facility_name,
-      facility_type: user.facility_type
-    });
+  await pool.query(
+    `
+      UPDATE user_sessions
+      SET revoked = TRUE
+      WHERE user_id = ?
+        AND revoked = FALSE
+    `,
+    [user.id]
+  );
 
   // refresh token
   const refreshToken =
@@ -255,7 +262,7 @@ export async function loginUser(
       VALUES (
         ?,
         ?,
-        DATE_ADD(NOW(), INTERVAL 7 DAY)
+        DATE_ADD(NOW(), INTERVAL 15 MINUTE)
       )
     `,
     [
@@ -263,6 +270,33 @@ export async function loginUser(
       refreshToken
     ]
   );
+
+  const [sessionRows]: any =
+    await pool.query(
+      `
+        SELECT id
+        FROM user_sessions
+        WHERE refresh_token = ?
+        LIMIT 1
+      `,
+      [refreshToken]
+    );
+
+  // access token
+  const accessToken =
+    generateAccessToken({
+      userId: user.id,
+      sessionId: sessionRows[0].id,
+      first_name: user.first_name,
+      last_name: user.last_name,
+      email: user.email,
+      username: user.username,
+      role: user.role,
+      role_description: user.role_description,
+      facility_id: user.facility_id,
+      facility_name: user.facility_name,
+      facility_type: user.facility_type
+    });
 
   return {
 

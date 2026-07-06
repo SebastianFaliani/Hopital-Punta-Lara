@@ -104,10 +104,15 @@ export async function refresh(
           SELECT *
           FROM user_sessions
           WHERE refresh_token = ?
+          AND user_id = ?
           AND revoked = FALSE
+          AND expires_at > NOW()
           LIMIT 1
         `,
-        [refreshToken]
+        [
+          refreshToken,
+          decoded.userId
+        ]
       );
 
     if (rows.length === 0) {
@@ -154,10 +159,20 @@ export async function refresh(
     const user =
       userRows[0];
 
+    await pool.query(
+      `
+        UPDATE user_sessions
+        SET expires_at = DATE_ADD(NOW(), INTERVAL 15 MINUTE)
+        WHERE id = ?
+      `,
+      [rows[0].id]
+    );
+
     // generar nuevo access token
     const accessToken =
       generateAccessToken({
         userId: user.id,
+        sessionId: rows[0].id,
         first_name: user.first_name,
         last_name: user.last_name,
         email: user.email,
