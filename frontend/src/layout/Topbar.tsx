@@ -4,7 +4,15 @@ import {
 } from 'react';
 import ChangePasswordModal from '../components/users/ChangePasswordModal';
 
-export default function Topbar() {
+type TopbarProps = {
+  menuOpen?: boolean;
+  onToggleMenu?: () => void;
+};
+
+export default function Topbar({
+  menuOpen = false,
+  onToggleMenu
+}: TopbarProps) {
 
   const { user, logout } = useAuth();
 
@@ -20,6 +28,26 @@ export default function Topbar() {
     <>
 
       <header className="app-topbar">
+
+      <button
+        type="button"
+        className={
+          menuOpen
+            ? 'app-menu-button app-menu-button-open'
+            : 'app-menu-button'
+        }
+        onClick={onToggleMenu}
+        aria-label={
+          menuOpen
+            ? 'Cerrar menu'
+            : 'Abrir menu'
+        }
+        aria-expanded={menuOpen}
+      >
+        <span />
+        <span />
+        <span />
+      </button>
 
       <span className="app-topbar-title">
         {dependencyName}

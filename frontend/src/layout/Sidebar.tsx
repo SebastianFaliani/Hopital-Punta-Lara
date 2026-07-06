@@ -2,7 +2,13 @@ import { Link, NavLink } from 'react-router-dom';
 import { useAuth } from '../auth/useAuth';
 import { getAvailableNavigation } from '../auth/permissions';
 
-export default function Sidebar() {
+type SidebarProps = {
+  onNavigate?: () => void;
+};
+
+export default function Sidebar({
+  onNavigate
+}: SidebarProps) {
 
   const { user } = useAuth();
 
@@ -54,6 +60,7 @@ export default function Sidebar() {
           key={item.path}
           to={item.path}
           className="app-nav-link"
+          onClick={onNavigate}
         >
           {item.label}
         </NavLink>
@@ -70,6 +77,7 @@ export default function Sidebar() {
               key={item.path}
               to={item.path}
               className="app-nav-link"
+              onClick={onNavigate}
             >
               {item.label}
             </NavLink>
@@ -77,7 +85,11 @@ export default function Sidebar() {
         </>
       )}
 
-      <Link to="/" className="app-nav-link app-nav-danger">
+      <Link
+        to="/"
+        className="app-nav-link app-nav-danger"
+        onClick={onNavigate}
+      >
         Salir
       </Link>
 

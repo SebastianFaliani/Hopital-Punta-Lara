@@ -397,15 +397,16 @@
 
 @media screen and (max-width: 760px) {
   .app-sidebar {
-    height: 58px;
-    padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
-    gap: 5px;
+    width: min(82vw, 280px);
+    height: 100vh;
+    padding: calc(18px + env(safe-area-inset-top)) 14px calc(18px + env(safe-area-inset-bottom));
+    gap: 8px;
   }
 
   .app-nav-link {
-    min-width: 58px;
-    padding: 7px 6px;
-    font-size: 10px;
+    min-width: 0;
+    padding: 10px 12px;
+    font-size: 13px;
   }
 
   .app-topbar {
