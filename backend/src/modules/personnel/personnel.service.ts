@@ -790,7 +790,8 @@ export async function getAttendanceMonth(
           ar.employee_id,
           DAY(ar.attendance_date) AS day,
           ac.code,
-          ac.description
+          ac.description,
+          ar.compensatory_days
         FROM attendance_records ar
         LEFT JOIN attendance_codes ac
           ON ac.id = ar.attendance_code_id
@@ -880,7 +881,12 @@ export async function getAttendanceMonth(
       `${record.employee_id}-${record.day}`,
       {
         code: record.code || '',
-        description: record.description || ''
+        description: record.description || '',
+        compensatory_days:
+          record.compensatory_days !== null &&
+          record.compensatory_days !== undefined
+            ? Number(record.compensatory_days)
+            : null
       }
     );
   }
@@ -1248,6 +1254,12 @@ export async function saveAttendanceMonth(
           .trim()
           .toUpperCase();
 
+      const compensatoryDays =
+        record.compensatory_days === 1 ||
+        record.compensatory_days === 2
+          ? Number(record.compensatory_days)
+          : null;
+
       if (!employeeId || !day || day < 1 || day > days) {
         continue;
       }
@@ -1343,14 +1355,16 @@ export async function saveAttendanceMonth(
             attendance_code_id,
             attendance_date,
             raw_code,
+            compensatory_days,
             source,
             created_by
           )
-          VALUES (?, ?, ?, ?, ?, 'manual', ?)
+          VALUES (?, ?, ?, ?, ?, ?, 'manual', ?)
           ON DUPLICATE KEY UPDATE
             attendance_period_id = VALUES(attendance_period_id),
             attendance_code_id = VALUES(attendance_code_id),
             raw_code = VALUES(raw_code),
+            compensatory_days = VALUES(compensatory_days),
             source = 'manual',
             updated_at = CURRENT_TIMESTAMP
         `,
@@ -1360,6 +1374,9 @@ export async function saveAttendanceMonth(
           codeRows[0].id,
           attendanceDate,
           code,
+          code === 'P'
+            ? compensatoryDays
+            : null,
           userId || null
         ]
       );
@@ -2832,7 +2849,16 @@ async function getCompensatoryBalance(
   const [workedPlannedOffRows]: any =
     await pool.query(
       `
-        SELECT COUNT(*) AS total
+        SELECT
+          COALESCE(
+            SUM(
+              CASE
+                WHEN ar.compensatory_days IS NULL THEN 2
+                ELSE ar.compensatory_days
+              END
+            ),
+            0
+          ) AS total
         FROM employee_planned_days_off epdo
         INNER JOIN attendance_records ar
           ON ar.employee_id = epdo.employee_id
@@ -2869,7 +2895,7 @@ async function getCompensatoryBalance(
   const earnedDays =
     Number(creditRows[0].total || 0) +
     Number(creditAdjustments[0].total || 0) +
-    Number(workedPlannedOffRows[0].total || 0) * 2;
+    Number(workedPlannedOffRows[0].total || 0);
 
   const usedDays =
     Number(usedRows[0].total || 0) +

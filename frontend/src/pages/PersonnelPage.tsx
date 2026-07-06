@@ -84,6 +84,7 @@ type AttendanceEmployee = {
     {
       code: string;
       description: string;
+      compensatory_days: number | null;
       permissions?: Array<{
         code: string;
         description: string;
@@ -1135,6 +1136,9 @@ export default function PersonnelPage() {
   const [attendanceEdits, setAttendanceEdits] =
     useState<Record<string, string>>({});
 
+  const [attendanceCompensatoryEdits, setAttendanceCompensatoryEdits] =
+    useState<Record<string, number>>({});
+
   const [annualAttendanceEmployeeId, setAnnualAttendanceEmployeeId] =
     useState('');
 
@@ -1149,6 +1153,17 @@ export default function PersonnelPage() {
 
   const [annualAttendanceEdits, setAnnualAttendanceEdits] =
     useState<Record<string, string>>({});
+
+  const [annualAttendanceCompensatoryEdits, setAnnualAttendanceCompensatoryEdits] =
+    useState<Record<string, number>>({});
+
+  const [compensatoryPrompt, setCompensatoryPrompt] =
+    useState<{
+      mode: 'month' | 'annual';
+      key: string;
+      employeeName: string;
+      dayLabel: string;
+    } | null>(null);
 
   const [loadingAnnualAttendance, setLoadingAnnualAttendance] =
     useState(false);
@@ -2992,7 +3007,7 @@ export default function PersonnelPage() {
     const plannedOffText =
       plannedOff
         ? hasWorkedPlannedDayOff(employee, day)
-          ? 'Franco programado trabajado: suma 2 compensatorios'
+          ? `Franco programado trabajado: suma ${getAttendanceCompensatoryDays(employee, day) || 2} compensatorio(s)`
           : 'Franco programado'
         : '';
 
@@ -3064,7 +3079,7 @@ export default function PersonnelPage() {
         ? getAnnualAttendanceValue(monthRow, day)
           .trim()
           .toUpperCase() === 'P'
-          ? 'Franco programado trabajado: suma 2 compensatorios'
+          ? `Franco programado trabajado: suma ${getAnnualAttendanceCompensatoryDays(monthRow, day) || 2} compensatorio(s)`
           : 'Franco programado'
         : '';
 
@@ -3128,6 +3143,44 @@ export default function PersonnelPage() {
       getAttendanceValue(employee, day)
         .trim()
         .toUpperCase() === 'P';
+  }
+
+  function getAttendanceCompensatoryDays(
+    employee: AttendanceEmployee,
+    day: number
+  ) {
+    const key =
+      `${employee.id}-${day}`;
+
+    if (key in attendanceCompensatoryEdits) {
+      return attendanceCompensatoryEdits[key];
+    }
+
+    return employee.attendance[String(day)]
+      ?.compensatory_days || null;
+  }
+
+  function getAnnualAttendanceCompensatoryDays(
+    monthRow: AnnualAttendanceMonth,
+    day: number
+  ) {
+    if (!annualAttendanceEmployee) {
+      return null;
+    }
+
+    const key =
+      getAnnualAttendanceEditKey(
+        annualAttendanceEmployee.id,
+        monthRow.month,
+        day
+      );
+
+    if (key in annualAttendanceCompensatoryEdits) {
+      return annualAttendanceCompensatoryEdits[key];
+    }
+
+    return monthRow.attendance[String(day)]
+      ?.compensatory_days || null;
   }
 
   function isAttendanceCellLocked(
@@ -3275,19 +3328,48 @@ export default function PersonnelPage() {
   }
 
   function updateAttendanceCell(
-    employeeId: number,
+    employee: AttendanceEmployee,
     day: number,
     value: string
   ) {
+    const normalizedValue =
+      value.toUpperCase();
+
+    const key =
+      `${employee.id}-${day}`;
 
     setAttendanceEdits({
       ...attendanceEdits,
-      [`${employeeId}-${day}`]:
-      value.toUpperCase()
+      [key]:
+      normalizedValue
     });
+
+    if (
+      normalizedValue.trim() === 'P' &&
+      hasPlannedDayOff(employee, day)
+    ) {
+      setCompensatoryPrompt({
+        mode: 'month',
+        key,
+        employeeName: employee.full_name,
+        dayLabel:
+          `${String(day).padStart(2, '0')}/${String(attendanceFilters.month).padStart(2, '0')}/${attendanceFilters.year}`
+      });
+      return;
+    }
+
+    if (key in attendanceCompensatoryEdits) {
+      const {
+        [key]: _removed,
+        ...rest
+      } = attendanceCompensatoryEdits;
+
+      setAttendanceCompensatoryEdits(rest);
+    }
   }
 
   function updateAnnualAttendanceCell(
+    monthRow: AnnualAttendanceMonth,
     month: number,
     day: number,
     value: string
@@ -3297,15 +3379,67 @@ export default function PersonnelPage() {
       return;
     }
 
-    setAnnualAttendanceEdits({
-      ...annualAttendanceEdits,
-      [getAnnualAttendanceEditKey(
+    const normalizedValue =
+      value.toUpperCase();
+
+    const key =
+      getAnnualAttendanceEditKey(
         annualAttendanceEmployee.id,
         month,
         day
-      )]:
-        value.toUpperCase()
+      );
+
+    setAnnualAttendanceEdits({
+      ...annualAttendanceEdits,
+      [key]:
+        normalizedValue
     });
+
+    if (
+      normalizedValue.trim() === 'P' &&
+      monthRow.attendance[String(day)]
+        ?.planned_off
+    ) {
+      setCompensatoryPrompt({
+        mode: 'annual',
+        key,
+        employeeName: annualAttendanceEmployee.full_name,
+        dayLabel:
+          `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}/${attendanceFilters.year}`
+      });
+      return;
+    }
+
+    if (key in annualAttendanceCompensatoryEdits) {
+      const {
+        [key]: _removed,
+        ...rest
+      } = annualAttendanceCompensatoryEdits;
+
+      setAnnualAttendanceCompensatoryEdits(rest);
+    }
+  }
+
+  function confirmCompensatoryDays(
+    days: number
+  ) {
+    if (!compensatoryPrompt) {
+      return;
+    }
+
+    if (compensatoryPrompt.mode === 'month') {
+      setAttendanceCompensatoryEdits({
+        ...attendanceCompensatoryEdits,
+        [compensatoryPrompt.key]: days
+      });
+    } else {
+      setAnnualAttendanceCompensatoryEdits({
+        ...annualAttendanceCompensatoryEdits,
+        [compensatoryPrompt.key]: days
+      });
+    }
+
+    setCompensatoryPrompt(null);
   }
 
   function validateAttendanceCellOnBlur(
@@ -3713,6 +3847,58 @@ export default function PersonnelPage() {
         return;
       }
 
+      const missingCompensatoryChoice =
+        Object.entries(attendanceEdits)
+          .find(([key, code]) => {
+            if (code.trim().toUpperCase() !== 'P') {
+              return false;
+            }
+
+            if (attendanceCompensatoryEdits[key]) {
+              return false;
+            }
+
+            const [
+              employeeId,
+              day
+            ] = key.split('-');
+
+            const employee =
+              attendanceRows.find((item) =>
+                item.id === Number(employeeId)
+              );
+
+            return Boolean(
+              employee &&
+              hasPlannedDayOff(
+                employee,
+                Number(day)
+              )
+            );
+          });
+
+      if (missingCompensatoryChoice) {
+        const [
+          employeeId,
+          day
+        ] = missingCompensatoryChoice[0].split('-');
+
+        const employee =
+          attendanceRows.find((item) =>
+            item.id === Number(employeeId)
+          );
+
+        setCompensatoryPrompt({
+          mode: 'month',
+          key: missingCompensatoryChoice[0],
+          employeeName:
+            employee?.full_name || 'Empleado',
+          dayLabel:
+            `${String(day).padStart(2, '0')}/${String(attendanceFilters.month).padStart(2, '0')}/${attendanceFilters.year}`
+        });
+        return;
+      }
+
       const records =
         Object.entries(attendanceEdits)
           .map(([key, code]) => {
@@ -3725,7 +3911,9 @@ export default function PersonnelPage() {
             return {
               employee_id: Number(employeeId),
               day: Number(day),
-              code
+              code,
+              compensatory_days:
+                attendanceCompensatoryEdits[key] || null
             };
           });
 
@@ -3743,6 +3931,8 @@ export default function PersonnelPage() {
       );
 
       await loadAttendance();
+      setAttendanceEdits({});
+      setAttendanceCompensatoryEdits({});
       if (selectedLeaveEmployee) {
         await loadLeaveSummary(
           selectedLeaveEmployee.id
@@ -3830,11 +4020,58 @@ export default function PersonnelPage() {
         return;
       }
 
+      const missingAnnualCompensatoryChoice =
+        Object.entries(annualAttendanceEdits)
+          .find(([key, code]) => {
+            if (code.trim().toUpperCase() !== 'P') {
+              return false;
+            }
+
+            if (annualAttendanceCompensatoryEdits[key]) {
+              return false;
+            }
+
+            const [
+              ,
+              month,
+              day
+            ] = key.split('-');
+
+            const monthRow =
+              annualAttendanceMonths.find((item) =>
+                item.month === Number(month)
+              );
+
+            return Boolean(
+              monthRow?.attendance[String(day)]
+                ?.planned_off
+            );
+          });
+
+      if (missingAnnualCompensatoryChoice) {
+        const [
+          ,
+          month,
+          day
+        ] = missingAnnualCompensatoryChoice[0].split('-');
+
+        setCompensatoryPrompt({
+          mode: 'annual',
+          key: missingAnnualCompensatoryChoice[0],
+          employeeName:
+            annualAttendanceEmployee.full_name,
+          dayLabel:
+            `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}/${attendanceFilters.year}`
+        });
+        return;
+      }
+
       const recordsByMonth =
         new Map<number, Array<{
           employee_id: number;
           day: number;
           code: string;
+          compensatory_days: number | null;
         }>>();
 
       Object.entries(annualAttendanceEdits)
@@ -3854,7 +4091,9 @@ export default function PersonnelPage() {
           records.push({
             employee_id: Number(employeeId),
             day: Number(day),
-            code
+            code,
+            compensatory_days:
+              annualAttendanceCompensatoryEdits[key] || null
           });
 
           recordsByMonth.set(
@@ -3880,6 +4119,8 @@ export default function PersonnelPage() {
 
       await loadAnnualAttendance();
       await loadAttendance();
+      setAnnualAttendanceEdits({});
+      setAnnualAttendanceCompensatoryEdits({});
 
       if (selectedLeaveEmployee) {
         await loadLeaveSummary(
@@ -4532,6 +4773,39 @@ export default function PersonnelPage() {
           </p>
         </div>
       </div>
+
+      {compensatoryPrompt && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <h2 className="modal-title">
+              Franco trabajado
+            </h2>
+            <p className="modal-subtitle">
+              {compensatoryPrompt.employeeName} figura con franco programado el {compensatoryPrompt.dayLabel}. Indica cuantos dias compensatorios corresponde acreditar.
+            </p>
+            <div className="modal-actions">
+              <button
+                className="btn-secondary"
+                type="button"
+                onClick={() =>
+                  confirmCompensatoryDays(1)
+                }
+              >
+                1 dia
+              </button>
+              <button
+                className="btn-primary"
+                type="button"
+                onClick={() =>
+                  confirmCompensatoryDays(2)
+                }
+              >
+                2 dias
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="module-tabs">
         {!isPersonnelSettingsPage && (
@@ -6609,7 +6883,7 @@ export default function PersonnelPage() {
                                       !attendanceReadOnly &&
                                       !lockedCell &&
                                       updateAttendanceCell(
-                                        employee.id,
+                                        employee,
                                         day,
                                         e.target.value
                                       )
@@ -6777,6 +7051,7 @@ export default function PersonnelPage() {
                                         !attendanceReadOnly &&
                                         !lockedCell &&
                                         updateAnnualAttendanceCell(
+                                          monthRow,
                                           monthRow.month,
                                           day,
                                           e.target.value

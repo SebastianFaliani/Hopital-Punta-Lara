@@ -95,6 +95,7 @@ CREATE TABLE IF NOT EXISTS attendance_records (
   attendance_date DATE NOT NULL,
   raw_code VARCHAR(30),
   notes TEXT,
+  compensatory_days DECIMAL(4,2) NULL,
   source ENUM(
     'manual',
     'excel_import'
