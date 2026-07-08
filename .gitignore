@@ -14,6 +14,7 @@ build/
 .env.production.local
 !.env.example
 !backend/.env.example
+!backend/.env.source.example
 !frontend/.env.example
 !frontend/.env.production.example
 !frontend/.env.android.example

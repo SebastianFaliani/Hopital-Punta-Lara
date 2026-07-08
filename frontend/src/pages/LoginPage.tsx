@@ -78,7 +78,7 @@ export default function LoginPage() {
       <div className="auth-card">
 
         <img
-          src="/sigsa-logo-display.png"
+          src="/menu-icons/sigsa-logo.png"
           alt="SIGSA - Sistema Integral de Gestion de Salud"
           className="auth-brand-logo"
         />

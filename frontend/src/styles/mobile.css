@@ -29,7 +29,15 @@
 .app-sidebar-brand {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
+}
+
+.app-sidebar-logo {
+  width: 82px;
+  height: 42px;
+  object-fit: contain;
+  object-position: left center;
+  flex: 0 0 auto;
 }
 
 .app-sidebar-identity {
@@ -51,12 +59,10 @@
   overflow-wrap: anywhere;
 }
 
-.app-sidebar-brand img {
+.app-sidebar-brand img:not(.app-sidebar-logo) {
   width: 42px;
   height: 42px;
-  border-radius: 50%;
   object-fit: cover;
-  background: white;
   flex: 0 0 auto;
 }
 
@@ -78,6 +84,24 @@
   border-radius: 8px;
   font-size: 14px;
   font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 42px;
+  line-height: 1.2;
+}
+
+.app-nav-icon {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  flex: 0 0 28px;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.18));
+}
+
+.app-nav-link span {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .app-nav-link.active,
@@ -128,7 +152,7 @@
 }
 
 .app-topbar-logo {
-  width: 190px;
+  width: 230px;
   height: 58px;
   object-fit: contain;
   object-position: left center;
@@ -212,6 +236,11 @@
     padding: 0 4px 8px;
   }
 
+  .app-sidebar-logo {
+    width: 92px;
+    height: 44px;
+  }
+
   .app-sidebar-identity strong {
     font-size: 13px;
   }
@@ -249,6 +278,12 @@
     font-size: 13px;
     border-radius: 8px;
     white-space: nowrap;
+  }
+
+  .app-nav-icon {
+    width: 30px;
+    height: 30px;
+    flex-basis: 30px;
   }
 
   .app-nav-danger {
@@ -310,7 +345,7 @@
   }
 
   .app-topbar-logo {
-    width: 118px;
+    width: 132px;
     height: 38px;
   }
 

@@ -6,6 +6,55 @@ type SidebarProps = {
   onNavigate?: () => void;
 };
 
+const navigationIconByPath: Record<string, string> = {
+  '/dashboard': 'dashboard',
+  '/users': 'usuario',
+  '/facilities': 'dependencias',
+  '/personnel': 'personal',
+  '/personnel/settings': 'configuracion-personal',
+  '/vaccines': 'vacunas',
+  '/medications': 'medicamentos',
+  '/transfers': 'traslados',
+  '/laboratory': 'laboratorio',
+  '/nutrition': 'nutricion',
+  '/housekeeping': 'mayordomia',
+  '/whatsapp': 'whatsapp',
+  '/audit': 'auditoria'
+};
+
+function getNavigationIcon(
+  path: string
+) {
+  const iconName =
+    navigationIconByPath[path];
+
+  return iconName
+    ? `/menu-icons/${iconName}.png`
+    : undefined;
+}
+
+function NavIcon({
+  path
+}: {
+  path: string;
+}) {
+  const icon =
+    getNavigationIcon(path);
+
+  if (!icon) {
+    return null;
+  }
+
+  return (
+    <img
+      src={icon}
+      alt=""
+      className="app-nav-icon"
+      aria-hidden="true"
+    />
+  );
+}
+
 export default function Sidebar({
   onNavigate
 }: SidebarProps) {
@@ -43,6 +92,12 @@ export default function Sidebar({
     <aside className="app-sidebar">
 
       <div className="app-sidebar-brand">
+        <img
+          src="/menu-icons/sigsa-logo.png"
+          alt="SIGSA"
+          className="app-sidebar-logo"
+        />
+
         <div className="app-sidebar-identity">
           <strong>
             User: {displayUsername}
@@ -62,7 +117,10 @@ export default function Sidebar({
           className="app-nav-link"
           onClick={onNavigate}
         >
-          {item.label}
+          <NavIcon path={item.path} />
+          <span>
+            {item.label}
+          </span>
         </NavLink>
       ))}
 
@@ -79,7 +137,10 @@ export default function Sidebar({
               className="app-nav-link"
               onClick={onNavigate}
             >
-              {item.label}
+              <NavIcon path={item.path} />
+              <span>
+                {item.label}
+              </span>
             </NavLink>
           ))}
         </>

@@ -51,7 +51,7 @@ export default function Topbar({
 
       <span className="app-topbar-title">
         <img
-          src="/sigsa-logo-display.png"
+          src="/menu-icons/sigsa-logo.png"
           alt="SIGSA"
           className="app-topbar-logo"
         />

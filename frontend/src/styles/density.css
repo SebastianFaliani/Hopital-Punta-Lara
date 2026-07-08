@@ -27,9 +27,15 @@
     gap: 8px;
   }
 
-  .app-sidebar-brand img {
-    width: 32px;
-    height: 32px;
+  .app-sidebar-logo {
+    width: 68px;
+    height: 34px;
+  }
+
+  .app-nav-icon {
+    width: 23px;
+    height: 23px;
+    flex-basis: 23px;
   }
 
   .app-sidebar-identity strong {
@@ -45,6 +51,8 @@
     padding: 7px 9px;
     border-radius: 6px;
     font-size: 11px;
+    min-height: 34px;
+    gap: 8px;
   }
 
   .app-topbar {
@@ -58,7 +66,7 @@
   }
 
   .app-topbar-logo {
-    width: 185px;
+    width: 220px;
     height: 52px;
   }
 
@@ -412,6 +420,12 @@
     min-width: 0;
     padding: 10px 12px;
     font-size: 13px;
+  }
+
+  .app-nav-icon {
+    width: 30px;
+    height: 30px;
+    flex-basis: 30px;
   }
 
   .app-topbar {
