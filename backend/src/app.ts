@@ -40,10 +40,24 @@ const corsOrigins = (
   .map((origin) => origin.trim())
   .filter(Boolean);
 
+const nativeAppOrigins = [
+  'capacitor://localhost',
+  'http://localhost',
+  'ionic://localhost'
+];
+
+const allowedCorsOrigins =
+  Array.from(
+    new Set([
+      ...corsOrigins,
+      ...nativeAppOrigins
+    ])
+  );
+
 app.use(
   cors({
     origin(origin, callback) {
-      if (!origin || corsOrigins.length === 0 || corsOrigins.includes(origin)) {
+      if (!origin || allowedCorsOrigins.length === 0 || allowedCorsOrigins.includes(origin)) {
         callback(null, true);
         return;
       }
