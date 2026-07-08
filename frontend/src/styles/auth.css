@@ -11,9 +11,9 @@
   padding: 24px;
 
   background:
-    radial-gradient(circle at 22% 18%, rgba(0, 194, 255, 0.22), transparent 34%),
-    radial-gradient(circle at 78% 28%, rgba(0, 86, 214, 0.2), transparent 32%),
-    linear-gradient(135deg, #f3f8ff 0%, #dfeaf9 46%, #c4d7ee 100%);
+    radial-gradient(circle at 22% 18%, rgba(0, 168, 142, 0.18), transparent 34%),
+    radial-gradient(circle at 78% 28%, rgba(13, 59, 102, 0.16), transparent 32%),
+    linear-gradient(135deg, #ffffff 0%, #E6F2F1 52%, #d3e9e7 100%);
 }
 
 .auth-card {

@@ -27,11 +27,6 @@
     gap: 8px;
   }
 
-  .app-sidebar-logo {
-    width: 68px;
-    height: 34px;
-  }
-
   .app-nav-icon {
     width: 23px;
     height: 23px;
@@ -66,7 +61,7 @@
   }
 
   .app-topbar-logo {
-    width: 220px;
+    width: min(455px, 42vw);
     height: 52px;
   }
 

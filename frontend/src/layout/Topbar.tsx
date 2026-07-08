@@ -18,7 +18,7 @@ export default function Topbar({
 
   const dependencyName =
     user?.facility_name ||
-    'Sistema Integrado de Gestión de Salud';
+    '';
 
   const [openPasswordModal, setOpenPasswordModal] =
     useState(false);
@@ -51,7 +51,7 @@ export default function Topbar({
 
       <span className="app-topbar-title">
         <img
-          src="/menu-icons/sigsa-logo.png"
+          src="/menu-icons/sigsa-topbar.png"
           alt="SIGSA"
           className="app-topbar-logo"
         />

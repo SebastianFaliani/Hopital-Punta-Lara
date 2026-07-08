@@ -19,7 +19,8 @@ const navigationIconByPath: Record<string, string> = {
   '/nutrition': 'nutricion',
   '/housekeeping': 'mayordomia',
   '/whatsapp': 'whatsapp',
-  '/audit': 'auditoria'
+  '/audit': 'auditoria',
+  '/': 'salir'
 };
 
 function getNavigationIcon(
@@ -92,12 +93,6 @@ export default function Sidebar({
     <aside className="app-sidebar">
 
       <div className="app-sidebar-brand">
-        <img
-          src="/menu-icons/sigsa-logo.png"
-          alt="SIGSA"
-          className="app-sidebar-logo"
-        />
-
         <div className="app-sidebar-identity">
           <strong>
             User: {displayUsername}
@@ -151,7 +146,10 @@ export default function Sidebar({
         className="app-nav-link app-nav-danger"
         onClick={onNavigate}
       >
-        Salir
+        <NavIcon path="/" />
+        <span>
+          Salir
+        </span>
       </Link>
 
     </aside>

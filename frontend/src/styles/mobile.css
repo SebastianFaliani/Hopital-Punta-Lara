@@ -13,16 +13,18 @@
 .app-sidebar {
   width: 250px;
   flex: 0 0 250px;
-  background: #1f2937;
-  color: white;
+  background: linear-gradient(180deg, #ffffff 0%, #f7fbfb 100%);
+  color: var(--color-primary);
   padding: 20px;
   display: flex;
   flex-direction: column;
   gap: 12px;
+  border-right: 1px solid var(--color-border);
+  box-shadow: 6px 0 24px rgba(13, 59, 102, 0.07);
 }
 
 .app-sidebar-title {
-  color: #3c9ec2;
+  color: var(--color-primary);
   margin: 0;
 }
 
@@ -30,14 +32,7 @@
   display: flex;
   align-items: center;
   gap: 12px;
-}
-
-.app-sidebar-logo {
-  width: 82px;
-  height: 42px;
-  object-fit: contain;
-  object-position: left center;
-  flex: 0 0 auto;
+  padding: 6px 4px 4px;
 }
 
 .app-sidebar-identity {
@@ -48,13 +43,13 @@
 }
 
 .app-sidebar-identity strong {
-  color: white;
+  color: var(--color-primary);
   font-size: 14px;
   overflow-wrap: anywhere;
 }
 
 .app-sidebar-identity span {
-  color: rgba(255, 255, 255, 0.72);
+  color: var(--color-text-light);
   font-size: 12px;
   overflow-wrap: anywhere;
 }
@@ -68,17 +63,18 @@
 
 .app-sidebar-user {
   font-size: 12px;
-  opacity: 0.7;
+  color: var(--color-text-light);
   overflow-wrap: anywhere;
 }
 
 .app-sidebar-divider {
   width: 100%;
-  opacity: 0.2;
+  border: 0;
+  border-top: 1px solid var(--color-border);
 }
 
 .app-nav-link {
-  color: white;
+  color: var(--color-primary);
   text-decoration: none;
   padding: 10px 12px;
   border-radius: 8px;
@@ -89,6 +85,7 @@
   gap: 10px;
   min-height: 42px;
   line-height: 1.2;
+  border: 1px solid transparent;
 }
 
 .app-nav-icon {
@@ -96,7 +93,7 @@
   height: 28px;
   object-fit: contain;
   flex: 0 0 28px;
-  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.18));
+  filter: drop-shadow(0 1px 1px rgba(13, 59, 102, 0.14));
 }
 
 .app-nav-link span {
@@ -106,20 +103,23 @@
 
 .app-nav-link.active,
 .app-nav-link:hover {
-  background: rgba(255, 255, 255, 0.12);
+  background: var(--color-accent-soft);
+  border-color: rgba(0, 168, 142, 0.24);
+  color: var(--color-primary);
+  text-decoration: none;
 }
 
 .app-nav-section-title {
   margin: 8px 0 0;
   padding: 0 12px;
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--color-accent-dark);
   font-size: 11px;
   font-weight: 800;
   text-transform: uppercase;
 }
 
 .app-nav-danger {
-  color: #fecaca;
+  color: #9f1239;
   margin-top: auto;
 }
 
@@ -133,7 +133,7 @@
 .app-topbar {
   min-height: 60px;
   background: white;
-  border-bottom: 1px solid #dbe3ea;
+  border-bottom: 1px solid var(--color-border);
   display: flex;
   justify-content: flex-start;
   align-items: center;
@@ -152,7 +152,7 @@
 }
 
 .app-topbar-logo {
-  width: 230px;
+  width: min(520px, 44vw);
   height: 58px;
   object-fit: contain;
   object-position: left center;
@@ -164,6 +164,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  color: var(--color-primary);
 }
 
 .app-topbar-actions {
@@ -217,8 +218,8 @@
     gap: 8px;
     overflow-x: hidden;
     overflow-y: auto;
-    border-right: 1px solid rgba(255, 255, 255, 0.12);
-    box-shadow: 18px 0 42px rgba(15, 23, 42, 0.28);
+    border-right: 1px solid var(--color-border);
+    box-shadow: 18px 0 42px rgba(13, 59, 102, 0.18);
     transform: translateX(-105%);
     transition: transform 0.22s ease;
     will-change: transform;
@@ -234,11 +235,6 @@
 
   .app-sidebar-brand {
     padding: 0 4px 8px;
-  }
-
-  .app-sidebar-logo {
-    width: 92px;
-    height: 44px;
   }
 
   .app-sidebar-identity strong {
@@ -309,10 +305,10 @@
     justify-content: center;
     flex-direction: column;
     gap: 4px;
-    border: 1px solid #dbe3ea;
+    border: 1px solid var(--color-border);
     border-radius: 8px;
     background: white;
-    color: #1f2937;
+    color: var(--color-primary);
     cursor: pointer;
   }
 
@@ -345,7 +341,7 @@
   }
 
   .app-topbar-logo {
-    width: 132px;
+    width: 148px;
     height: 38px;
   }
 
