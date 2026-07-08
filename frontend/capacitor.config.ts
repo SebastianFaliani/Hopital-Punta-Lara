@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'com.hospitalpuntalara.app',
-  appName: 'Hospital Punta Lara',
+  appName: 'Sistema Integral de Gestion de Salud',
   webDir: 'dist',
   server: {
     androidScheme: 'http',

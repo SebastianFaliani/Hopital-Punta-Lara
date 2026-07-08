@@ -77,13 +77,11 @@ export default function LoginPage() {
 
       <div className="auth-card">
 
-        <h1>
-          Hospital Punta Lara
-        </h1>
-
-        <p>
-          Iniciar sesión
-        </p>
+        <img
+          src="/sigsa-logo-display.png"
+          alt="SIGSA - Sistema Integral de Gestion de Salud"
+          className="auth-brand-logo"
+        />
 
         <form
           onSubmit={handleSubmit}
