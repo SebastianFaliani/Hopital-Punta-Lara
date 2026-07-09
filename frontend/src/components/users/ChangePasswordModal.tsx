@@ -25,34 +25,32 @@ export default function ChangePasswordModal({
   const [error, setError] =
     useState('');
 
-  const [success, setSuccess] =
-    useState('');
+  const [passwordUpdated, setPasswordUpdated] =
+    useState(false);
 
   async function handleSubmit(
     e: React.FormEvent
   ) {
 
     e.preventDefault();
-
     setError('');
-    setSuccess('');
 
     if (
       !form.current_password ||
       !form.new_password ||
       !form.confirm_password
     ) {
-      setError('Completá todos los campos');
+      setError('Completa todos los campos');
       return;
     }
 
     if (form.new_password.length < 6) {
-      setError('La nueva contraseña debe tener mínimo 6 caracteres');
+      setError('La nueva contrasena debe tener minimo 6 caracteres');
       return;
     }
 
     if (form.new_password !== form.confirm_password) {
-      setError('La confirmación no coincide');
+      setError('La confirmacion no coincide');
       return;
     }
 
@@ -71,13 +69,13 @@ export default function ChangePasswordModal({
         }
       );
 
-      setSuccess('Contraseña actualizada');
-
       setForm({
         current_password: '',
         new_password: '',
         confirm_password: ''
       });
+
+      setPasswordUpdated(true);
 
     } catch (error: any) {
 
@@ -105,82 +103,100 @@ export default function ChangePasswordModal({
 
       <div className="modal-content">
 
-        <h2 className="modal-title">
-          Cambiar contraseña
-        </h2>
+        {passwordUpdated ? (
+          <>
+            <h2 className="modal-title">
+              Contrasena actualizada
+            </h2>
 
-        <form
-          className="auth-form"
-          onSubmit={handleSubmit}
-        >
-
-          <input
-            className="form-input"
-            type="password"
-            name="current_password"
-            placeholder="Contraseña actual"
-            value={form.current_password}
-            onChange={handleChange}
-            autoComplete="current-password"
-          />
-
-          <input
-            className="form-input"
-            type="password"
-            name="new_password"
-            placeholder="Nueva contraseña"
-            value={form.new_password}
-            onChange={handleChange}
-            autoComplete="new-password"
-          />
-
-          <input
-            className="form-input"
-            type="password"
-            name="confirm_password"
-            placeholder="Repetir nueva contraseña"
-            value={form.confirm_password}
-            onChange={handleChange}
-            autoComplete="new-password"
-          />
-
-          {error && (
-            <p className="form-error">
-              {error}
+            <p className="modal-subtitle">
+              La contrasena se actualizo correctamente.
             </p>
-          )}
 
-          {success && (
-            <p className="form-success">
-              {success}
-            </p>
-          )}
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={onClose}
+              >
+                Aceptar
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <h2 className="modal-title">
+              Cambiar contrasena
+            </h2>
 
-          <div className="modal-actions">
-
-            <button
-              type="button"
-              className="btn-secondary"
-              onClick={onClose}
+            <form
+              className="auth-form"
+              onSubmit={handleSubmit}
             >
-              Cerrar
-            </button>
 
-            <button
-              type="submit"
-              className="btn-success"
-              disabled={loading}
-            >
-              {
-                loading
-                  ? 'Guardando...'
-                  : 'Guardar'
-              }
-            </button>
+              <input
+                className="form-input"
+                type="password"
+                name="current_password"
+                placeholder="Contrasena actual"
+                value={form.current_password}
+                onChange={handleChange}
+                autoComplete="current-password"
+              />
 
-          </div>
+              <input
+                className="form-input"
+                type="password"
+                name="new_password"
+                placeholder="Nueva contrasena"
+                value={form.new_password}
+                onChange={handleChange}
+                autoComplete="new-password"
+              />
 
-        </form>
+              <input
+                className="form-input"
+                type="password"
+                name="confirm_password"
+                placeholder="Repetir nueva contrasena"
+                value={form.confirm_password}
+                onChange={handleChange}
+                autoComplete="new-password"
+              />
+
+              {error && (
+                <p className="form-error">
+                  {error}
+                </p>
+              )}
+
+              <div className="modal-actions">
+
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={onClose}
+                >
+                  Cerrar
+                </button>
+
+                <button
+                  type="submit"
+                  className="btn-success"
+                  disabled={loading}
+                >
+                  {
+                    loading
+                      ? 'Guardando...'
+                      : 'Guardar'
+                  }
+                </button>
+
+              </div>
+
+            </form>
+          </>
+        )}
 
       </div>
 

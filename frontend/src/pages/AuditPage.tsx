@@ -5,9 +5,6 @@ import {
 
 import { apiFetch } from '../api/api';
 import PageTitle from '../components/PageTitle';
-import {
-  formatDisplayDateTime
-} from '../utils/dateFormat';
 
 type AuditLog = {
   id: number;
@@ -347,5 +344,22 @@ function formatDateTime(
     return '-';
   }
 
-  return formatDisplayDateTime(value);
+  const date =
+    new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleString(
+    'es-AR',
+    {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    }
+  );
 }
