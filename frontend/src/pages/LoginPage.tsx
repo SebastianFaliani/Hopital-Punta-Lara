@@ -12,6 +12,7 @@ import { Capacitor } from '@capacitor/core';
 import { apiFetch } from '../api/api';
 
 import { useAuth } from '../auth/useAuth';
+import PasswordInput from '../components/PasswordInput';
 
 export default function LoginPage() {
 
@@ -107,9 +108,8 @@ export default function LoginPage() {
             autoComplete="username"
           />
 
-          <input
-            type="password"
-            placeholder="Contraseña"
+          <PasswordInput
+            placeholder="Contrasena"
             value={password}
             onChange={(e) =>
               setPassword(e.target.value)
@@ -132,7 +132,7 @@ export default function LoginPage() {
             to="/forgot-password"
             className="auth-link"
           >
-            ¿Olvidaste tu contraseña?
+            Olvidaste tu contrasena?
           </Link>
 
           {

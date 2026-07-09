@@ -3,6 +3,7 @@ import {
 } from 'react';
 
 import { apiFetch } from '../../api/api';
+import PasswordInput from '../PasswordInput';
 
 type Props = {
   onClose: () => void;
@@ -134,9 +135,7 @@ export default function ChangePasswordModal({
               onSubmit={handleSubmit}
             >
 
-              <input
-                className="form-input"
-                type="password"
+              <PasswordInput
                 name="current_password"
                 placeholder="Contrasena actual"
                 value={form.current_password}
@@ -144,9 +143,7 @@ export default function ChangePasswordModal({
                 autoComplete="current-password"
               />
 
-              <input
-                className="form-input"
-                type="password"
+              <PasswordInput
                 name="new_password"
                 placeholder="Nueva contrasena"
                 value={form.new_password}
@@ -154,9 +151,7 @@ export default function ChangePasswordModal({
                 autoComplete="new-password"
               />
 
-              <input
-                className="form-input"
-                type="password"
+              <PasswordInput
                 name="confirm_password"
                 placeholder="Repetir nueva contrasena"
                 value={form.confirm_password}

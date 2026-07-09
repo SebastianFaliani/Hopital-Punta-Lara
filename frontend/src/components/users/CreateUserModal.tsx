@@ -4,6 +4,7 @@ import {
 } from 'react';
 
 import { apiFetch } from '../../api/api';
+import PasswordInput from '../PasswordInput';
 
 type Role = {
   id: number;
@@ -80,7 +81,6 @@ export default function CreateUserModal({
 
     setError('');
 
-    // validaciones
     if (
       !form.first_name ||
       !form.last_name ||
@@ -99,7 +99,7 @@ export default function CreateUserModal({
     if (form.password.length < 6) {
 
       setError(
-        'La contraseña debe tener mínimo 6 caracteres'
+        'La contrasena debe tener minimo 6 caracteres'
       );
 
       return;
@@ -162,8 +162,9 @@ export default function CreateUserModal({
           Nuevo usuario
         </h2>
 
-        <form onSubmit={handleSubmit}
-        className="auth-form"
+        <form
+          onSubmit={handleSubmit}
+          className="auth-form"
         >
 
           <input
@@ -203,13 +204,12 @@ export default function CreateUserModal({
             autoComplete="username"
           />
 
-          <input
-            type="password"
+          <PasswordInput
             name="password"
-            placeholder="Contraseña"
+            placeholder="Contrasena"
             value={form.password}
             onChange={handleChange}
-            className="form-input"
+            autoComplete="new-password"
           />
 
           <select

@@ -645,3 +645,241 @@
     height: 20px;
   }
 }
+
+@media (max-width: 940px) and (orientation: landscape) {
+  html,
+  body,
+  #root {
+    min-width: 0;
+    width: 100%;
+    min-height: 100dvh;
+    overflow-x: hidden;
+  }
+
+  .app-shell {
+    display: block;
+    height: auto;
+    min-height: 100dvh;
+  }
+
+  .app-content {
+    min-height: 100dvh;
+  }
+
+  .app-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: auto;
+    z-index: 80;
+    width: min(78vw, 280px);
+    height: 100dvh;
+    min-height: 100dvh;
+    padding: calc(14px + env(safe-area-inset-top)) 14px calc(14px + env(safe-area-inset-bottom));
+    overflow-x: hidden;
+    overflow-y: auto;
+    border-right: 1px solid var(--color-border);
+    background: linear-gradient(180deg, #ffffff 0%, #f7fbfb 100%);
+    box-shadow: 18px 0 42px rgba(13, 59, 102, 0.18);
+    transform: translateX(-105%);
+    transition: transform 0.22s ease;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .app-shell-menu-open .app-sidebar {
+    transform: translateX(0);
+  }
+
+  .app-menu-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 70;
+    border: 0;
+    background: rgba(15, 23, 42, 0.42);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+  }
+
+  .app-shell-menu-open .app-menu-backdrop {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  body.app-menu-open {
+    overflow: hidden;
+  }
+
+  .app-menu-button {
+    display: inline-flex;
+    width: 38px;
+    height: 38px;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 4px;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    background: white;
+    color: var(--color-primary);
+    cursor: pointer;
+  }
+
+  .app-menu-button span {
+    width: 17px;
+    height: 2px;
+    border-radius: 999px;
+    background: currentColor;
+    transition: transform 0.18s ease, opacity 0.18s ease;
+  }
+
+  .app-menu-button-open span:nth-child(1) {
+    transform: translateY(6px) rotate(45deg);
+  }
+
+  .app-menu-button-open span:nth-child(2) {
+    opacity: 0;
+  }
+
+  .app-menu-button-open span:nth-child(3) {
+    transform: translateY(-6px) rotate(-45deg);
+  }
+
+  .app-topbar {
+    position: sticky;
+    top: 0;
+    z-index: 60;
+    min-height: 54px;
+    padding: 8px 12px;
+    justify-content: flex-start;
+    gap: 10px;
+  }
+
+  .app-topbar-logo {
+    width: 148px;
+    height: 38px;
+  }
+
+  .app-topbar-heading,
+  .app-topbar-user,
+  .app-topbar-actions .btn-secondary {
+    display: none;
+  }
+
+  .app-topbar-actions {
+    margin-left: auto;
+    gap: 8px;
+  }
+
+  .app-topbar-logout-button {
+    width: 38px;
+    height: 38px;
+    min-width: 38px;
+  }
+
+  .app-main {
+    min-height: calc(100dvh - 54px);
+    padding: 12px 10px 16px;
+    overflow-x: hidden;
+  }
+
+  .app-nav-link {
+    min-height: 38px;
+    padding: 8px 11px;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+
+  .app-nav-icon {
+    width: 27px;
+    height: 27px;
+    flex-basis: 27px;
+  }
+
+  .app-nav-section-title {
+    margin-top: 6px;
+  }
+
+  .attendance-view-toggle {
+    margin-bottom: 8px;
+  }
+
+  .attendance-toolbar {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 7px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+
+  .attendance-toolbar .form-input,
+  .attendance-filter-small,
+  .attendance-filter-wide,
+  .attendance-filter-search {
+    flex: 0 0 auto;
+    min-width: 132px;
+    max-width: 190px;
+    min-height: 34px;
+    padding: 6px 8px;
+    font-size: 12px;
+  }
+
+  .attendance-filter-search {
+    min-width: 180px;
+  }
+
+  .attendance-grid-wrap {
+    height: calc(100vh - 230px);
+    min-height: 168px;
+    max-height: 260px;
+    overflow: auto;
+  }
+
+  .attendance-grid,
+  .attendance-year-grid {
+    min-width: 1110px;
+  }
+
+  .attendance-employee-col,
+  .attendance-employee-cell {
+    width: 190px;
+    min-width: 190px;
+    max-width: 190px;
+  }
+
+  .attendance-day-col,
+  .attendance-grid th,
+  .attendance-grid td {
+    width: 29px;
+    min-width: 29px;
+  }
+
+  .attendance-grid tbody tr,
+  .attendance-grid tbody td,
+  .attendance-grid thead th {
+    height: 30px;
+  }
+
+  .attendance-employee-cell {
+    padding: 0 7px !important;
+  }
+
+  .attendance-employee-cell strong {
+    font-size: 10px;
+    line-height: 1.1;
+  }
+
+  .attendance-employee-cell span,
+  .attendance-grid thead th {
+    font-size: 8px;
+  }
+
+  .attendance-code-input {
+    min-height: 30px;
+    height: 30px;
+    font-size: 9px;
+    line-height: 30px;
+  }
+}

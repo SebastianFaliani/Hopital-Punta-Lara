@@ -3,6 +3,7 @@ import {
 } from 'react';
 
 import { apiFetch } from '../../api/api';
+import PasswordInput from '../PasswordInput';
 
 type User = {
   id: number;
@@ -132,9 +133,7 @@ export default function AdminResetPasswordModal({
           onSubmit={handleSubmit}
         >
 
-          <input
-            className="form-input"
-            type="password"
+          <PasswordInput
             placeholder="Nueva contrasena"
             value={form.new_password}
             onChange={(e) =>
@@ -146,9 +145,7 @@ export default function AdminResetPasswordModal({
             autoComplete="new-password"
           />
 
-          <input
-            className="form-input"
-            type="password"
+          <PasswordInput
             placeholder="Repetir nueva contrasena"
             value={form.confirm_password}
             onChange={(e) =>

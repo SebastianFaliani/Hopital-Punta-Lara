@@ -10,6 +10,7 @@ import {
 import {
   apiFetch
 } from '../api/api';
+import PasswordInput from '../components/PasswordInput';
 
 export default function ResetPasswordPage() {
 
@@ -55,7 +56,7 @@ export default function ResetPasswordPage() {
       );
 
       alert(
-        'Contraseña actualizada'
+        'Contrasena actualizada'
       );
 
       navigate('/login');
@@ -71,57 +72,57 @@ export default function ResetPasswordPage() {
   }
 
   return (
-   <div className="auth-container">
+    <div className="auth-container">
 
       <div className="auth-card">
 
-      <h1>
-        Nueva contraseña
-      </h1>
+        <h1>
+          Nueva contrasena
+        </h1>
 
-      <form
-        onSubmit={handleSubmit}
-        className="auth-form"
-      >
-
-        <input
-          type="password"
-          placeholder="Nueva contraseña"
-          value={password}
-          onChange={(e) =>
-            setPassword(
-              e.target.value
-            )
-          }
-          className="auth-input"
-        />
-
-        <br />
-        <br />
-
-        <button
-          type="submit"
-          className="btn-primary"
-          disabled={loading}
+        <form
+          onSubmit={handleSubmit}
+          className="auth-form"
         >
-          {
-            loading
-              ? 'Guardando...'
-              : 'Guardar contraseña'
-          }
-        </button>
 
-      </form>
+          <PasswordInput
+            placeholder="Nueva contrasena"
+            value={password}
+            onChange={(e) =>
+              setPassword(
+                e.target.value
+              )
+            }
+            className="auth-input"
+            autoComplete="new-password"
+          />
 
-      {
-        error && (
-          <p>
-            {error}
-          </p>
-        )
-      }
+          <br />
+          <br />
 
+          <button
+            type="submit"
+            className="btn-primary"
+            disabled={loading}
+          >
+            {
+              loading
+                ? 'Guardando...'
+                : 'Guardar contrasena'
+            }
+          </button>
+
+        </form>
+
+        {
+          error && (
+            <p>
+              {error}
+            </p>
+          )
+        }
+
+      </div>
     </div>
-  </div>
   );
 }
