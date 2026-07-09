@@ -23,6 +23,24 @@ import {
   AuthRequest
 } from './auth.middleware';
 
+function normalizeSessionType(
+  value?: string
+) {
+
+  return value === 'mobile'
+    ? 'mobile'
+    : 'web';
+}
+
+function getSessionDurationSql(
+  sessionType: string
+) {
+
+  return sessionType === 'mobile'
+    ? 'DATE_ADD(NOW(), INTERVAL 15 DAY)'
+    : 'DATE_ADD(NOW(), INTERVAL 15 MINUTE)';
+}
+
 export async function register(
   req: Request,
   res: Response
@@ -97,6 +115,11 @@ export async function refresh(
           .JWT_REFRESH_SECRET as string
       );
 
+    const sessionType =
+      normalizeSessionType(
+        decoded.sessionType
+      );
+
     // verificar sesión
     const [rows]: any =
       await pool.query(
@@ -162,7 +185,7 @@ export async function refresh(
     await pool.query(
       `
         UPDATE user_sessions
-        SET expires_at = DATE_ADD(NOW(), INTERVAL 15 MINUTE)
+        SET expires_at = ${getSessionDurationSql(sessionType)}
         WHERE id = ?
       `,
       [rows[0].id]
@@ -173,6 +196,7 @@ export async function refresh(
       generateAccessToken({
         userId: user.id,
         sessionId: rows[0].id,
+        sessionType,
         first_name: user.first_name,
         last_name: user.last_name,
         email: user.email,

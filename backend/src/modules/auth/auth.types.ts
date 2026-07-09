@@ -9,6 +9,7 @@ export interface RegisterDTO {
 export interface LoginDTO {
   username: string;
   password: string;
+  session_type?: 'web' | 'mobile';
 }
 
 export interface ForgotPasswordDTO {

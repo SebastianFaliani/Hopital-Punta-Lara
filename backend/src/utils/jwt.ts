@@ -15,15 +15,16 @@ export function generateAccessToken(
 }
 
 export function generateRefreshToken(
-  payload: object
+  payload: object,
+  expiresIn =
+    process.env.JWT_REFRESH_EXPIRES_IN as any
 ) {
 
   return jwt.sign(
     payload,
     process.env.JWT_REFRESH_SECRET as string,
     {
-      expiresIn:
-        process.env.JWT_REFRESH_EXPIRES_IN as any
+      expiresIn
     }
   );
 }

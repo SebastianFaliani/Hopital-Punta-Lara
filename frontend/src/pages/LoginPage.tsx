@@ -7,6 +7,8 @@ import {
   Link
 } from 'react-router-dom';
 
+import { Capacitor } from '@capacitor/core';
+
 import { apiFetch } from '../api/api';
 
 import { useAuth } from '../auth/useAuth';
@@ -26,6 +28,11 @@ export default function LoginPage() {
   const [error, setError] =
     useState('');
 
+  const sessionType =
+    Capacitor.isNativePlatform()
+      ? 'mobile'
+      : 'web';
+
   async function handleSubmit(
     e: React.FormEvent
   ) {
@@ -44,7 +51,8 @@ export default function LoginPage() {
 
             body: JSON.stringify({
               username,
-              password
+              password,
+              session_type: sessionType
             })
           }
         );

@@ -1,5 +1,6 @@
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
+import jwt from 'jsonwebtoken';
 import { pool } from '../../config/database';
 
 import {
@@ -17,6 +18,87 @@ import {
 import {
   sendResetPasswordEmail
 } from '../../utils/mailer';
+
+type SessionType =
+  'web' |
+  'mobile';
+
+function normalizeSessionType(
+  value?: string
+): SessionType {
+
+  return value === 'mobile'
+    ? 'mobile'
+    : 'web';
+}
+
+function getSessionDurationSql(
+  sessionType: SessionType
+) {
+
+  return sessionType === 'mobile'
+    ? 'DATE_ADD(NOW(), INTERVAL 15 DAY)'
+    : 'DATE_ADD(NOW(), INTERVAL 15 MINUTE)';
+}
+
+function getRefreshTokenExpiration(
+  sessionType: SessionType
+) {
+
+  return sessionType === 'mobile'
+    ? '15d'
+    : process.env.JWT_REFRESH_EXPIRES_IN as any;
+}
+
+async function revokeSessionsByType(
+  userId: number,
+  sessionType: SessionType
+) {
+
+  const [rows]: any =
+    await pool.query(
+      `
+        SELECT id, refresh_token
+        FROM user_sessions
+        WHERE user_id = ?
+          AND revoked = FALSE
+      `,
+      [userId]
+    );
+
+  const idsToRevoke =
+    rows
+      .filter((row: any) => {
+        try {
+          const decoded: any =
+            jwt.verify(
+              row.refresh_token,
+              process.env.JWT_REFRESH_SECRET as string
+            );
+
+          return normalizeSessionType(
+            decoded.sessionType
+          ) === sessionType;
+
+        } catch (error) {
+          return sessionType === 'web';
+        }
+      })
+      .map((row: any) => row.id);
+
+  if (idsToRevoke.length === 0) {
+    return;
+  }
+
+  await pool.query(
+    `
+      UPDATE user_sessions
+      SET revoked = TRUE
+      WHERE id IN (?)
+    `,
+    [idsToRevoke]
+  );
+}
 
 export async function registerUser(
   data: RegisterDTO
@@ -97,7 +179,8 @@ export async function registerUser(
   // refresh token
   const refreshToken =
     generateRefreshToken({
-      userId: result.insertId
+      userId: result.insertId,
+      sessionType: 'web'
     });
 
   // guardar sesión
@@ -136,6 +219,7 @@ export async function registerUser(
     generateAccessToken({
       userId: result.insertId,
       sessionId: sessionRows[0].id,
+      sessionType: 'web',
       email,
       username: cleanUsername,
       role: 'user'
@@ -153,8 +237,12 @@ export async function loginUser(
 
   const {
     username,
-    password
+    password,
+    session_type
   } = data;
+
+  const sessionType =
+    normalizeSessionType(session_type);
 
   const cleanUsername =
     username?.trim();
@@ -235,21 +323,20 @@ export async function loginUser(
     [user.id]
   );
 
-  await pool.query(
-    `
-      UPDATE user_sessions
-      SET revoked = TRUE
-      WHERE user_id = ?
-        AND revoked = FALSE
-    `,
-    [user.id]
+  await revokeSessionsByType(
+    user.id,
+    sessionType
   );
 
   // refresh token
   const refreshToken =
-    generateRefreshToken({
-      userId: user.id
-    });
+    generateRefreshToken(
+      {
+        userId: user.id,
+        sessionType
+      },
+      getRefreshTokenExpiration(sessionType)
+    );
 
   // guardar sesión
   await pool.query(
@@ -262,7 +349,7 @@ export async function loginUser(
       VALUES (
         ?,
         ?,
-        DATE_ADD(NOW(), INTERVAL 15 MINUTE)
+        ${getSessionDurationSql(sessionType)}
       )
     `,
     [
@@ -287,6 +374,7 @@ export async function loginUser(
     generateAccessToken({
       userId: user.id,
       sessionId: sessionRows[0].id,
+      sessionType,
       first_name: user.first_name,
       last_name: user.last_name,
       email: user.email,

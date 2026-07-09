@@ -11,6 +11,24 @@ import {
   getUserFacilityIds
 } from '../access-control/access-control.service';
 
+function normalizeSessionType(
+  value?: string
+) {
+
+  return value === 'mobile'
+    ? 'mobile'
+    : 'web';
+}
+
+function getSessionDurationSql(
+  sessionType: string
+) {
+
+  return sessionType === 'mobile'
+    ? 'DATE_ADD(NOW(), INTERVAL 15 DAY)'
+    : 'DATE_ADD(NOW(), INTERVAL 15 MINUTE)';
+}
+
 export interface AuthRequest extends Request {
   user?: any;
 }
@@ -222,6 +240,11 @@ export function authenticateToken(
     const sessionId =
       decoded.sessionId;
 
+    const sessionType =
+      normalizeSessionType(
+        decoded.sessionType
+      );
+
     if (!userId) {
       return res.status(401).json({
         success: false,
@@ -300,7 +323,7 @@ export function authenticateToken(
         await pool.query(
           `
             UPDATE user_sessions
-            SET expires_at = DATE_ADD(NOW(), INTERVAL 15 MINUTE)
+            SET expires_at = ${getSessionDurationSql(sessionType)}
             WHERE id = ?
           `,
           [sessionId]
@@ -338,6 +361,7 @@ export function authenticateToken(
 
         req.user = {
           ...decoded,
+          sessionType,
           userId: user.id,
           id: user.id,
           first_name: user.first_name,
