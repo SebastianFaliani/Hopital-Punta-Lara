@@ -882,4 +882,18 @@
     font-size: 9px;
     line-height: 30px;
   }
+
+  .attendance-month-modal {
+    width: calc(100vw - 16px);
+    max-height: calc(100dvh - 16px);
+    padding: 40px 12px 14px;
+  }
+
+  .attendance-month-grid-wrap {
+    max-height: calc(100dvh - 190px);
+  }
+
+  .attendance-month-detail-grid {
+    min-width: 500px;
+  }
 }

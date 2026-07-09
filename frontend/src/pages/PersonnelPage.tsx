@@ -1143,9 +1143,6 @@ export default function PersonnelPage() {
   const [annualAttendanceEmployeeId, setAnnualAttendanceEmployeeId] =
     useState('');
 
-  const [annualAttendanceEmployeeSearch, setAnnualAttendanceEmployeeSearch] =
-    useState('');
-
   const [annualAttendanceEmployee, setAnnualAttendanceEmployee] =
     useState<AttendanceEmployee | null>(null);
 
@@ -1157,6 +1154,9 @@ export default function PersonnelPage() {
 
   const [annualAttendanceCompensatoryEdits, setAnnualAttendanceCompensatoryEdits] =
     useState<Record<string, number>>({});
+
+  const [selectedAnnualMonth, setSelectedAnnualMonth] =
+    useState<number | null>(null);
 
   const [compensatoryPrompt, setCompensatoryPrompt] =
     useState<{
@@ -1529,7 +1529,6 @@ export default function PersonnelPage() {
     setActiveTab('attendance');
     setAttendanceViewMode('employee');
     setAnnualAttendanceEmployeeId(employeeId);
-    setAnnualAttendanceEmployeeSearch(employee.full_name);
     setAnnualAttendanceEdits({});
     loadAnnualAttendance(employeeId);
   }
@@ -3536,7 +3535,9 @@ export default function PersonnelPage() {
 
     return (
       Object.keys(attendanceEdits).length > 0 ||
-      Object.keys(annualAttendanceEdits).length > 0
+      Object.keys(attendanceCompensatoryEdits).length > 0 ||
+      Object.keys(annualAttendanceEdits).length > 0 ||
+      Object.keys(annualAttendanceCompensatoryEdits).length > 0
     );
   }
 
@@ -4338,6 +4339,14 @@ export default function PersonnelPage() {
   ]);
 
   useEffect(() => {
+    setSelectedAnnualMonth(null);
+  }, [
+    attendanceViewMode,
+    annualAttendanceEmployeeId,
+    attendanceFilters.year
+  ]);
+
+  useEffect(() => {
     if (activeTab === 'employees') {
       loadEmployeeList();
     }
@@ -4397,19 +4406,34 @@ export default function PersonnelPage() {
 
   const monthNames =
     [
-      'Enero',
-      'Febrero',
-      'Marzo',
-      'Abril',
-      'Mayo',
-      'Junio',
-      'Julio',
-      'Agosto',
-      'Septiembre',
-      'Octubre',
-      'Noviembre',
-      'Diciembre'
+      'ENERO',
+      'FEBRERO',
+      'MARZO',
+      'ABRIL',
+      'MAYO',
+      'JUNIO',
+      'JULIO',
+      'AGOSTO',
+      'SEPTIEMBRE',
+      'OCTUBRE',
+      'NOVIEMBRE',
+      'DICIEMBRE'
     ];
+
+  const selectedAnnualMonthRow =
+    selectedAnnualMonth
+      ? annualAttendanceMonths.find((monthRow) =>
+        monthRow.month === selectedAnnualMonth
+      ) || null
+      : null;
+
+  const selectedAnnualMonthDays =
+    selectedAnnualMonthRow
+      ? Array.from(
+        { length: selectedAnnualMonthRow.days },
+        (_, index) => index + 1
+      )
+      : [];
 
   const filteredAttendanceRows =
     attendanceRows.filter((employee) => {
@@ -4451,31 +4475,6 @@ export default function PersonnelPage() {
             .toLowerCase()
             .includes(search)
         )
-      );
-    });
-
-  const annualAttendanceEmployeeOptions =
-    attendanceRows.filter((employee) => {
-      const search =
-        annualAttendanceEmployeeSearch
-          .toLowerCase()
-          .trim();
-
-      if (!search) {
-        return true;
-      }
-
-      return (
-        matchesNameSearch(employee.full_name, search) ||
-        (employee.dni || '')
-          .toLowerCase()
-          .includes(search) ||
-        (employee.file_number || '')
-          .toLowerCase()
-          .includes(search) ||
-        (employee.department_name || '')
-          .toLowerCase()
-          .includes(search)
       );
     });
 
@@ -5427,14 +5426,14 @@ export default function PersonnelPage() {
                     <tr key={employee.id}>
                       <td>
                         <button
-                          className="text-link-button"
+                          className="attendance-employee-open-button"
                           type="button"
                           onClick={() =>
                             openEmployeeAttendance(employee)
                           }
                           title="Ver presentismo del empleado"
                         >
-                          {employee.full_name}
+                          <strong>{employee.full_name}</strong>
                         </button>
                       </td>
                       <td>{employee.dni || '-'}</td>
@@ -6478,14 +6477,14 @@ export default function PersonnelPage() {
                     <tr key={employee.id}>
                       <td className="attendance-employee-cell">
                         <button
-                          className="text-link-button"
+                          className="attendance-employee-open-button"
                           type="button"
                           onClick={() =>
                             openEmployeeAttendance(employee)
                           }
                           title="Ver presentismo del empleado"
                         >
-                          {employee.full_name}
+                          <strong>{employee.full_name}</strong>
                         </button>
                         <span>
                           {employee.department_name || 'Sin sector'}
@@ -6542,49 +6541,6 @@ export default function PersonnelPage() {
         !isPersonnelSettingsPage &&
         activeTab === 'attendance' && (
           <>
-            <div className="attendance-view-toggle">
-              <span className="attendance-view-toggle-label">
-                Vista
-              </span>
-              <button
-                className={
-                  attendanceViewMode === 'month'
-                    ? 'attendance-view-toggle-button attendance-view-toggle-button-active'
-                    : 'attendance-view-toggle-button'
-                }
-                type="button"
-                onClick={() => {
-                  if (!confirmDiscardAttendanceChanges()) {
-                    return;
-                  }
-                  setAttendanceEdits({});
-                  setAnnualAttendanceEdits({});
-                  setAttendanceViewMode('month');
-                }}
-              >
-                Por mes
-              </button>
-
-              <button
-                className={
-                  attendanceViewMode === 'employee'
-                    ? 'attendance-view-toggle-button attendance-view-toggle-button-active'
-                    : 'attendance-view-toggle-button'
-                }
-                type="button"
-                onClick={() => {
-                  if (!confirmDiscardAttendanceChanges()) {
-                    return;
-                  }
-                  setAttendanceEdits({});
-                  setAnnualAttendanceEdits({});
-                  setAttendanceViewMode('employee');
-                }}
-              >
-                Por empleado
-              </button>
-            </div>
-
             <div className="attendance-toolbar">
               <input
                 className="form-input attendance-filter-small"
@@ -6633,35 +6589,35 @@ export default function PersonnelPage() {
                 }}
               />
 
-              <select
-                className="form-input attendance-filter-wide"
-                value={attendanceFilters.facility_id}
-                onChange={(e) =>
-                  updateAttendanceFilters({
-                    facility_id: e.target.value,
-                    department: 'todos'
-                  })
-                }
-                disabled={!canSelectFacility}
-              >
-                {canSelectFacility && (
-                  <option value="todos">
-                    Todas las dependencias
-                  </option>
-                )}
-                {facilities.map((facility) => (
-                  <option
-                    key={facility.id}
-                    value={facility.id}
-                  >
-                    {facility.name}
-                  </option>
-                ))}
-              </select>
-
               {
                 attendanceViewMode === 'month' && (
                   <>
+                    <select
+                      className="form-input attendance-filter-wide"
+                      value={attendanceFilters.facility_id}
+                      onChange={(e) =>
+                        updateAttendanceFilters({
+                          facility_id: e.target.value,
+                          department: 'todos'
+                        })
+                      }
+                      disabled={!canSelectFacility}
+                    >
+                      {canSelectFacility && (
+                        <option value="todos">
+                          Todas las dependencias
+                        </option>
+                      )}
+                      {facilities.map((facility) => (
+                        <option
+                          key={facility.id}
+                          value={facility.id}
+                        >
+                          {facility.name}
+                        </option>
+                      ))}
+                    </select>
+
                     <input
                       className="form-input attendance-filter-wide"
                       placeholder="Filtrar sector"
@@ -6690,54 +6646,22 @@ export default function PersonnelPage() {
 
               {
                 attendanceViewMode === 'employee' && (
-                  <>
-                    <input
-                      className="form-input attendance-filter-search"
-                      placeholder="Buscar empleado"
-                      value={annualAttendanceEmployeeSearch}
-                      onChange={(e) =>
-                        setAnnualAttendanceEmployeeSearch(
-                          e.target.value
-                        )
+                  <button
+                    className="btn-secondary"
+                    type="button"
+                    onClick={() => {
+                      if (!confirmDiscardAttendanceChanges()) {
+                        return;
                       }
-                    />
 
-                    <select
-                      className="form-input attendance-filter-wide"
-                      value={annualAttendanceEmployeeId}
-                      onChange={(e) => {
-                        if (!confirmDiscardAttendanceChanges()) {
-                          return;
-                        }
-
-                        setAnnualAttendanceEmployeeId(
-                          e.target.value
-                        );
-                        setAnnualAttendanceEdits({});
-
-                        if (e.target.value) {
-                          loadAnnualAttendance(
-                            e.target.value
-                          );
-                        } else {
-                          setAnnualAttendanceEmployee(null);
-                          setAnnualAttendanceMonths([]);
-                        }
-                      }}
-                    >
-                      <option value="">
-                        Seleccionar empleado
-                      </option>
-                      {annualAttendanceEmployeeOptions.map((employee) => (
-                        <option
-                          key={employee.id}
-                          value={employee.id}
-                        >
-                          {employee.full_name}
-                        </option>
-                      ))}
-                    </select>
-                  </>
+                      setAnnualAttendanceEdits({});
+                      setAnnualAttendanceCompensatoryEdits({});
+                      setSelectedAnnualMonth(null);
+                      setAttendanceViewMode('month');
+                    }}
+                  >
+                    Volver al mes
+                  </button>
                 )
               }
 
@@ -6748,12 +6672,18 @@ export default function PersonnelPage() {
                   if (!confirmDiscardAttendanceChanges()) {
                     return;
                   }
+
+                  if (attendanceViewMode === 'employee') {
+                    setAnnualAttendanceEdits({});
+                    setAnnualAttendanceCompensatoryEdits({});
+                    loadAnnualAttendance();
+                    return;
+                  }
+
                   setAttendanceEdits({});
+                  setAttendanceCompensatoryEdits({});
                   setAnnualAttendanceEdits({});
                   loadAttendance();
-                  if (attendanceViewMode === 'employee') {
-                    loadAnnualAttendance();
-                  }
                 }}
               >
                 Actualizar
@@ -6766,8 +6696,14 @@ export default function PersonnelPage() {
                   savingAttendance ||
                   (
                     attendanceViewMode === 'month'
-                      ? Object.keys(attendanceEdits).length === 0
-                      : Object.keys(annualAttendanceEdits).length === 0
+                      ? (
+                        Object.keys(attendanceEdits).length === 0 &&
+                        Object.keys(attendanceCompensatoryEdits).length === 0
+                      )
+                      : (
+                        Object.keys(annualAttendanceEdits).length === 0 &&
+                        Object.keys(annualAttendanceCompensatoryEdits).length === 0
+                      )
                   ) ||
                   attendanceReadOnly
                 }
@@ -6788,7 +6724,7 @@ export default function PersonnelPage() {
             {
               attendanceViewMode === 'month' && (
                 <p className="results-summary">
-                  {filteredAttendanceRows.length} de {attendanceRows.length} empleados activos. Cambios pendientes: {Object.keys(attendanceEdits).length}
+                  {filteredAttendanceRows.length} de {attendanceRows.length} empleados activos. Cambios pendientes: {Object.keys(attendanceEdits).length + Object.keys(attendanceCompensatoryEdits).length}
                 </p>
               )
             }
@@ -6800,7 +6736,7 @@ export default function PersonnelPage() {
                     annualAttendanceEmployee
                       ? `${annualAttendanceEmployee.full_name} - ${annualAttendanceEmployee.department_name || 'Sin sector'}`
                       : 'Selecciona un empleado para ver el presentismo anual.'
-                  } Cambios pendientes: {Object.keys(annualAttendanceEdits).length}
+                  } Cambios pendientes: {Object.keys(annualAttendanceEdits).length + Object.keys(annualAttendanceCompensatoryEdits).length}
                 </p>
               )
             }
@@ -6845,10 +6781,18 @@ export default function PersonnelPage() {
                         {filteredAttendanceRows.map((employee, rowIndex) => (
                           <tr key={employee.id}>
                             <td className="attendance-employee-cell">
-                              <strong>{employee.full_name}</strong>
-                              <span>
-                                {employee.department_name || 'Sin sector'}
-                              </span>
+                              <button
+                                type="button"
+                                className="attendance-employee-open-button"
+                                onClick={() =>
+                                  openEmployeeAttendance(employee)
+                                }
+                              >
+                                <strong>{employee.full_name}</strong>
+                                <span>
+                                  {employee.department_name || 'Sin sector'}
+                                </span>
+                              </button>
                             </td>
                             {dayNumbers.map((day) => {
                               const lockedCell =
@@ -6988,12 +6932,22 @@ export default function PersonnelPage() {
                           annualAttendanceMonths.map((monthRow, rowIndex) => (
                             <tr key={monthRow.month}>
                               <td className="attendance-employee-cell">
-                                <strong>
-                                  {monthNames[monthRow.month - 1]}
-                                </strong>
-                                <span>
-                                  {attendanceFilters.year}
-                                </span>
+                                <button
+                                  type="button"
+                                  className="attendance-month-detail-button"
+                                  onClick={() =>
+                                    setSelectedAnnualMonth(
+                                      monthRow.month
+                                    )
+                                  }
+                                >
+                                  <strong>
+                                    {monthNames[monthRow.month - 1]}
+                                  </strong>
+                                  <span>
+                                    {attendanceFilters.year}
+                                  </span>
+                                </button>
                               </td>
                               {annualDayNumbers.map((day) => {
                                 const dayExists =
@@ -7095,6 +7049,156 @@ export default function PersonnelPage() {
                 </div>
               )
             }
+
+            {
+              selectedAnnualMonthRow &&
+              annualAttendanceEmployee && (
+                <div className="modal-overlay">
+                  <div className="modal-content modal-content-wide attendance-month-modal">
+                    <button
+                      type="button"
+                      className="modal-close-button"
+                      onClick={() =>
+                        setSelectedAnnualMonth(null)
+                      }
+                      aria-label="Cerrar"
+                    >
+                      x
+                    </button>
+
+                    <h2 className="modal-title">
+                      Presentismo de {annualAttendanceEmployee.full_name}
+                    </h2>
+
+                    <p className="modal-subtitle">
+                      {monthNames[selectedAnnualMonthRow.month - 1]} {attendanceFilters.year}
+                    </p>
+
+                    <div className="attendance-month-grid-wrap">
+                      <table className="data-table attendance-month-detail-grid">
+                        <thead>
+                          <tr>
+                            <th>Dia</th>
+                            <th>Clave</th>
+                            <th>Detalle</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {selectedAnnualMonthDays.map((day) => {
+                            const lockedCell =
+                              isAnnualAttendanceCellLocked(
+                                selectedAnnualMonthRow,
+                                day
+                              );
+
+                            return (
+                              <tr
+                                key={day}
+                                className={
+                                  isSundayForDate(
+                                    selectedAnnualMonthRow.month,
+                                    day
+                                  )
+                                    ? 'attendance-month-sunday-row'
+                                    : ''
+                                }
+                              >
+                                <td>
+                                  <strong>
+                                    {String(day).padStart(2, '0')}
+                                  </strong>
+                                </td>
+                                <td>
+                                  <input
+                                    className={getAnnualAttendanceInputClass(
+                                      selectedAnnualMonthRow,
+                                      day
+                                    )}
+                                    value={getAnnualAttendanceValue(
+                                      selectedAnnualMonthRow,
+                                      day
+                                    )}
+                                    placeholder={
+                                      selectedAnnualMonthRow.attendance[String(day)]
+                                        ?.planned_off
+                                        ? 'F'
+                                        : ''
+                                    }
+                                    title={getAnnualAttendanceCodeDescription(
+                                      selectedAnnualMonthRow,
+                                      day
+                                    )}
+                                    onChange={(e) =>
+                                      !attendanceReadOnly &&
+                                      !lockedCell &&
+                                      updateAnnualAttendanceCell(
+                                        selectedAnnualMonthRow,
+                                        selectedAnnualMonthRow.month,
+                                        day,
+                                        e.target.value
+                                      )
+                                    }
+                                    onBlur={() =>
+                                      !attendanceReadOnly &&
+                                      !lockedCell &&
+                                      validateAnnualAttendanceCellOnBlur(
+                                        selectedAnnualMonthRow.month,
+                                        day
+                                      )
+                                    }
+                                    disabled={lockedCell}
+                                    readOnly={attendanceReadOnly}
+                                  />
+                                </td>
+                                <td>
+                                  {getAnnualAttendanceCodeDescription(
+                                    selectedAnnualMonthRow,
+                                    day
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <div className="modal-actions">
+                      <button
+                        type="button"
+                        className="btn-secondary"
+                        onClick={() =>
+                          setSelectedAnnualMonth(null)
+                        }
+                      >
+                        Cerrar
+                      </button>
+
+                      {!attendanceReadOnly && (
+                        <button
+                          type="button"
+                          className="btn-success"
+                          disabled={
+                            savingAttendance ||
+                            (
+                              Object.keys(annualAttendanceEdits).length === 0 &&
+                              Object.keys(annualAttendanceCompensatoryEdits).length === 0
+                            )
+                          }
+                          onClick={saveAnnualAttendance}
+                        >
+                          {
+                            savingAttendance
+                              ? 'Guardando...'
+                              : 'Guardar cambios'
+                          }
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )
+            }
           </>
         )
       }
@@ -7177,14 +7281,14 @@ export default function PersonnelPage() {
                       >
                         <td>
                           <button
-                            className="text-link-button"
+                            className="attendance-employee-open-button"
                             type="button"
                             onClick={() =>
                               openEmployeeAttendance(employee)
                             }
                             title="Ver presentismo del empleado"
                           >
-                            {employee.full_name}
+                            <strong>{employee.full_name}</strong>
                           </button>
                         </td>
                         <td>{employee.dni || '-'}</td>
@@ -7654,7 +7758,7 @@ export default function PersonnelPage() {
                     <tr key={request.id}>
                       <td>
                         <button
-                          className="text-link-button"
+                          className="attendance-employee-open-button"
                           type="button"
                           onClick={() =>
                             openEmployeeAttendance({
@@ -7664,7 +7768,7 @@ export default function PersonnelPage() {
                           }
                           title="Ver presentismo del empleado"
                         >
-                          {request.full_name}
+                          <strong>{request.full_name}</strong>
                         </button>
                         <br />
                         <span>{request.department_name || '-'}</span>
@@ -8466,7 +8570,7 @@ export default function PersonnelPage() {
                     <tr key={request.id}>
                       <td>
                         <button
-                          className="text-link-button"
+                          className="attendance-employee-open-button"
                           type="button"
                           onClick={() =>
                             openEmployeeAttendance({
@@ -8476,7 +8580,7 @@ export default function PersonnelPage() {
                           }
                           title="Ver presentismo del empleado"
                         >
-                          {request.full_name}
+                          <strong>{request.full_name}</strong>
                         </button>
                         <br />
                         <span>{request.department_name || '-'}</span>

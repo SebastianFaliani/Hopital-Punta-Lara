@@ -1250,6 +1250,139 @@
   font-size: 12px;
 }
 
+.attendance-employee-open-button {
+
+  display: block;
+
+  width: 100%;
+
+  padding: 0;
+
+  color: inherit;
+
+  background: transparent;
+
+  border: 0;
+
+  font: inherit;
+
+  text-align: left;
+
+  cursor: pointer;
+}
+
+.attendance-employee-open-button:hover strong {
+
+  color: var(--color-accent);
+}
+
+.attendance-employee-open-button strong {
+
+  display: block;
+
+  line-height: 1.25;
+
+  font-size: 13px;
+
+  font-weight: 800;
+}
+
+.attendance-month-detail-button {
+
+  width: 100%;
+
+  display: block;
+
+  padding: 0;
+
+  border: 0;
+
+  background: transparent;
+
+  color: inherit;
+
+  font: inherit;
+
+  text-align: left;
+
+  cursor: pointer;
+}
+
+.attendance-month-detail-button:hover strong {
+
+  color: var(--color-accent);
+}
+
+.attendance-month-modal {
+
+  width: min(820px, calc(100vw - 28px));
+
+  max-height: calc(100dvh - 28px);
+}
+
+.attendance-month-grid-wrap {
+
+  max-height: min(540px, calc(100dvh - 230px));
+
+  overflow: auto;
+
+  border: 1px solid var(--color-border);
+
+  border-radius: 8px;
+}
+
+.attendance-month-detail-grid {
+
+  min-width: 520px;
+}
+
+.attendance-month-detail-grid th,
+.attendance-month-detail-grid td {
+
+  padding: 8px 10px;
+
+  vertical-align: middle;
+}
+
+.attendance-month-detail-grid th:first-child,
+.attendance-month-detail-grid td:first-child {
+
+  width: 62px;
+
+  text-align: center;
+}
+
+.attendance-month-detail-grid th:nth-child(2),
+.attendance-month-detail-grid td:nth-child(2) {
+
+  width: 96px;
+
+  text-align: center;
+}
+
+.attendance-month-detail-grid .attendance-code-input {
+
+  height: 34px;
+
+  min-height: 34px;
+
+  line-height: 34px;
+
+  border: 1px solid var(--color-border);
+
+  border-radius: 7px;
+}
+
+.attendance-month-sunday-row td {
+
+  background: #ffffff;
+}
+
+.attendance-month-sunday-row td:first-child {
+
+  color: #dc2626;
+}
+
 .attendance-code-input {
 
   display: block;
@@ -1297,14 +1430,14 @@
 
 .attendance-sunday {
 
-  color: #b91c1c !important;
+  color: #dc2626 !important;
 
-  background: #fee2e2 !important;
+  background: #f8fafc !important;
 }
 
 .attendance-sunday-cell {
 
-  background: #fff7f7;
+  background: #ffffff;
 }
 
 .attendance-code-danger {
