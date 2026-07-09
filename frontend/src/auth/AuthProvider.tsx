@@ -108,7 +108,12 @@ export function AuthProvider({
         'accessToken'
       );
 
-    if (accessToken) {
+    const refreshToken =
+      localStorage.getItem(
+        'refreshToken'
+      );
+
+    if (accessToken || refreshToken) {
 
       loadUser();
 

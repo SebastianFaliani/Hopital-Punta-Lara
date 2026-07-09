@@ -1,4 +1,5 @@
 import {
+  useEffect,
   useState
 } from 'react';
 
@@ -18,7 +19,10 @@ export default function LoginPage() {
 
   const navigate = useNavigate();
 
-  const { login } = useAuth();
+  const {
+    login,
+    user
+  } = useAuth();
 
   const [username, setUsername] =
     useState('');
@@ -33,6 +37,20 @@ export default function LoginPage() {
     Capacitor.isNativePlatform()
       ? 'mobile'
       : 'web';
+
+  useEffect(() => {
+    if (user) {
+      navigate(
+        '/inicio',
+        {
+          replace: true
+        }
+      );
+    }
+  }, [
+    navigate,
+    user
+  ]);
 
   async function handleSubmit(
     e: React.FormEvent

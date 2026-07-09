@@ -26,7 +26,7 @@ function getSessionDurationSql(
 
   return sessionType === 'mobile'
     ? 'DATE_ADD(NOW(), INTERVAL 15 DAY)'
-    : 'DATE_ADD(NOW(), INTERVAL 15 MINUTE)';
+    : 'DATE_ADD(NOW(), INTERVAL 25 MINUTE)';
 }
 
 export interface AuthRequest extends Request {

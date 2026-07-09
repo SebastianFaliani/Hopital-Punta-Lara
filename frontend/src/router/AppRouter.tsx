@@ -44,7 +44,7 @@ export default function AppRouter() {
       <Routes>
 
         {/* AUTH */}
-        <Route path="/" element={<LoginPage />} />
+        <Route path="/" element={<HomeRedirect />} />
         <Route path="/login" element={<LoginPage />} />
 
         <Route
