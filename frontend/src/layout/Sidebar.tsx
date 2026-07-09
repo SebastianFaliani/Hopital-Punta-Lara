@@ -1,4 +1,4 @@
-import { Link, NavLink } from 'react-router-dom';
+import { NavLink } from 'react-router-dom';
 import { useAuth } from '../auth/useAuth';
 import { getAvailableNavigation } from '../auth/permissions';
 
@@ -19,8 +19,7 @@ const navigationIconByPath: Record<string, string> = {
   '/nutrition': 'nutricion',
   '/housekeeping': 'mayordomia',
   '/whatsapp': 'whatsapp',
-  '/audit': 'auditoria',
-  '/': 'salir'
+  '/audit': 'auditoria'
 };
 
 function getNavigationIcon(
@@ -140,17 +139,6 @@ export default function Sidebar({
           ))}
         </>
       )}
-
-      <Link
-        to="/"
-        className="app-nav-link app-nav-danger"
-        onClick={onNavigate}
-      >
-        <NavIcon path="/" />
-        <span>
-          Salir
-        </span>
-      </Link>
 
     </aside>
   );

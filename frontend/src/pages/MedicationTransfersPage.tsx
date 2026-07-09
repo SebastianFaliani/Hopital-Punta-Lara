@@ -13,6 +13,7 @@ import {
 } from '../auth/useAuth';
 import { hasPermission } from '../auth/permissions';
 import { IconButton } from '../components/IconButton';
+import PageTitle from '../components/PageTitle';
 import MedicationModuleTabs from '../components/medications/MedicationModuleTabs';
 import {
   formatDisplayDate,
@@ -552,9 +553,9 @@ export default function MedicationTransfersPage() {
 
         <div>
 
-          <h1 className="page-title">
+          <PageTitle icon="medicamentos">
             Traslados de medicamentos
-          </h1>
+          </PageTitle>
 
           <p className="page-subtitle">
             Remitos entre Secretaria, hospital y unidades sanitarias.

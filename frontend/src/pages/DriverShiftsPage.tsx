@@ -376,11 +376,7 @@ export default function DriverShiftsPage() {
 
       <TransfersNav />
 
-      <div className="page-header">
-        <h1 className="page-title">
-          Guardias de choferes
-        </h1>
-      </div>
+      
 
       {!canEdit && (
         <p className="page-subtitle">

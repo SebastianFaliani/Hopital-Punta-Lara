@@ -77,10 +77,17 @@ export default function Topbar({
         </button>
 
         <button
+          type="button"
           onClick={logout}
-          className="btn-danger"
+          className="app-topbar-logout-button"
+          aria-label="Salir"
+          title="Salir"
         >
-          Salir
+          <img
+            src="/menu-icons/salir.png"
+            alt=""
+            aria-hidden="true"
+          />
         </button>
 
       </div>

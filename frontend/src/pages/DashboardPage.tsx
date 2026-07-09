@@ -8,6 +8,8 @@ import { apiFetch }
 
 import { useAuth }
   from '../auth/useAuth';
+import PageTitle
+  from '../components/PageTitle';
 import {
   formatDisplayDate,
   formatDisplayDateTime
@@ -137,9 +139,9 @@ export default function DashboardPage() {
 
     return (
       <div>
-        <h1 className="page-title">
+        <PageTitle icon="dashboard">
           Bienvenido, {user?.first_name}
-        </h1>
+        </PageTitle>
         <p className="page-subtitle">
           {error || 'Cargando indicadores...'}
         </p>
@@ -153,9 +155,9 @@ export default function DashboardPage() {
 
       <div className="page-header">
         <div>
-          <h1 className="page-title">
+          <PageTitle icon="dashboard">
             Bienvenido, {user?.first_name}
-          </h1>
+          </PageTitle>
           <p className="page-subtitle">
             Panel operativo del sistema hospitalario
           </p>

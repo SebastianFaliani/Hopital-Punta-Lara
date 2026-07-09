@@ -13,6 +13,7 @@ import {
 } from '../auth/useAuth';
 import { hasPermission } from '../auth/permissions';
 import { IconButton } from '../components/IconButton';
+import PageTitle from '../components/PageTitle';
 import MedicationModuleTabs from '../components/medications/MedicationModuleTabs';
 import {
   formatDisplayDate
@@ -507,9 +508,9 @@ export default function MedicationDeliveriesPage() {
 
         <div>
 
-          <h1 className="page-title">
+          <PageTitle icon="medicamentos">
             Entregas a pacientes
-          </h1>
+          </PageTitle>
 
           <p className="page-subtitle">
             Entrega de medicacion desde hospital o unidades sanitarias.

@@ -13,6 +13,7 @@ import {
 } from '../auth/useAuth';
 import { hasPermission } from '../auth/permissions';
 import { IconButton } from '../components/IconButton';
+import PageTitle from '../components/PageTitle';
 import MedicationModuleTabs from '../components/medications/MedicationModuleTabs';
 
 type Facility = {
@@ -937,9 +938,9 @@ export default function ChronicMedicationsPage() {
 
         <div>
 
-          <h1 className="page-title">
+          <PageTitle icon="medicamentos">
             Pacientes cronicos
-          </h1>
+          </PageTitle>
 
           <p className="page-subtitle">
             Plan mensual, paquetes preparados y retiros pendientes.

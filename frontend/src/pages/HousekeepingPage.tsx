@@ -11,6 +11,7 @@ import type {
 import { apiFetch } from '../api/api';
 import { hasPermission } from '../auth/permissions';
 import { useAuth } from '../auth/useAuth';
+import PageTitle from '../components/PageTitle';
 import {
   formatDisplayDate
 } from '../utils/dateFormat';
@@ -655,7 +656,9 @@ export default function HousekeepingPage() {
     <div>
       <div className="page-header">
         <div>
-          <h1 className="page-title">Mayordomia</h1>
+          <PageTitle icon="mayordomia">
+            Mayordomia
+          </PageTitle>
           <p className="page-subtitle">
             Control de entradas, salidas, prestamos y devoluciones.
           </p>

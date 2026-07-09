@@ -10,6 +10,7 @@ import { getApiUrl }
 import { useAuth }
   from '../auth/useAuth';
 import { IconButton } from '../components/IconButton';
+import PageTitle from '../components/PageTitle';
 import {
   formatDisplayDate,
   formatDisplayDateTime
@@ -1014,9 +1015,9 @@ export default function WhatsappPage() {
 
       <div className="page-header">
         <div>
-          <h1 className="page-title">
+          <PageTitle icon="whatsapp">
             WhatsApp
-          </h1>
+          </PageTitle>
           <p className="page-subtitle">
             Menu automatico, palabras clave y respuestas para consultas frecuentes.
           </p>

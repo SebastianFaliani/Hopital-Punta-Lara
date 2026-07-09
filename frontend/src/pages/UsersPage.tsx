@@ -11,6 +11,7 @@ import EditUserModal   from '../components/users/EditUserModal';
 import AdminResetPasswordModal from '../components/users/AdminResetPasswordModal';
 import UserAccessModal from '../components/users/UserAccessModal';
 import { IconButton } from '../components/IconButton';
+import PageTitle from '../components/PageTitle';
 
 type User = {
   id: number;
@@ -376,9 +377,9 @@ export default function UsersPage() {
 
       <div className="page-header">
 
-        <h1 className="page-title">
+        <PageTitle icon="usuario">
           Usuarios
-        </h1>
+        </PageTitle>
 
         {
           activeTab === 'users' && (

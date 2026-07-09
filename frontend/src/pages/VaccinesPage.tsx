@@ -10,6 +10,7 @@ import {
   IconButton,
   IconLink
 } from '../components/IconButton';
+import PageTitle from '../components/PageTitle';
 import VaccineModuleTabs from '../components/vaccines/VaccineModuleTabs';
 import {
   formatDisplayDate
@@ -343,9 +344,9 @@ export default function VaccinesPage() {
 
       <div className="page-header">
 
-        <h1 className="page-title">
+        <PageTitle icon="vacunas">
           Vacunas
-        </h1>
+        </PageTitle>
 
         {canEdit && (
           <button

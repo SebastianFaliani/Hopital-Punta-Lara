@@ -13,6 +13,7 @@ import {
   IconLink
 } from '../components/IconButton';
 import MedicationModuleTabs from '../components/medications/MedicationModuleTabs';
+import PageTitle from '../components/PageTitle';
 import {
   formatDisplayDate
 } from '../utils/dateFormat';
@@ -328,9 +329,9 @@ export default function MedicationsPage() {
 
         <div>
 
-          <h1 className="page-title">
+          <PageTitle icon="medicamentos">
             Medicamentos
-          </h1>
+          </PageTitle>
 
           <p className="page-subtitle">
             Stock, lotes, traslados, entregas y pacientes cronicos.

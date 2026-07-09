@@ -11,6 +11,7 @@ import {
   useAuth
 } from '../auth/useAuth';
 import { IconButton } from '../components/IconButton';
+import PageTitle from '../components/PageTitle';
 
 type Facility = {
   id: number;
@@ -177,9 +178,9 @@ export default function MedicationFacilitiesPage() {
 
         <div>
 
-          <h1 className="page-title">
+          <PageTitle icon="dependencias">
             Dependencias
-          </h1>
+          </PageTitle>
 
           <p className="page-subtitle">
             Secretaria, hospital y unidades sanitarias del sistema.

@@ -12,6 +12,7 @@ import { apiFetch } from '../api/api';
 import { useAuth } from '../auth/useAuth';
 import { hasPermission } from '../auth/permissions';
 import { IconButton } from '../components/IconButton';
+import PageTitle from '../components/PageTitle';
 import {
   formatDisplayDate,
   formatDisplayDateTime
@@ -450,9 +451,9 @@ export default function VaccineBatchesPage() {
             Volver a vacunas
           </Link>
 
-          <h1 className="page-title">
+          <PageTitle icon="vacunas">
             Lotes de {vaccine?.name}
-          </h1>
+          </PageTitle>
 
           <p className="page-subtitle">
             Stock total activo: {totalStock}

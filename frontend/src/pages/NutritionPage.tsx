@@ -11,6 +11,7 @@ import type {
 import { apiFetch } from '../api/api';
 import { useAuth } from '../auth/useAuth';
 import { hasPermission } from '../auth/permissions';
+import PageTitle from '../components/PageTitle';
 import {
   formatDisplayDate
 } from '../utils/dateFormat';
@@ -788,9 +789,9 @@ export default function NutritionPage() {
     <div>
       <div className="page-header">
         <div>
-          <h1 className="page-title">
+          <PageTitle icon="nutricion">
             Nutricion
-          </h1>
+          </PageTitle>
           <p className="page-subtitle">
             Seguimiento nutricional, controles e indicadores.
           </p>

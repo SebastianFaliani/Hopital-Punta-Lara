@@ -11,6 +11,7 @@ import { apiFetch }
 import { useAuth } from '../auth/useAuth';
 import { hasPermission } from '../auth/permissions';
 import { IconButton } from '../components/IconButton';
+import PageTitle from '../components/PageTitle';
 import {
   formatDisplayDate
 } from '../utils/dateFormat';
@@ -4757,13 +4758,19 @@ export default function PersonnelPage() {
 
       <div className="page-header">
         <div>
-          <h1 className="page-title">
+          <PageTitle
+            icon={
+              isPersonnelSettingsPage
+                ? 'configuracion-personal'
+                : 'personal'
+            }
+          >
             {
               isPersonnelSettingsPage
                 ? 'Configuracion Personal'
                 : 'Personal'
             }
-          </h1>
+          </PageTitle>
           <p className="page-subtitle">
             {
               isPersonnelSettingsPage

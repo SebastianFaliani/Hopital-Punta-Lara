@@ -13,6 +13,7 @@ import {
 } from '../auth/useAuth';
 import { hasPermission } from '../auth/permissions';
 import { IconButton } from '../components/IconButton';
+import PageTitle from '../components/PageTitle';
 import VaccineModuleTabs from '../components/vaccines/VaccineModuleTabs';
 import {
   formatDisplayDate,
@@ -552,9 +553,9 @@ export default function VaccineTransfersPage() {
 
         <div>
 
-          <h1 className="page-title">
+          <PageTitle icon="vacunas">
             Traslados de Vacunas
-          </h1>
+          </PageTitle>
 
           <p className="page-subtitle">
             Remitos entre Secretaria, hospital y unidades sanitarias.

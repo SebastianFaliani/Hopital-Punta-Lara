@@ -13,6 +13,7 @@ import { apiFetch }
 import { useAuth } from '../auth/useAuth';
 import { hasPermission } from '../auth/permissions';
 import { IconButton } from '../components/IconButton';
+import PageTitle from '../components/PageTitle';
 import {
   formatDisplayDate
 } from '../utils/dateFormat';
@@ -203,9 +204,9 @@ export default function MedicationBatchesPage() {
             Volver a medicamentos
           </Link>
 
-          <h1 className="page-title">
+          <PageTitle icon="medicamentos">
             Lotes de {medication?.name}
-          </h1>
+          </PageTitle>
 
           <p className="page-subtitle">
             Stock total activo: {totalStock}

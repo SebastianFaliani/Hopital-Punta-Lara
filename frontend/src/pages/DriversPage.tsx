@@ -151,11 +151,7 @@ export default function DriversPage() {
 
       <TransfersNav />
 
-      <div className="page-header">
-        <h1 className="page-title">
-          Choferes
-        </h1>
-      </div>
+     
 
       {!canEdit && (
         <p className="page-subtitle">

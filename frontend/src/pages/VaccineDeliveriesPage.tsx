@@ -13,6 +13,7 @@ import {
 } from '../auth/useAuth';
 import { hasPermission } from '../auth/permissions';
 import { IconButton } from '../components/IconButton';
+import PageTitle from '../components/PageTitle';
 import VaccineModuleTabs from '../components/vaccines/VaccineModuleTabs';
 import {
   formatDisplayDate
@@ -508,9 +509,9 @@ export default function VaccineDeliveriesPage() {
 
         <div>
 
-          <h1 className="page-title">
+          <PageTitle icon="vacunas">
             Entregas a pacientes
-          </h1>
+          </PageTitle>
 
           <p className="page-subtitle">
             Entrega de medicacion desde hospital o unidades sanitarias.

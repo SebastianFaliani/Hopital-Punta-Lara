@@ -4,6 +4,7 @@ import {
 } from 'react';
 
 import { apiFetch } from '../api/api';
+import PageTitle from '../components/PageTitle';
 import {
   formatDisplayDateTime
 } from '../utils/dateFormat';
@@ -134,9 +135,9 @@ export default function AuditPage() {
     <div>
       <div className="page-header">
         <div>
-          <h1 className="page-title">
+          <PageTitle icon="auditoria">
             Auditoria
-          </h1>
+          </PageTitle>
           <p className="page-subtitle">
             Movimientos importantes realizados en el sistema.
           </p>

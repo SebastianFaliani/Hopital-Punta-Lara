@@ -16,6 +16,9 @@ import {
   toDateInputValue
 } from '../utils/dateFormat';
 
+import PageTitle
+  from '../components/PageTitle';
+
 import TransfersNav
   from '../components/transfers/TransfersNav';
 
@@ -1490,13 +1493,11 @@ export default function TransfersPage() {
 
   return (
     <div>
-      <TransfersNav />
-
       <div className="page-header">
         <div>
-          <h1 className="page-title">
+          <PageTitle icon="traslados">
             Gestion de traslados
-          </h1>
+          </PageTitle>
           <p className="page-subtitle">
             Solicitudes, confirmacion de cupos y agenda operativa.
           </p>
@@ -1515,20 +1516,7 @@ export default function TransfersPage() {
         )}
       </div>
 
-      <div className="transfer-summary-grid">
-        <div className="transfer-summary">
-          <strong>{agendaTrips.length}</strong>
-          <span>Viajes del dia</span>
-        </div>
-        <div className="transfer-summary">
-          <strong>{pendingCount}</strong>
-          <span>Pendientes de confirmar</span>
-        </div>
-        <div className="transfer-summary">
-          <strong>{urgentCount}</strong>
-          <span>Urgentes de oficio hoy</span>
-        </div>
-      </div>
+      <TransfersNav />
 
       <div className="module-tabs transfer-view-tabs">
         {([
@@ -1550,6 +1538,21 @@ export default function TransfersPage() {
               {label}
             </button>
           ))}
+      </div>
+
+      <div className="transfer-summary-grid">
+        <div className="transfer-summary">
+          <strong>{agendaTrips.length}</strong>
+          <span>Viajes del dia</span>
+        </div>
+        <div className="transfer-summary">
+          <strong>{pendingCount}</strong>
+          <span>Pendientes de confirmar</span>
+        </div>
+        <div className="transfer-summary">
+          <strong>{urgentCount}</strong>
+          <span>Urgentes de oficio hoy</span>
+        </div>
       </div>
 
       {view === 'agenda' && (

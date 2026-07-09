@@ -165,11 +165,7 @@ export default function AmbulancesPage() {
 
       <TransfersNav />
 
-      <div className="page-header">
-        <h1 className="page-title">
-          Ambulancias
-        </h1>
-      </div>
+      
 
       {!canEdit && (
         <p className="page-subtitle">

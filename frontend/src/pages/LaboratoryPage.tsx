@@ -12,6 +12,7 @@ import { apiFetch } from '../api/api';
 import { useAuth } from '../auth/useAuth';
 import { hasPermission } from '../auth/permissions';
 import { IconButton } from '../components/IconButton';
+import PageTitle from '../components/PageTitle';
 import {
   formatDisplayDate,
   formatDisplayDateTime
@@ -702,9 +703,9 @@ export default function LaboratoryPage() {
     <div>
       <div className="page-header">
         <div>
-          <h1 className="page-title">
+          <PageTitle icon="laboratorio">
             Laboratorio
-          </h1>
+          </PageTitle>
           <p className="page-subtitle">
             Hoja de ruta, resultados recibidos y retiro de estudios.
           </p>
