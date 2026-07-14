@@ -951,6 +951,9 @@ export default function PersonnelPage() {
   const isPersonnelSettingsPage =
     location.pathname.startsWith('/personnel/settings');
 
+  const requestedTab =
+    new URLSearchParams(location.search).get('tab');
+
   const canManageEmployees =
     hasPermission(
       user,
@@ -1069,7 +1072,7 @@ export default function PersonnelPage() {
               ? 'balance-adjustments'
               : 'no-access'
         )
-        : 'employees'
+        : requestedTab || 'employees'
     );
 
   const [employees, setEmployees] =

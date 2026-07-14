@@ -2,6 +2,8 @@ import {
   useEffect,
   useState
 } from 'react';
+import { useNavigate }
+  from 'react-router-dom';
 
 import { apiFetch }
   from '../api/api';
@@ -107,6 +109,7 @@ function formatDate(
 export default function DashboardPage() {
 
   const { user } = useAuth();
+  const navigate = useNavigate();
 
   const [stats, setStats] =
     useState<DashboardStats | null>(null);
@@ -171,6 +174,7 @@ export default function DashboardPage() {
           value={stats.users.active}
           detail={`${stats.users.total} usuarios totales`}
           color="#3c9ec2"
+          onClick={() => navigate('/users')}
         />
 
         <Card
@@ -178,6 +182,7 @@ export default function DashboardPage() {
           value={stats.pharmacy.activeMedications}
           detail={`${stats.pharmacy.lowStock} con stock bajo`}
           color="#1f6e29"
+          onClick={() => navigate('/medications')}
         />
 
         <Card
@@ -185,6 +190,7 @@ export default function DashboardPage() {
           value={stats.pharmacy.batches}
           detail={`${stats.pharmacy.expiringBatches} vencen en 30 dias`}
           color="#8a1616"
+          onClick={() => navigate('/medications')}
         />
 
         <Card
@@ -192,6 +198,7 @@ export default function DashboardPage() {
           value={stats.transfers.today}
           detail={`${stats.transfers.pending} pendientes o en curso`}
           color="#7c3aed"
+          onClick={() => navigate('/transfers')}
         />
 
         <Card
@@ -199,6 +206,7 @@ export default function DashboardPage() {
           value={stats.vaccines.active}
           detail={`${stats.vaccines.lowStock} con stock bajo`}
           color="#0891b2"
+          onClick={() => navigate('/vaccines')}
         />
 
         <Card
@@ -206,6 +214,7 @@ export default function DashboardPage() {
           value={stats.personnel.activeEmployees}
           detail={`${stats.personnel.absentToday} ausentes hoy`}
           color="#4d7c0f"
+          onClick={() => navigate('/personnel')}
         />
 
         <Card
@@ -213,6 +222,7 @@ export default function DashboardPage() {
           value={stats.transfers.activeAmbulances}
           detail={`${stats.transfers.activeDrivers} choferes activos`}
           color="#0f766e"
+          onClick={() => navigate('/transfers/ambulances')}
         />
 
         <Card
@@ -220,6 +230,7 @@ export default function DashboardPage() {
           value={stats.transfers.activeShifts}
           detail={`${stats.transfers.total} traslados historicos`}
           color="#b45309"
+          onClick={() => navigate('/transfers/shifts')}
         />
 
         <Card
@@ -227,6 +238,7 @@ export default function DashboardPage() {
           value={stats.personnel.pendingLeaveRequests}
           detail="Solicitudes para revisar"
           color="#be123c"
+          onClick={() => navigate('/personnel?tab=leave-requests')}
         />
 
       </div>
@@ -405,13 +417,38 @@ function Card({
   title,
   value,
   detail,
-  color
+  color,
+  onClick
 }: {
   title: string;
   value: number;
   detail: string;
   color: string;
+  onClick?: () => void;
 }) {
+
+  const content = (
+    <>
+      <h3>{title}</h3>
+      <p>{value}</p>
+      <span>{detail}</span>
+    </>
+  );
+
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        className="dashboard-card dashboard-card-clickable"
+        style={{
+          borderLeftColor: color
+        }}
+        onClick={onClick}
+      >
+        {content}
+      </button>
+    );
+  }
 
   return (
 
@@ -421,9 +458,7 @@ function Card({
         borderLeftColor: color
       }}
     >
-      <h3>{title}</h3>
-      <p>{value}</p>
-      <span>{detail}</span>
+      {content}
     </div>
   );
 }
