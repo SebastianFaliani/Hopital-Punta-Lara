@@ -825,6 +825,38 @@ function addCalendarDays(
   return formatLocalDate(date);
 }
 
+function getInclusiveCalendarDays(
+  startDate: string,
+  endDate: string
+) {
+
+  if (!startDate || !endDate) {
+    return 0;
+  }
+
+  const start =
+    new Date(`${startDate}T00:00:00`);
+
+  const end =
+    new Date(`${endDate}T00:00:00`);
+
+  if (
+    Number.isNaN(start.getTime()) ||
+    Number.isNaN(end.getTime()) ||
+    end < start
+  ) {
+    return 0;
+  }
+
+  const millisecondsPerDay =
+    24 * 60 * 60 * 1000;
+
+  return Math.floor(
+    (end.getTime() - start.getTime()) /
+      millisecondsPerDay
+  ) + 1;
+}
+
 function addBusinessDays(
   value: string,
   businessDays: number
@@ -7756,6 +7788,17 @@ export default function PersonnelPage() {
                     value={leaveForm.end_date}
                     onChange={handleLeaveChange}
                   />
+
+                  {leaveForm.start_date && leaveForm.end_date && (
+                    <div className="form-info-line">
+                      Cantidad de dias: {
+                        getInclusiveCalendarDays(
+                          leaveForm.start_date,
+                          leaveForm.end_date
+                        )
+                      }
+                    </div>
+                  )}
                 </>
               )}
 

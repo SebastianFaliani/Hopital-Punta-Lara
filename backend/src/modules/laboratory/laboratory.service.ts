@@ -408,45 +408,6 @@ async function replaceRequestedTests(
   }
 }
 
-async function getSampleFlagsFromTests(
-  connection: any,
-  testIds: number[]
-) {
-  if (testIds.length === 0) {
-    return {
-      hasBlood: false,
-      hasUrine: false
-    };
-  }
-
-  const [rows]: any =
-    await connection.query(
-      `
-        SELECT category
-        FROM laboratory_test_catalog
-        WHERE id IN (${testIds
-          .map(() => '?')
-          .join(', ')})
-      `,
-      testIds
-    );
-
-  const hasUrine =
-    rows.some((row: any) =>
-      String(row.category).startsWith('Orina')
-    );
-
-  const hasBlood =
-    rows.some((row: any) =>
-      !String(row.category).startsWith('Orina')
-    );
-
-  return {
-    hasBlood,
-    hasUrine
-  };
-}
-
 export async function getLaboratoryRecords(
   filters: LaboratoryFilters
 ) {
@@ -654,19 +615,6 @@ export async function createLaboratoryRecord(
   try {
     await connection.beginTransaction();
 
-    const requestedTestIds =
-      Array.isArray(data.requested_test_ids)
-        ? data.requested_test_ids
-          .map(Number)
-          .filter((id: number) => id > 0)
-        : [];
-
-    const sampleFlags =
-      await getSampleFlagsFromTests(
-        connection,
-        requestedTestIds
-      );
-
     const hasPhoneColumn =
       await hasPatientPhoneColumn();
 
@@ -704,8 +652,8 @@ export async function createLaboratoryRecord(
           ...(hasPhoneColumn
             ? [data.patient_phone || null]
             : []),
-          sampleFlags.hasBlood,
-          sampleFlags.hasUrine,
+          Boolean(data.has_blood_extraction),
+          Boolean(data.has_urine_sample),
           false,
           'enviado',
           'Resultados pendientes',
@@ -720,13 +668,7 @@ export async function createLaboratoryRecord(
     await replaceRequestedTests(
       connection,
       result.insertId,
-      requestedTestIds
-    );
-
-    await syncLaboratoryRecordStatus(
-      connection,
-      result.insertId,
-      userId
+      []
     );
 
     await connection.commit();
@@ -749,19 +691,6 @@ export async function updateLaboratoryRecord(
 
   try {
     await connection.beginTransaction();
-
-    const requestedTestIds =
-      Array.isArray(data.requested_test_ids)
-        ? data.requested_test_ids
-          .map(Number)
-          .filter((testId: number) => testId > 0)
-        : [];
-
-    const sampleFlags =
-      await getSampleFlagsFromTests(
-        connection,
-        requestedTestIds
-      );
 
     const hasPhoneColumn =
       await hasPatientPhoneColumn();
@@ -793,8 +722,8 @@ export async function updateLaboratoryRecord(
         ...(hasPhoneColumn
           ? [data.patient_phone || null]
           : []),
-        sampleFlags.hasBlood,
-        sampleFlags.hasUrine,
+        Boolean(data.has_blood_extraction),
+        Boolean(data.has_urine_sample),
         data.notes || null,
         userId || null,
         id
@@ -804,13 +733,7 @@ export async function updateLaboratoryRecord(
     await replaceRequestedTests(
       connection,
       id,
-      requestedTestIds
-    );
-
-    await syncLaboratoryRecordStatus(
-      connection,
-      id,
-      userId
+      []
     );
 
     await connection.commit();
@@ -828,18 +751,46 @@ export async function updateLaboratoryCompletion(
   data: any,
   userId?: number
 ) {
-  const receivedTestIds =
-    Array.isArray(data.received_test_ids)
-      ? data.received_test_ids
-        .map(Number)
-        .filter((testId: number) => testId > 0)
-      : [];
+  const isComplete =
+    Boolean(data.is_complete);
+
+  const normalizedMissingDetails =
+    String(data.missing_details || '').trim();
+
+  const missingDetails =
+    isComplete
+      ? null
+      : normalizedMissingDetails || 'Resultados pendientes';
+
+  const hasMissingItems =
+    !isComplete &&
+    normalizedMissingDetails.length > 0;
 
   const connection =
     await pool.getConnection();
 
   try {
     await connection.beginTransaction();
+
+    const [rows]: any =
+      await connection.query(
+        `
+          SELECT pickup_date
+          FROM laboratory_records
+          WHERE id = ?
+          FOR UPDATE
+        `,
+        [id]
+      );
+
+    const status =
+      rows[0]?.pickup_date
+        ? 'retirado'
+        : isComplete
+          ? 'completo'
+          : hasMissingItems
+            ? 'parcial'
+            : 'enviado';
 
     await connection.query(
       `
@@ -854,31 +805,31 @@ export async function updateLaboratoryCompletion(
       [id]
     );
 
-    if (receivedTestIds.length > 0) {
-      await connection.query(
-        `
-          UPDATE laboratory_record_tests
-          SET
-            received = TRUE,
-            received_at = COALESCE(received_at, NOW()),
-            received_by = ?
-          WHERE laboratory_record_id = ?
-            AND test_id IN (${receivedTestIds
-              .map(() => '?')
-              .join(', ')})
-        `,
-        [
-          userId || null,
-          id,
-          ...receivedTestIds
-        ]
-      );
-    }
-
-    await syncLaboratoryRecordStatus(
-      connection,
-      id,
-      userId
+    await connection.query(
+      `
+        UPDATE laboratory_records
+        SET
+          is_complete = ?,
+          status = ?,
+          missing_details = ?,
+          completed_at = ?,
+          completed_by = ?,
+          updated_by = ?
+        WHERE id = ?
+      `,
+      [
+        isComplete,
+        status,
+        missingDetails,
+        isComplete
+          ? new Date()
+          : null,
+        isComplete
+          ? userId || null
+          : null,
+        userId || null,
+        id
+      ]
     );
 
     await connection.commit();

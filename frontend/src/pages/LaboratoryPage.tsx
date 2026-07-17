@@ -83,6 +83,11 @@ const emptyForm = {
   notes: ''
 };
 
+const genericMissingDetails = [
+  'Resultados pendientes',
+  'Sin practicas cargadas'
+];
+
 const initialStats = {
   total_records: 0,
   blood_extractions: 0,
@@ -174,6 +179,40 @@ function percentOf(
   return `${Math.round((value / total) * 100)}%`;
 }
 
+function getMissingItems(
+  details?: string | null
+) {
+  if (
+    !details ||
+    genericMissingDetails.includes(details)
+  ) {
+    return [];
+  }
+
+  return details
+    .split(/\r?\n|;/)
+    .map((item) =>
+      item.trim()
+    )
+    .filter(Boolean);
+}
+
+function getSampleSummary(
+  record: LaboratoryRecord
+) {
+  const samples = [];
+
+  if (yesNo(record.has_blood_extraction)) {
+    samples.push('Extraccion');
+  }
+
+  if (yesNo(record.has_urine_sample)) {
+    samples.push('Orina');
+  }
+
+  return samples.join(' / ') || '-';
+}
+
 function getStatusLabel(
   status: string,
   isComplete: boolean | number,
@@ -220,9 +259,6 @@ export default function LaboratoryPage() {
   const [records, setRecords] =
     useState<LaboratoryRecord[]>([]);
 
-  const [catalog, setCatalog] =
-    useState<LaboratoryTest[]>([]);
-
   const [stats, setStats] =
     useState<LaboratoryStats>(initialStats);
 
@@ -262,8 +298,14 @@ export default function LaboratoryPage() {
   const [completionRecord, setCompletionRecord] =
     useState<LaboratoryRecord | null>(null);
 
-  const [receivedTestIds, setReceivedTestIds] =
-    useState<number[]>([]);
+  const [completionIncomplete, setCompletionIncomplete] =
+    useState(false);
+
+  const [missingItems, setMissingItems] =
+    useState<string[]>([]);
+
+  const [missingItemInput, setMissingItemInput] =
+    useState('');
 
   const [pickupForm, setPickupForm] =
     useState({
@@ -310,21 +352,6 @@ export default function LaboratoryPage() {
   const canSeePickupAudit =
     user?.role === 'admin';
 
-  const testsByCategory =
-    useMemo(() => {
-      return catalog.reduce(
-        (
-          groups: Record<string, LaboratoryTest[]>,
-          test
-        ) => {
-          groups[test.category] ||= [];
-          groups[test.category].push(test);
-          return groups;
-        },
-        {}
-      );
-    }, [catalog]);
-
   const queryString =
     useMemo(() => {
       const params =
@@ -354,15 +381,13 @@ export default function LaboratoryPage() {
 
   async function loadLaboratory() {
     try {
-      const [recordsRes, statsRes, catalogRes] =
+      const [recordsRes, statsRes] =
         await Promise.all([
           apiFetch(`/laboratory${queryString}`),
-          apiFetch(`/laboratory/stats${queryString}`),
-          apiFetch('/laboratory/catalog')
+          apiFetch(`/laboratory/stats${queryString}`)
         ]);
 
       setRecords(recordsRes.data);
-      setCatalog(catalogRes.data);
       setPagination(
         recordsRes.pagination || {
           page: 1,
@@ -432,129 +457,34 @@ export default function LaboratoryPage() {
     record: LaboratoryRecord
   ) {
     setCompletionRecord(record);
-    setReceivedTestIds(
-      (record.tests || [])
-        .filter((test) => test.received)
-        .map((test) => Number(test.test_id || test.id))
-    );
+    setCompletionIncomplete(!yesNo(record.is_complete));
+    setMissingItems(getMissingItems(record.missing_details));
+    setMissingItemInput('');
   }
 
-  function toggleRequestedTest(
-    testId: number
-  ) {
-    setForm((current) => ({
+  function addMissingItem() {
+    const item =
+      missingItemInput.trim();
+
+    if (!item) {
+      return;
+    }
+
+    setMissingItems((current) => [
       ...current,
-      requested_test_ids:
-        current.requested_test_ids.includes(testId)
-          ? current.requested_test_ids.filter((id) =>
-            id !== testId
-          )
-          : [
-            ...current.requested_test_ids,
-            testId
-          ]
-    }));
+      item
+    ]);
+    setMissingItemInput('');
   }
 
-  function areAllRequestedTestsSelected(
-    tests: LaboratoryTest[]
+  function removeMissingItem(
+    index: number
   ) {
-    return tests.length > 0 &&
-      tests.every((test) =>
-        form.requested_test_ids.includes(test.id)
-      );
-  }
-
-  function toggleRequestedCategory(
-    tests: LaboratoryTest[]
-  ) {
-    const testIds =
-      tests.map((test) =>
-        test.id
-      );
-
-    const allSelected =
-      testIds.every((id) =>
-        form.requested_test_ids.includes(id)
-      );
-
-    setForm((current) => {
-      const selected =
-        new Set(current.requested_test_ids);
-
-      testIds.forEach((id) => {
-        if (allSelected) {
-          selected.delete(id);
-        } else {
-          selected.add(id);
-        }
-      });
-
-      return {
-        ...current,
-        requested_test_ids:
-          Array.from(selected)
-      };
-    });
-  }
-
-  function toggleReceivedTest(
-    testId: number
-  ) {
-    setReceivedTestIds((current) =>
-      current.includes(testId)
-        ? current.filter((id) =>
-          id !== testId
-        )
-        : [
-          ...current,
-          testId
-        ]
+    setMissingItems((current) =>
+      current.filter((_, itemIndex) =>
+        itemIndex !== index
+      )
     );
-  }
-
-  function getLaboratoryTestIdentifier(
-    test: LaboratoryTest
-  ) {
-    return Number(test.test_id || test.id);
-  }
-
-  function areAllReceivedTestsSelected(
-    tests: LaboratoryTest[]
-  ) {
-    return tests.length > 0 &&
-      tests.every((test) =>
-        receivedTestIds.includes(
-          getLaboratoryTestIdentifier(test)
-        )
-      );
-  }
-
-  function toggleReceivedCategory(
-    tests: LaboratoryTest[]
-  ) {
-    const testIds =
-      tests.map(getLaboratoryTestIdentifier);
-
-    const allSelected =
-      testIds.every((id) =>
-        receivedTestIds.includes(id)
-      );
-
-    setReceivedTestIds((current) => {
-      const selected =
-        new Set(current);
-
-      testIds.forEach((id) => {
-        if (allSelected) {
-          selected.delete(id);
-        } else {
-          selected.add(id);
-        }
-      });
-
-      return Array.from(selected);
-    });
   }
 
   async function handleSubmit(
@@ -567,8 +497,11 @@ export default function LaboratoryPage() {
       return;
     }
 
-    if (form.requested_test_ids.length === 0) {
-      showSystemAlert('Debe seleccionar al menos una practica solicitada');
+    if (
+      !form.has_blood_extraction &&
+      !form.has_urine_sample
+    ) {
+      showSystemAlert('Debe seleccionar Extraccion, Orina o ambas');
       return;
     }
 
@@ -659,7 +592,11 @@ export default function LaboratoryPage() {
         {
           method: 'PATCH',
           body: JSON.stringify({
-            received_test_ids: receivedTestIds
+            is_complete: !completionIncomplete,
+            missing_details:
+              completionIncomplete
+                ? missingItems.join('\n')
+                : null
           })
         }
       );
@@ -981,26 +918,22 @@ export default function LaboratoryPage() {
                   <td>
                     <div className="laboratory-practice-preview">
                       <strong>
-                        {record.received_tests_count || 0}/{record.requested_tests_count || 0}
+                        {getSampleSummary(record)}
                       </strong>
                       <span>
-                        {(record.tests || [])
-                          .slice(0, 4)
-                          .map((test) => test.name)
-                          .join(', ') || '-'}
+                        {yesNo(record.is_complete)
+                          ? 'Resultados completos'
+                          : 'Resultados pendientes'}
                       </span>
-                      {(record.tests || []).length > 0 && (
+                      {getMissingItems(record.missing_details).length > 0 && (
                         <div className="laboratory-practice-tooltip">
-                          <strong>Prácticas solicitadas</strong>
+                          <strong>Falta recibir</strong>
                           <ul>
-                            {(record.tests || []).map((test) => (
-                              <li key={test.test_id || test.id}>
+                            {getMissingItems(record.missing_details).map((item) => (
+                              <li key={item}>
                                 <span>
-                                  {test.category} - {test.name}
+                                  {item}
                                 </span>
-                                <em>
-                                  {test.received ? 'Recibido' : 'Pendiente'}
-                                </em>
                               </li>
                             ))}
                           </ul>
@@ -1230,47 +1163,34 @@ export default function LaboratoryPage() {
                 </label>
               </div>
 
-              <div className="laboratory-tests-grid">
-                {Object.entries(testsByCategory).map(([category, tests]) => (
-                  <section
-                    className="laboratory-test-group"
-                    key={category}
-                  >
-                    <div className="laboratory-test-group-header">
-                      <h3>{category}</h3>
-                      <button
-                        className="laboratory-select-section-button"
-                        type="button"
-                        onClick={() =>
-                          toggleRequestedCategory(tests)
-                        }
-                      >
-                        {
-                          areAllRequestedTestsSelected(tests)
-                            ? 'Quitar todo'
-                            : 'Seleccionar todo'
-                        }
-                      </button>
-                    </div>
-                    <div className="laboratory-test-options">
-                      {tests.map((test) => (
-                        <label
-                          className="checkbox-row"
-                          key={test.id}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={form.requested_test_ids.includes(test.id)}
-                            onChange={() =>
-                              toggleRequestedTest(test.id)
-                            }
-                          />
-                          {test.name}
-                        </label>
-                      ))}
-                    </div>
-                  </section>
-                ))}
+              <div className="laboratory-simple-samples">
+                <label className="checkbox-row">
+                  <input
+                    type="checkbox"
+                    checked={form.has_blood_extraction}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        has_blood_extraction: e.target.checked
+                      })
+                    }
+                  />
+                  Extraccion
+                </label>
+
+                <label className="checkbox-row">
+                  <input
+                    type="checkbox"
+                    checked={form.has_urine_sample}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        has_urine_sample: e.target.checked
+                      })
+                    }
+                  />
+                  Orina
+                </label>
               </div>
 
               <textarea
@@ -1336,67 +1256,70 @@ export default function LaboratoryPage() {
               className="laboratory-route-form"
               onSubmit={handleCompletionSubmit}
             >
-              <div className="laboratory-tests-grid">
-                {Object.entries(
-                  (completionRecord.tests || []).reduce(
-                    (
-                      groups: Record<string, LaboratoryTest[]>,
-                      test
-                    ) => {
-                      groups[test.category] ||= [];
-                      groups[test.category].push(test);
-                      return groups;
-                    },
-                    {}
-                  )
-                ).map(([category, tests]) => (
-                  <section
-                    className="laboratory-test-group"
-                    key={category}
-                  >
-                    <div className="laboratory-test-group-header">
-                      <h3>{category}</h3>
+              <label className="checkbox-row laboratory-incomplete-check">
+                <input
+                  type="checkbox"
+                  checked={completionIncomplete}
+                  onChange={(e) =>
+                    setCompletionIncomplete(e.target.checked)
+                  }
+                />
+                Incompleto
+              </label>
+
+              {completionIncomplete && (
+                <div className="laboratory-missing-items">
+                  <label className="form-field">
+                    <span>Que falta</span>
+                    <div className="laboratory-missing-input-row">
+                      <input
+                        className="form-input"
+                        value={missingItemInput}
+                        placeholder="Ejemplo: HIV, TSH, urocultivo"
+                        onChange={(e) =>
+                          setMissingItemInput(e.target.value)
+                        }
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            addMissingItem();
+                          }
+                        }}
+                      />
                       <button
-                        className="laboratory-select-section-button"
                         type="button"
-                        onClick={() =>
-                          toggleReceivedCategory(tests)
-                        }
+                        className="btn-secondary"
+                        onClick={addMissingItem}
                       >
-                        {
-                          areAllReceivedTestsSelected(tests)
-                            ? 'Quitar todo'
-                            : 'Seleccionar todo'
-                        }
+                        Agregar
                       </button>
                     </div>
-                    <div className="laboratory-test-options">
-                      {tests.map((test) => (
-                        <label
-                          className="checkbox-row"
-                          key={getLaboratoryTestIdentifier(test)}
+                  </label>
+
+                  <div className="laboratory-missing-list">
+                    {missingItems.map((item, index) => (
+                      <span
+                        className="laboratory-missing-chip"
+                        key={`${item}-${index}`}
+                      >
+                        {item}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            removeMissingItem(index)
+                          }
+                          aria-label={`Quitar ${item}`}
                         >
-                          <input
-                            type="checkbox"
-                            checked={receivedTestIds.includes(
-                              getLaboratoryTestIdentifier(test)
-                            )}
-                            onChange={() =>
-                              toggleReceivedTest(
-                                getLaboratoryTestIdentifier(test)
-                              )
-                            }
-                          />
-                          {test.name}
-                        </label>
-                      ))}
-                    </div>
-                  </section>
-                ))}
-              </div>
+                          x
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <p className="form-note">
-                Cuando todas las practicas pedidas esten tildadas, el estudio queda completo y pendiente para retirar.
+                Si no marcas incompleto, el estudio queda completo y pendiente para retirar.
               </p>
 
               <div className="modal-actions">
@@ -1438,9 +1361,11 @@ export default function LaboratoryPage() {
               Este estudio todavia tiene resultados pendientes.
             </p>
 
-            <p className="auth-error">
-              Recibidos {pickupRecord.received_tests_count || 0} de {pickupRecord.requested_tests_count || 0}
-            </p>
+            {getMissingItems(pickupRecord.missing_details).length > 0 && (
+              <p className="auth-error">
+                Falta: {getMissingItems(pickupRecord.missing_details).join(', ')}
+              </p>
+            )}
 
             <div className="modal-actions">
               <button

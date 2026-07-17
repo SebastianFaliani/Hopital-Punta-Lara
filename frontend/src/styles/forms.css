@@ -524,6 +524,97 @@
   height: 14px;
 }
 
+.laboratory-simple-samples,
+.laboratory-missing-items {
+
+  display: grid;
+
+  gap: 10px;
+
+  padding: 12px;
+
+  border: 1px solid var(--color-border);
+
+  border-radius: 8px;
+
+  background: #f8fafc;
+}
+
+.laboratory-simple-samples {
+
+  grid-template-columns:
+    repeat(2, minmax(140px, 1fr));
+}
+
+.laboratory-incomplete-check {
+
+  align-items: center;
+
+  padding: 10px 12px;
+
+  border: 1px solid var(--color-border);
+
+  border-radius: 8px;
+
+  background: #f8fafc;
+
+  font-weight: 700;
+}
+
+.laboratory-missing-input-row {
+
+  display: grid;
+
+  grid-template-columns: minmax(0, 1fr) auto;
+
+  gap: 8px;
+}
+
+.laboratory-missing-list {
+
+  display: flex;
+
+  flex-wrap: wrap;
+
+  gap: 8px;
+}
+
+.laboratory-missing-chip {
+
+  display: inline-flex;
+
+  align-items: center;
+
+  gap: 8px;
+
+  padding: 5px 8px;
+
+  border: 1px solid #fecaca;
+
+  border-radius: 999px;
+
+  background: #fff1f2;
+
+  color: #991b1b;
+
+  font-size: 12px;
+
+  font-weight: 700;
+}
+
+.laboratory-missing-chip button {
+
+  border: 0;
+
+  background: transparent;
+
+  color: inherit;
+
+  cursor: pointer;
+
+  font: inherit;
+}
+
 .laboratory-practice-preview {
 
   position: relative;

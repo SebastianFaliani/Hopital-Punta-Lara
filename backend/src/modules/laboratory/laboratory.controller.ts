@@ -334,10 +334,10 @@ export async function handleUpdateLaboratoryCompletion(
       });
     }
 
-    if (!Array.isArray(req.body.received_test_ids)) {
+    if (typeof req.body.is_complete !== 'boolean') {
       return res.status(400).json({
         success: false,
-        message: 'Debe indicar que practicas llegaron'
+        message: 'Debe indicar si el estudio esta completo o incompleto'
       });
     }
 
