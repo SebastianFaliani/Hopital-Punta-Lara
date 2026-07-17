@@ -252,6 +252,7 @@ CREATE TABLE IF NOT EXISTS leave_balance_adjustments (
   adjustment_date DATE NULL,
   year INT NOT NULL,
   month INT NULL,
+  allowed_days_adjustment DECIMAL(6,2) DEFAULT 0,
   used_days DECIMAL(6,2) DEFAULT 0,
   used_hours DECIMAL(6,2) DEFAULT 0,
   notes TEXT,

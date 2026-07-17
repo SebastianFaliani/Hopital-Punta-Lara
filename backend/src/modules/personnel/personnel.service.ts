@@ -2074,6 +2074,7 @@ export async function getLeaveBalanceAdjustments() {
           lba.adjustment_date,
           lba.year,
           lba.month,
+          lba.allowed_days_adjustment,
           lba.used_days,
           lba.used_hours,
           lba.notes,
@@ -2142,9 +2143,16 @@ export async function createLeaveBalanceAdjustment(
   const usedHours =
     Number(data.used_hours || 0);
 
-  if (usedDays === 0 && usedHours === 0) {
+  const allowedDaysAdjustment =
+    Number(data.allowed_days_adjustment || 0);
+
+  if (
+    allowedDaysAdjustment === 0 &&
+    usedDays === 0 &&
+    usedHours === 0
+  ) {
     throw new Error(
-      'Debe cargar dias u horas usadas'
+      'Debe cargar dias asignados, dias usados u horas usadas'
     );
   }
 
@@ -2157,12 +2165,13 @@ export async function createLeaveBalanceAdjustment(
           adjustment_date,
           year,
           month,
+          allowed_days_adjustment,
           used_days,
           used_hours,
           notes,
           created_by
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
       [
         employeeId,
@@ -2170,6 +2179,7 @@ export async function createLeaveBalanceAdjustment(
         adjustmentDate,
         year,
         month,
+        allowedDaysAdjustment,
         usedDays,
         usedHours,
         data.notes || null,
@@ -2761,6 +2771,34 @@ async function getUsageByCodes(
   };
 }
 
+async function getAllowedDaysAdjustmentByCodes(
+  employeeId: number,
+  codes: string[],
+  year: number
+) {
+
+  const [rows]: any =
+    await pool.query(
+      `
+        SELECT
+          COALESCE(SUM(lba.allowed_days_adjustment), 0) AS total
+        FROM leave_balance_adjustments lba
+        INNER JOIN attendance_codes ac
+          ON ac.id = lba.attendance_code_id
+        WHERE lba.employee_id = ?
+          AND ac.code IN (?)
+          AND lba.year = ?
+      `,
+      [
+        employeeId,
+        codes,
+        year
+      ]
+    );
+
+  return Number(rows[0].total || 0);
+}
+
 async function getCompensatoryBalance(
   employeeId: number,
   year: number,
@@ -2892,10 +2930,19 @@ async function getCompensatoryBalance(
       ]
     );
 
+  const manualEarnedAdjustment =
+    await getAllowedDaysAdjustmentByCodes(
+      employeeId,
+      ['C', '34'],
+      year
+    );
+
   const earnedDays =
     Number(creditRows[0].total || 0) +
     Number(creditAdjustments[0].total || 0) +
-    Number(workedPlannedOffRows[0].total || 0);
+    Number(workedPlannedOffRows[0].total || 0) +
+    manualEarnedAdjustment;
+
 
   const usedDays =
     Number(usedRows[0].total || 0) +
@@ -3010,6 +3057,16 @@ export async function getEmployeeLeaveSummary(
       year
     );
 
+  const code29AllowanceAdjustment =
+    await getAllowedDaysAdjustmentByCodes(
+      employeeId,
+      ['29'],
+      year
+    );
+
+  const code29AllowedDays =
+    code29Allowance + code29AllowanceAdjustment;
+
   const compensatory =
     await getCompensatoryBalance(
       employeeId,
@@ -3093,7 +3150,7 @@ export async function getEmployeeLeaveSummary(
     },
     code29: {
       allowed_days:
-        code29Allowance,
+        code29AllowedDays,
       used_days:
         code29.approvedDays,
       pending_days:
@@ -3101,7 +3158,7 @@ export async function getEmployeeLeaveSummary(
       remaining_days:
         Math.max(
           0,
-          code29Allowance -
+          code29AllowedDays -
             code29.approvedDays -
             code29.pendingDays
         )

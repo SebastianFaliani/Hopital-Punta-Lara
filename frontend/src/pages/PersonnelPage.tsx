@@ -206,6 +206,7 @@ type LeaveBalanceAdjustment = {
   adjustment_date: string | null;
   year: number;
   month: number | null;
+  allowed_days_adjustment: number;
   used_days: number;
   used_hours: number;
   notes: string | null;
@@ -1247,6 +1248,12 @@ export default function PersonnelPage() {
   const [leaveEmployeePage, setLeaveEmployeePage] =
     useState(0);
 
+  const [selectedLeaveRequestPage, setSelectedLeaveRequestPage] =
+    useState(0);
+
+  const [selectedLeaveRequestsPerPage, setSelectedLeaveRequestsPerPage] =
+    useState(25);
+
   const [leaveSummary, setLeaveSummary] =
     useState<LeaveSummary | null>(null);
 
@@ -1256,6 +1263,12 @@ export default function PersonnelPage() {
       status: 'pendiente',
       code: 'todos'
     });
+
+  const [leaveRequestsPage, setLeaveRequestsPage] =
+    useState(0);
+
+  const [leaveRequestsPerPage, setLeaveRequestsPerPage] =
+    useState(25);
 
   const [balanceAdjustments, setBalanceAdjustments] =
     useState<LeaveBalanceAdjustment[]>([]);
@@ -2037,6 +2050,7 @@ export default function PersonnelPage() {
     }
 
     setSelectedLeaveEmployee(employee);
+    setSelectedLeaveRequestPage(0);
     setEditingLeaveRequest(null);
     setLeaveForm(nextForm);
     loadLeaveSummary(employee.id);
@@ -2047,6 +2061,7 @@ export default function PersonnelPage() {
     setLeaveSummary(null);
     setEditingLeaveRequest(null);
     setLeaveRequestYearFilter('todos');
+    setSelectedLeaveRequestPage(0);
     setLeaveForm(emptyLeaveForm);
   }
 
@@ -2075,6 +2090,7 @@ export default function PersonnelPage() {
 
     if (employee) {
       setSelectedLeaveEmployee(employee);
+      setSelectedLeaveRequestPage(0);
       loadLeaveSummary(employee.id);
     } else {
       setSelectedLeaveEmployee({
@@ -2102,6 +2118,7 @@ export default function PersonnelPage() {
         notes: null,
         is_active: true
       });
+      setSelectedLeaveRequestPage(0);
       loadLeaveSummary(request.employee_id);
     }
 
@@ -2583,6 +2600,7 @@ export default function PersonnelPage() {
     if (code === '29') {
       return {
         unit: 'days',
+        canEditAllowed: true,
         title: '29 - Licencia anual complementaria',
         allowedLabel: 'Dias que tiene',
         allowed: Number(balanceSummary.code29.allowed_days || 0),
@@ -2639,6 +2657,7 @@ export default function PersonnelPage() {
     if (code === '34') {
       return {
         unit: 'days',
+        canEditAllowed: true,
         title: '34 / FC - Franco compensatorio',
         allowedLabel: 'Dias disponibles',
         allowed: Number(balanceSummary.compensatory.earned_days || 0),
@@ -2741,13 +2760,27 @@ export default function PersonnelPage() {
           ? Number(balanceAdjustmentForm.used_hours || 0)
           : Number(balanceAdjustmentForm.used_days || 0);
 
+      const allowedDays =
+        Number(balanceAdjustmentForm.allowed_days || 0);
+
+      const allowedDifference =
+        balanceInfo.canEditAllowed
+          ? Number(
+            (allowedDays - Number(balanceInfo.allowed || 0))
+              .toFixed(2)
+          )
+          : 0;
+
       const difference =
         Number(
           (targetValue - balanceInfo.current)
             .toFixed(2)
         );
 
-      if (difference === 0) {
+      if (
+        allowedDifference === 0 &&
+        difference === 0
+      ) {
         showSystemAlert(
           'El valor cargado es igual al saldo actual. No hay nada para corregir.',
           'Aviso del sistema',
@@ -2771,6 +2804,8 @@ export default function PersonnelPage() {
                 balanceAdjustmentForm.month
                   ? Number(balanceAdjustmentForm.month)
                   : null,
+              allowed_days_adjustment:
+                allowedDifference,
               used_days:
                 balanceInfo.unit === 'days'
                   ? difference
@@ -2782,7 +2817,12 @@ export default function PersonnelPage() {
               notes:
                 [
                   `Correccion manual de ${balanceInfo.title}.`,
-                  `Antes: ${balanceInfo.current}. Nuevo: ${targetValue}.`,
+                  allowedDifference !== 0
+                    ? `${balanceInfo.allowedLabel} antes: ${balanceInfo.allowed}. Nuevo: ${allowedDays}.`
+                    : '',
+                  difference !== 0
+                    ? `${balanceInfo.currentLabel} antes: ${balanceInfo.current}. Nuevo: ${targetValue}.`
+                    : '',
                   balanceAdjustmentForm.notes
                 ]
                   .filter(Boolean)
@@ -4597,6 +4637,30 @@ export default function PersonnelPage() {
         })
       : [];
 
+  const selectedLeaveRequestPageCount =
+    Math.max(
+      1,
+      Math.ceil(
+        selectedEmployeeLeaveRequests.length /
+        selectedLeaveRequestsPerPage
+      )
+    );
+
+  const safeSelectedLeaveRequestPage =
+    Math.min(
+      selectedLeaveRequestPage,
+      selectedLeaveRequestPageCount - 1
+    );
+
+  const paginatedSelectedEmployeeLeaveRequests =
+    selectedEmployeeLeaveRequests.slice(
+      safeSelectedLeaveRequestPage *
+        selectedLeaveRequestsPerPage,
+      safeSelectedLeaveRequestPage *
+        selectedLeaveRequestsPerPage +
+        selectedLeaveRequestsPerPage
+    );
+
   const filteredLeaveRequests =
     leaveRequests.filter((request) => {
 
@@ -4632,6 +4696,154 @@ export default function PersonnelPage() {
         matchesCode
       );
     });
+
+  const leaveRequestsPageCount =
+    Math.max(
+      1,
+      Math.ceil(
+        filteredLeaveRequests.length /
+          leaveRequestsPerPage
+      )
+    );
+
+  const safeLeaveRequestsPage =
+    Math.min(
+      leaveRequestsPage,
+      leaveRequestsPageCount - 1
+    );
+
+  const paginatedLeaveRequests =
+    filteredLeaveRequests.slice(
+      safeLeaveRequestsPage * leaveRequestsPerPage,
+      safeLeaveRequestsPage * leaveRequestsPerPage +
+        leaveRequestsPerPage
+    );
+
+  const selectedEmployeeLeavePagination =
+    selectedEmployeeLeaveRequests.length > 0 ? (
+      <div className="pagination-bar">
+        <span>
+          Mostrando {paginatedSelectedEmployeeLeaveRequests.length} de {selectedEmployeeLeaveRequests.length} licencias
+        </span>
+
+        <div className="table-actions">
+          <select
+            className="form-input"
+            value={selectedLeaveRequestsPerPage}
+            onChange={(e) => {
+              setSelectedLeaveRequestsPerPage(Number(e.target.value));
+              setSelectedLeaveRequestPage(0);
+            }}
+          >
+            <option value={25}>25 por pagina</option>
+            <option value={50}>50 por pagina</option>
+            <option value={100}>100 por pagina</option>
+          </select>
+
+          <button
+            className="btn-secondary"
+            type="button"
+            disabled={safeSelectedLeaveRequestPage === 0}
+            onClick={() =>
+              setSelectedLeaveRequestPage(
+                Math.max(
+                  0,
+                  safeSelectedLeaveRequestPage - 1
+                )
+              )
+            }
+          >
+            Anterior
+          </button>
+
+          <span>
+            {safeSelectedLeaveRequestPage + 1} / {selectedLeaveRequestPageCount}
+          </span>
+
+          <button
+            className="btn-secondary"
+            type="button"
+            disabled={
+              safeSelectedLeaveRequestPage + 1 >=
+              selectedLeaveRequestPageCount
+            }
+            onClick={() =>
+              setSelectedLeaveRequestPage(
+                Math.min(
+                  selectedLeaveRequestPageCount - 1,
+                  safeSelectedLeaveRequestPage + 1
+                )
+              )
+            }
+          >
+            Siguiente
+          </button>
+        </div>
+      </div>
+    ) : null;
+
+  const leaveRequestsPagination =
+    filteredLeaveRequests.length > 0 ? (
+      <div className="pagination-bar">
+        <span>
+          Mostrando {paginatedLeaveRequests.length} de {filteredLeaveRequests.length} solicitudes
+        </span>
+
+        <div className="table-actions">
+          <select
+            className="form-input"
+            value={leaveRequestsPerPage}
+            onChange={(e) => {
+              setLeaveRequestsPerPage(Number(e.target.value));
+              setLeaveRequestsPage(0);
+            }}
+          >
+            <option value={25}>25 por pagina</option>
+            <option value={50}>50 por pagina</option>
+            <option value={100}>100 por pagina</option>
+          </select>
+
+          <button
+            className="btn-secondary"
+            type="button"
+            disabled={safeLeaveRequestsPage === 0}
+            onClick={() =>
+              setLeaveRequestsPage(
+                Math.max(
+                  0,
+                  safeLeaveRequestsPage - 1
+                )
+              )
+            }
+          >
+            Anterior
+          </button>
+
+          <span>
+            {safeLeaveRequestsPage + 1} / {leaveRequestsPageCount}
+          </span>
+
+          <button
+            className="btn-secondary"
+            type="button"
+            disabled={
+              safeLeaveRequestsPage + 1 >=
+              leaveRequestsPageCount
+            }
+            onClick={() =>
+              setLeaveRequestsPage(
+                Math.min(
+                  leaveRequestsPageCount - 1,
+                  safeLeaveRequestsPage + 1
+                )
+              )
+            }
+          >
+            Siguiente
+          </button>
+        </div>
+      </div>
+    ) : null;
 
   const leaveEmployeePageSize = 4;
 
@@ -5525,6 +5737,7 @@ export default function PersonnelPage() {
                 </tbody>
               </table>
             </div>
+
           </>
         )
       }
@@ -6039,6 +6252,7 @@ export default function PersonnelPage() {
                 </tbody>
               </table>
             </div>
+
           </>
         )
       }
@@ -6324,6 +6538,7 @@ export default function PersonnelPage() {
                 </tbody>
               </table>
             </div>
+
           </>
         )
       }
@@ -7714,9 +7929,10 @@ export default function PersonnelPage() {
               <select
                 className="form-input"
                 value={leaveRequestYearFilter}
-                onChange={(e) =>
-                  setLeaveRequestYearFilter(e.target.value)
-                }
+                onChange={(e) => {
+                  setLeaveRequestYearFilter(e.target.value);
+                  setSelectedLeaveRequestPage(0);
+                }}
                 disabled={!selectedLeaveEmployee}
               >
                 <option value="todos">
@@ -7732,6 +7948,8 @@ export default function PersonnelPage() {
                 ))}
               </select>
             </div>
+
+            {selectedEmployeeLeavePagination}
 
             <div className="table-container">
               <table className="data-table">
@@ -7757,7 +7975,7 @@ export default function PersonnelPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {selectedEmployeeLeaveRequests.map((request) => (
+                  {paginatedSelectedEmployeeLeaveRequests.map((request) => (
                     <tr key={request.id}>
                       <td>
                         <button
@@ -7970,6 +8188,8 @@ export default function PersonnelPage() {
                 </tbody>
               </table>
             </div>
+
+            {selectedEmployeeLeavePagination}
           </>
         )
       }
@@ -8494,23 +8714,25 @@ export default function PersonnelPage() {
                 className="form-input"
                 placeholder="Buscar por empleado, legajo, sector o clave"
                 value={leaveRequestFilters.search}
-                onChange={(e) =>
+                onChange={(e) => {
                   setLeaveRequestFilters({
                     ...leaveRequestFilters,
                     search: e.target.value
-                  })
-                }
+                  });
+                  setLeaveRequestsPage(0);
+                }}
               />
 
               <select
                 className="form-input"
                 value={leaveRequestFilters.status}
-                onChange={(e) =>
+                onChange={(e) => {
                   setLeaveRequestFilters({
                     ...leaveRequestFilters,
                     status: e.target.value
-                  })
-                }
+                  });
+                  setLeaveRequestsPage(0);
+                }}
               >
                 <option value="pendiente">Pendientes</option>
                 <option value="aprobado">Aprobadas</option>
@@ -8522,12 +8744,13 @@ export default function PersonnelPage() {
               <select
                 className="form-input"
                 value={leaveRequestFilters.code}
-                onChange={(e) =>
+                onChange={(e) => {
                   setLeaveRequestFilters({
                     ...leaveRequestFilters,
                     code: e.target.value
-                  })
-                }
+                  });
+                  setLeaveRequestsPage(0);
+                }}
               >
                 <option value="todos">Todas las claves</option>
                 {codes
@@ -8549,6 +8772,8 @@ export default function PersonnelPage() {
               Mostrando {filteredLeaveRequests.length} solicitudes
             </p>
 
+            {leaveRequestsPagination}
+
             <div className="table-container">
               <table className="data-table">
                 <thead>
@@ -8569,7 +8794,7 @@ export default function PersonnelPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredLeaveRequests.map((request) => (
+                  {paginatedLeaveRequests.map((request) => (
                     <tr key={request.id}>
                       <td>
                         <button
@@ -8737,6 +8962,8 @@ export default function PersonnelPage() {
                 </tbody>
               </table>
             </div>
+
+            {leaveRequestsPagination}
           </>
         )
       }
@@ -8823,7 +9050,9 @@ export default function PersonnelPage() {
                       className="personnel-form"
                       onSubmit={handleBalanceAdjustmentSubmit}
                     >
-                      <select
+                      <label className="form-field">
+                        <span>Tipo de licencia</span>
+                        <select
                         className="form-input"
                         name="code"
                         value={balanceAdjustmentForm.code}
@@ -8841,11 +9070,14 @@ export default function PersonnelPage() {
                               {code.code} - {code.description}
                             </option>
                           ))}
-                      </select>
+                        </select>
+                      </label>
 
                       <input
                         className="form-input"
                         type="number"
+                        aria-label="Año"
+                        title="Año"
                         name="year"
                         placeholder="Año"
                         value={balanceAdjustmentForm.year}
@@ -8889,53 +9121,65 @@ export default function PersonnelPage() {
                           onSubmit={handleBalanceAdjustmentSubmit}
                         >
                           {selectedBalanceInfo.canEditAllowed && (
-                            <input
-                              className="form-input"
-                              type="number"
-                              step="1"
-                              min="0"
-                              name="allowed_days"
-                              placeholder="Dias que tiene"
-                              value={balanceAdjustmentForm.allowed_days}
-                              onChange={handleBalanceAdjustmentChange}
-                            />
+                            <label className="form-field">
+                              <span>{selectedBalanceInfo.allowedLabel}</span>
+                              <input
+                                className="form-input"
+                                type="number"
+                                step="1"
+                                min="0"
+                                name="allowed_days"
+                                placeholder={selectedBalanceInfo.allowedLabel}
+                                value={balanceAdjustmentForm.allowed_days}
+                                onChange={handleBalanceAdjustmentChange}
+                              />
+                            </label>
                           )}
 
                           {selectedBalanceInfo.unit === 'hours' ? (
-                            <input
-                              className="form-input"
-                              type="number"
-                              step="0.5"
-                              name="used_hours"
-                              placeholder="Nuevo total de horas usadas"
-                              value={balanceAdjustmentForm.used_hours}
-                              onChange={handleBalanceAdjustmentChange}
-                            />
+                            <label className="form-field">
+                              <span>{selectedBalanceInfo.currentLabel}</span>
+                              <input
+                                className="form-input"
+                                type="number"
+                                step="0.5"
+                                name="used_hours"
+                                placeholder="Nuevo total de horas usadas"
+                                value={balanceAdjustmentForm.used_hours}
+                                onChange={handleBalanceAdjustmentChange}
+                              />
+                            </label>
                           ) : (
-                            <input
-                              className="form-input"
-                              type="number"
-                              step="1"
-                              min="0"
-                              name="used_days"
-                              placeholder={
-                                balanceAdjustmentForm.code === 'C'
-                                  ? 'Nuevo total de dias ganados'
-                                  : 'Nuevo total de dias tomados'
-                              }
-                              value={balanceAdjustmentForm.used_days}
-                              onChange={handleBalanceAdjustmentChange}
-                            />
+                            <label className="form-field">
+                              <span>{selectedBalanceInfo.currentLabel}</span>
+                              <input
+                                className="form-input"
+                                type="number"
+                                step="1"
+                                min="0"
+                                name="used_days"
+                                placeholder={
+                                  balanceAdjustmentForm.code === 'C'
+                                    ? 'Nuevo total de dias ganados'
+                                    : 'Nuevo total de dias tomados'
+                                }
+                                value={balanceAdjustmentForm.used_days}
+                                onChange={handleBalanceAdjustmentChange}
+                              />
+                            </label>
                           )}
 
-                          <textarea
-                            className="form-input personnel-notes"
-                            name="notes"
-                            placeholder="Motivo de la correccion"
-                            rows={3}
-                            value={balanceAdjustmentForm.notes}
-                            onChange={handleBalanceAdjustmentChange}
-                          />
+                          <label className="form-field">
+                            <span>Motivo de la correccion</span>
+                            <textarea
+                              className="form-input personnel-notes"
+                              name="notes"
+                              placeholder="Motivo de la correccion"
+                              rows={3}
+                              value={balanceAdjustmentForm.notes}
+                              onChange={handleBalanceAdjustmentChange}
+                            />
+                          </label>
 
                           <button
                             className="btn-success"
@@ -8957,6 +9201,7 @@ export default function PersonnelPage() {
                           <tr>
                             <th>Clave</th>
                             <th>Año</th>
+                            <th>Asignados/Ganados</th>
                             <th>Dias</th>
                             <th>Horas</th>
                             <th>Notas</th>
@@ -8970,6 +9215,7 @@ export default function PersonnelPage() {
                                 {adjustment.code} - {adjustment.description}
                               </td>
                               <td>{adjustment.year}</td>
+                              <td>{Number(adjustment.allowed_days_adjustment || 0) || '-'}</td>
                               <td>{Number(adjustment.used_days || 0) || '-'}</td>
                               <td>{Number(adjustment.used_hours || 0) || '-'}</td>
                               <td>{adjustment.notes || '-'}</td>
