@@ -33,10 +33,10 @@ function validateLaboratoryBody(
   }
 
   if (
-    !Array.isArray(body.requested_test_ids) ||
-    body.requested_test_ids.length === 0
+    !body.has_blood_extraction &&
+    !body.has_urine_sample
   ) {
-    return 'Debe seleccionar al menos una practica solicitada';
+    return 'Debe seleccionar Extraccion, Orina o ambas';
   }
 
   return null;

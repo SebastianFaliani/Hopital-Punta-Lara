@@ -644,7 +644,7 @@ export default function LaboratoryPage() {
             Laboratorio
           </PageTitle>
           <p className="page-subtitle">
-            Hoja de ruta, resultados recibidos y retiro de estudios.
+            Laboratorios, resultados recibidos y retiro de estudios.
           </p>
         </div>
 
@@ -653,7 +653,7 @@ export default function LaboratoryPage() {
             className="btn-primary"
             onClick={openCreate}
           >
-            + Nueva hoja de ruta
+            + Nuevo laboratorio
           </button>
         )}
       </div>
@@ -984,7 +984,7 @@ export default function LaboratoryPage() {
                       {canEdit && canModifyRecord && (
                         <IconButton
                           icon="edit"
-                          label="Editar hoja de ruta"
+                          label="Editar laboratorio"
                           onClick={() =>
                             openEdit(record)
                           }
@@ -1054,7 +1054,7 @@ export default function LaboratoryPage() {
             </button>
 
             <h2 className="modal-title">
-              {editing ? 'Editar hoja de ruta' : 'Nueva hoja de ruta'}
+              {editing ? 'Editar laboratorio' : 'Nuevo laboratorio'}
             </h2>
 
             <form
