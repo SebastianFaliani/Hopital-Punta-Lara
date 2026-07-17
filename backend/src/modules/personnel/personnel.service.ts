@@ -4556,8 +4556,17 @@ export async function createLeaveRequest(
   user?: any
 ) {
 
+  const normalizedData =
+    ['admin', 'dir'].includes(user?.role)
+      ? data
+      : {
+        ...data,
+        is_exception: false,
+        exception_reason: null
+      };
+
   const validated =
-    await validateLeaveRequest(data);
+    await validateLeaveRequest(normalizedData);
 
   await assertEmployeeAccess(
     Number(validated.employee.id),
@@ -4599,27 +4608,27 @@ export async function createLeaveRequest(
           ? 'entrada'
           : 'salida',
         ['24', '43'].includes(validated.code.code)
-          ? data.exit_reason || null
+          ? normalizedData.exit_reason || null
           : null,
         ['24', '43'].includes(validated.code.code)
-          ? data.exit_time || null
+          ? normalizedData.exit_time || null
           : null,
         validated.code.code === '43'
-          ? data.return_time || null
+          ? normalizedData.return_time || null
           : null,
         validated.code.code === '43'
-          ? Boolean(data.no_return)
+          ? Boolean(normalizedData.no_return)
           : false,
         validated.code.code === '26'
-          ? data.shift_label || null
+          ? normalizedData.shift_label || null
           : null,
         ['17', '18'].includes(validated.code.code)
-          ? data.exam_type || null
+          ? normalizedData.exam_type || null
           : null,
-        Boolean(data.is_exception),
-        data.exception_reason || null,
+        Boolean(normalizedData.is_exception),
+        normalizedData.exception_reason || null,
         userId || null,
-        data.notes || null
+        normalizedData.notes || null
       ]
     );
 
@@ -4633,9 +4642,18 @@ export async function updateLeaveRequest(
   user?: any
 ) {
 
+  const normalizedData =
+    ['admin', 'dir'].includes(user?.role)
+      ? data
+      : {
+        ...data,
+        is_exception: false,
+        exception_reason: null
+      };
+
   const validated =
     await validateLeaveRequest(
-      data,
+      normalizedData,
       id
     );
 
@@ -4734,26 +4752,26 @@ export async function updateLeaveRequest(
           ? 'entrada'
           : 'salida',
         ['24', '43'].includes(validated.code.code)
-          ? data.exit_reason || null
+          ? normalizedData.exit_reason || null
           : null,
         ['24', '43'].includes(validated.code.code)
-          ? data.exit_time || null
+          ? normalizedData.exit_time || null
           : null,
         validated.code.code === '43'
-          ? data.return_time || null
+          ? normalizedData.return_time || null
           : null,
         validated.code.code === '43'
-          ? Boolean(data.no_return)
+          ? Boolean(normalizedData.no_return)
           : false,
         validated.code.code === '26'
-          ? data.shift_label || null
+          ? normalizedData.shift_label || null
           : null,
         ['17', '18'].includes(validated.code.code)
-          ? data.exam_type || null
+          ? normalizedData.exam_type || null
           : null,
-        Boolean(data.is_exception),
-        data.exception_reason || null,
-        data.notes || null,
+        Boolean(normalizedData.is_exception),
+        normalizedData.exception_reason || null,
+        normalizedData.notes || null,
         userId || null,
         id
       ]

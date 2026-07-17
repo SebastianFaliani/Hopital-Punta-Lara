@@ -983,6 +983,10 @@ export default function PersonnelPage() {
       ['admin', 'dir']
     );
 
+  const canUseLeaveExceptions =
+    user?.role === 'admin' ||
+    user?.role === 'dir';
+
   const canEditApprovedLeaves =
     user?.role === 'admin' ||
     user?.role === 'dir';
@@ -7868,23 +7872,27 @@ export default function PersonnelPage() {
                 </select>
               )}
 
-              <label className="checkbox-row">
-                <input
-                  type="checkbox"
-                  name="is_exception"
-                  checked={leaveForm.is_exception}
-                  onChange={handleLeaveChange}
-                />
-                Excepcion autorizada
-              </label>
+              {canUseLeaveExceptions && (
+                <>
+                  <label className="checkbox-row">
+                    <input
+                      type="checkbox"
+                      name="is_exception"
+                      checked={leaveForm.is_exception}
+                      onChange={handleLeaveChange}
+                    />
+                    Excepcion autorizada
+                  </label>
 
-              <input
-                className="form-input"
-                name="exception_reason"
-                placeholder="Motivo de excepcion"
-                value={leaveForm.exception_reason}
-                onChange={handleLeaveChange}
-              />
+                  <input
+                    className="form-input"
+                    name="exception_reason"
+                    placeholder="Motivo de excepcion"
+                    value={leaveForm.exception_reason}
+                    onChange={handleLeaveChange}
+                  />
+                </>
+              )}
 
               <textarea
                 className="form-input personnel-notes"
