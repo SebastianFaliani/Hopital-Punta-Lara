@@ -107,6 +107,38 @@
   background: #eff6ff;
 }
 
+.data-table tbody tr.selectable-row {
+
+  cursor: pointer;
+}
+
+.data-table tbody tr.selectable-row:hover {
+
+  background: #f8fafc;
+}
+
+.data-table tbody tr.selected-row.selectable-row:hover {
+
+  background: #eff6ff;
+}
+
+.data-table tbody tr.selectable-row:focus-visible {
+
+  outline: 2px solid var(--color-primary);
+
+  outline-offset: -2px;
+}
+
+.vaccine-transfer-picker-table .data-table th,
+.vaccine-transfer-picker-table .data-table td {
+
+  padding: 8px 10px;
+
+  height: 38px;
+
+  vertical-align: middle;
+}
+
 .data-table tbody tr.package-item-missing-row {
 
   background: #fffbeb;

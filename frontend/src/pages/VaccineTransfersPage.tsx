@@ -70,6 +70,22 @@ type TransferItemForm = {
   quantity: number;
 };
 
+const emptyTransferForm = {
+  source_facility_id: '',
+  destination_facility_id: '',
+  transfer_date: todayInputValue(),
+  notes: ''
+};
+
+const emptyDraftItem: TransferItemForm = {
+  vaccine_batch_id: '',
+  quantity: 1
+};
+
+const stockSearchPageSize = 3;
+
+const transferItemsPageSize = 5;
+
 const statusLabels: Record<string, string> = {
   enviado: 'Enviado',
   recibido: 'Recibido',
@@ -99,22 +115,6 @@ function formatDateTime(
   }
 
   return formatDisplayDateTime(value);
-}
-
-function stockLabel(
-  stock: FacilityStock
-) {
-
-  return [
-    stock.vaccine_name,
-    stock.target_disease,
-    stock.presentation,
-    stock.dose_unit,
-    `lote ${stock.batch_number}`,
-    `stock ${Number(stock.current_stock)}`
-  ]
-    .filter(Boolean)
-    .join(' - ');
 }
 
 export default function VaccineTransfersPage() {
@@ -159,20 +159,25 @@ export default function VaccineTransfersPage() {
     });
 
   const [form, setForm] =
-    useState({
-      source_facility_id: '',
-      destination_facility_id: '',
-      transfer_date: todayInputValue(),
-      notes: ''
-    });
+    useState(emptyTransferForm);
 
   const [items, setItems] =
-    useState<TransferItemForm[]>([
-      {
-        vaccine_batch_id: '',
-        quantity: 1
-      }
-    ]);
+    useState<TransferItemForm[]>([]);
+
+  const [draftItem, setDraftItem] =
+    useState<TransferItemForm>(emptyDraftItem);
+
+  const [showCreateModal, setShowCreateModal] =
+    useState(false);
+
+  const [stockSearch, setStockSearch] =
+    useState('');
+
+  const [stockSearchPage, setStockSearchPage] =
+    useState(1);
+
+  const [transferItemsPage, setTransferItemsPage] =
+    useState(1);
 
   const [loading, setLoading] =
     useState(false);
@@ -228,6 +233,118 @@ export default function VaccineTransfersPage() {
 
       return map;
     }, [facilityStocks]);
+
+  const sortedFacilityStocks =
+    useMemo(() =>
+      [...facilityStocks].sort((first, second) =>
+        (
+          first.vaccine_name.localeCompare(
+            second.vaccine_name,
+            'es-AR',
+            {
+              sensitivity: 'base'
+            }
+          ) ||
+          String(first.target_disease || '').localeCompare(
+            String(second.target_disease || ''),
+            'es-AR',
+            {
+              sensitivity: 'base'
+            }
+          ) ||
+          String(first.expiration_date).localeCompare(
+            String(second.expiration_date)
+          )
+        )
+      ),
+    [facilityStocks]);
+
+  const filteredFacilityStocks =
+    useMemo(() => {
+      const search =
+        stockSearch
+          .trim()
+          .toLowerCase();
+
+      if (!search) {
+        return sortedFacilityStocks;
+      }
+
+      return sortedFacilityStocks.filter((stock) =>
+        [
+          stock.vaccine_name,
+          stock.target_disease,
+          stock.presentation,
+          stock.dose_unit,
+          stock.batch_number,
+          formatDate(stock.expiration_date)
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase()
+          .includes(search)
+      );
+    }, [
+      sortedFacilityStocks,
+      stockSearch
+    ]);
+
+  const stockSearchTotalPages =
+    Math.max(
+      1,
+      Math.ceil(
+        filteredFacilityStocks.length / stockSearchPageSize
+      )
+    );
+
+  const paginatedFacilityStocks =
+    filteredFacilityStocks.slice(
+      (stockSearchPage - 1) * stockSearchPageSize,
+      stockSearchPage * stockSearchPageSize
+    );
+
+  const stockResultVisibleRows =
+    paginatedFacilityStocks.length || 1;
+
+  const stockPlaceholderRows =
+    Array.from({
+      length:
+        Math.max(
+          0,
+          stockSearchPageSize - stockResultVisibleRows
+        )
+    });
+
+  const transferItemsTotalPages =
+    Math.max(
+      1,
+      Math.ceil(
+        items.length / transferItemsPageSize
+      )
+    );
+
+  const paginatedTransferItems =
+    items.slice(
+      (transferItemsPage - 1) * transferItemsPageSize,
+      transferItemsPage * transferItemsPageSize
+    );
+
+  const transferItemsVisibleRows =
+    paginatedTransferItems.length || 1;
+
+  const transferItemsPlaceholderRows =
+    Array.from({
+      length:
+        Math.max(
+          0,
+          transferItemsPageSize - transferItemsVisibleRows
+        )
+    });
+
+  const selectedDraftStock =
+    stocksById.get(
+      Number(draftItem.vaccine_batch_id)
+    );
 
   async function loadFacilities() {
 
@@ -365,44 +482,147 @@ export default function VaccineTransfersPage() {
     }
   }
 
-  function updateItem(
-    index: number,
-    key: keyof TransferItemForm,
-    value: string | number
-  ) {
+  function resetTransferDraft() {
+    setItems([]);
+    setDraftItem(emptyDraftItem);
+    setStockSearch('');
+    setStockSearchPage(1);
+    setTransferItemsPage(1);
+  }
 
-    setItems((current) =>
-      current.map((item, itemIndex) =>
-        itemIndex === index
+  function openCreateTransfer() {
+    setError('');
+    resetTransferDraft();
+    setShowCreateModal(true);
+  }
+
+  function closeCreateTransfer() {
+    setShowCreateModal(false);
+    resetTransferDraft();
+  }
+
+  function addDraftItem() {
+    setError('');
+
+    if (!draftItem.vaccine_batch_id) {
+      setError('Selecciona una vacuna y lote para agregar.');
+      return;
+    }
+
+    if (Number(draftItem.quantity) <= 0) {
+      setError('La cantidad debe ser mayor a cero.');
+      return;
+    }
+
+    const stock =
+      stocksById.get(
+        Number(draftItem.vaccine_batch_id)
+      );
+
+    if (!stock) {
+      setError('El lote seleccionado no esta disponible.');
+      return;
+    }
+
+    const existingQuantity =
+      items
+        .filter((item) =>
+          item.vaccine_batch_id === draftItem.vaccine_batch_id
+        )
+        .reduce(
+          (total, item) =>
+            total + Number(item.quantity || 0),
+          0
+        );
+
+    const nextQuantity =
+      existingQuantity + Number(draftItem.quantity);
+
+    if (nextQuantity > Number(stock.current_stock)) {
+      setError(
+        `La cantidad supera el stock disponible del lote ${stock.batch_number}.`
+      );
+      return;
+    }
+
+    setItems((current) => {
+      const existingIndex =
+        current.findIndex((item) =>
+          item.vaccine_batch_id === draftItem.vaccine_batch_id
+        );
+
+      if (existingIndex === -1) {
+        setTransferItemsPage(
+          Math.max(
+            1,
+            Math.ceil(
+              (current.length + 1) / transferItemsPageSize
+            )
+          )
+        );
+
+        return [
+          ...current,
+          {
+            vaccine_batch_id: draftItem.vaccine_batch_id,
+            quantity: Number(draftItem.quantity)
+          }
+        ];
+      }
+
+      return current.map((item, index) =>
+        index === existingIndex
           ? {
               ...item,
-              [key]: value
+              quantity:
+                Number(item.quantity) + Number(draftItem.quantity)
             }
           : item
-      )
-    );
+      );
+    });
+
+    setDraftItem(emptyDraftItem);
   }
 
-  function addItem() {
-
-    setItems((current) => [
+  function selectDraftStock(
+    stock: FacilityStock
+  ) {
+    setDraftItem((current) => ({
       ...current,
-      {
-        vaccine_batch_id: '',
-        quantity: 1
-      }
-    ]);
+      vaccine_batch_id:
+        String(stock.vaccine_batch_id),
+      quantity: Math.min(
+        Math.max(
+          Number(current.quantity || 1),
+          1
+        ),
+        Number(stock.current_stock)
+      )
+    }));
+    setError('');
   }
 
-  function removeItem(
+  function removeItemByAbsoluteIndex(
     index: number
   ) {
+    setItems((current) => {
+      const next =
+        current.filter((_, itemIndex) =>
+          itemIndex !== index
+        );
 
-    setItems((current) =>
-      current.filter((_, itemIndex) =>
-        itemIndex !== index
-      )
-    );
+      setTransferItemsPage((page) =>
+        Math.min(
+          page,
+          Math.max(
+            1,
+            Math.ceil(next.length / transferItemsPageSize)
+          )
+        )
+      );
+
+      return next;
+    });
   }
 
   async function handleCreateTransfer(
@@ -415,6 +635,11 @@ export default function VaccineTransfersPage() {
 
       setLoading(true);
       setError('');
+
+      if (items.length === 0) {
+        setError('Agrega al menos una vacuna al traslado.');
+        return;
+      }
 
       await apiFetch(
         '/vaccine-transfers',
@@ -437,12 +662,8 @@ export default function VaccineTransfersPage() {
         }
       );
 
-      setItems([
-        {
-          vaccine_batch_id: '',
-          quantity: 1
-        }
-      ]);
+      resetTransferDraft();
+      setShowCreateModal(false);
 
       setForm((current) => ({
         ...current,
@@ -563,6 +784,16 @@ export default function VaccineTransfersPage() {
 
         </div>
 
+        {canEdit && (
+          <button
+            className="btn-primary"
+            onClick={openCreateTransfer}
+            type="button"
+          >
+            + Nuevo traslado
+          </button>
+        )}
+
       </div>
 
       <VaccineModuleTabs />
@@ -594,192 +825,6 @@ export default function VaccineTransfersPage() {
         </div>
 
       </div>
-
-      {canEdit && (
-
-        <form
-          className="dashboard-panel auth-form"
-          onSubmit={handleCreateTransfer}
-        >
-
-          <h2>Nuevo traslado</h2>
-
-          <div className="filter-bar">
-
-            <select
-              className="form-input"
-              value={form.source_facility_id}
-              disabled={!canSelectSource}
-              onChange={(e) =>
-                setForm({
-                  ...form,
-                  source_facility_id: e.target.value
-                })
-              }
-            >
-              <option value="">
-                Origen
-              </option>
-
-              {facilities.map((facility) => (
-                <option
-                  key={facility.id}
-                  value={facility.id}
-                >
-                  {facility.name}
-                </option>
-              ))}
-            </select>
-
-            <select
-              className="form-input"
-              value={form.destination_facility_id}
-              onChange={(e) =>
-                setForm({
-                  ...form,
-                  destination_facility_id: e.target.value
-                })
-              }
-            >
-              <option value="">
-                Destino
-              </option>
-
-              {facilities.map((facility) => (
-                <option
-                  key={facility.id}
-                  value={facility.id}
-                >
-                  {facility.name}
-                </option>
-              ))}
-            </select>
-
-            <input
-              className="form-input"
-              type="date"
-              value={form.transfer_date}
-              onChange={(e) =>
-                setForm({
-                  ...form,
-                  transfer_date: e.target.value
-                })
-              }
-            />
-
-          </div>
-
-          {items.map((item, index) => {
-            const selectedStock =
-              stocksById.get(
-                Number(item.vaccine_batch_id)
-              );
-
-            return (
-              <div
-                className="filter-bar"
-                key={index}
-              >
-
-                <select
-                  className="form-input"
-                  value={item.vaccine_batch_id}
-                  onChange={(e) =>
-                    updateItem(
-                      index,
-                      'vaccine_batch_id',
-                      e.target.value
-                    )
-                  }
-                >
-                  <option value="">
-                    Vacuna / lote
-                  </option>
-
-                  {facilityStocks.map((stock) => (
-                    <option
-                      key={stock.vaccine_batch_id}
-                      value={stock.vaccine_batch_id}
-                    >
-                      {stockLabel(stock)}
-                    </option>
-                  ))}
-                </select>
-
-                <input
-                  className="form-input"
-                  type="number"
-                  min="0"
-                  step="1"
-                  max={
-                    selectedStock
-                      ? Number(selectedStock.current_stock)
-                      : undefined
-                  }
-                  value={item.quantity}
-                  onChange={(e) =>
-                    updateItem(
-                      index,
-                      'quantity',
-                      Number(e.target.value)
-                    )
-                  }
-                />
-
-                <button
-                  type="button"
-                  className="btn-danger"
-                  onClick={() =>
-                    removeItem(index)
-                  }
-                  disabled={items.length === 1}
-                >
-                  Quitar
-                </button>
-
-              </div>
-            );
-          })}
-
-          <textarea
-            className="form-input"
-            placeholder="Observaciones"
-            rows={3}
-            value={form.notes}
-            onChange={(e) =>
-              setForm({
-                ...form,
-                notes: e.target.value
-              })
-            }
-          />
-
-          <div className="modal-actions">
-
-            <button
-              type="button"
-              className="btn-secondary"
-              onClick={addItem}
-            >
-              + Agregar Vacuna
-            </button>
-
-            <button
-              type="submit"
-              className="btn-success"
-              disabled={loading}
-            >
-              {
-                loading
-                  ? 'Guardando...'
-                  : 'Crear traslado'
-              }
-            </button>
-
-          </div>
-
-        </form>
-      )}
 
       <div className="filter-bar">
 
@@ -1059,6 +1104,414 @@ export default function VaccineTransfersPage() {
           </button>
         </div>
       </div>
+
+      {showCreateModal && canEdit && (
+
+        <div className="modal-overlay">
+
+          <div className="modal-content modal-content-wide">
+
+            <h2 className="modal-title">
+              Nuevo traslado
+            </h2>
+
+            <form
+              className="auth-form"
+              onSubmit={handleCreateTransfer}
+            >
+
+              <div className="filter-bar">
+
+                <select
+                  className="form-input"
+                  value={form.source_facility_id}
+                  disabled={!canSelectSource}
+                  onChange={(e) => {
+                    setForm({
+                      ...form,
+                      source_facility_id: e.target.value
+                    });
+                    resetTransferDraft();
+                  }}
+                >
+                  <option value="">
+                    Origen
+                  </option>
+
+                  {facilities.map((facility) => (
+                    <option
+                      key={facility.id}
+                      value={facility.id}
+                    >
+                      {facility.name}
+                    </option>
+                  ))}
+                </select>
+
+                <select
+                  className="form-input"
+                  value={form.destination_facility_id}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      destination_facility_id: e.target.value
+                    })
+                  }
+                >
+                  <option value="">
+                    Destino
+                  </option>
+
+                  {facilities.map((facility) => (
+                    <option
+                      key={facility.id}
+                      value={facility.id}
+                    >
+                      {facility.name}
+                    </option>
+                  ))}
+                </select>
+
+                <input
+                  className="form-input"
+                  type="date"
+                  value={form.transfer_date}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      transfer_date: e.target.value
+                    })
+                  }
+                />
+
+              </div>
+
+              <div className="filter-bar">
+
+                <input
+                  className="form-input"
+                  placeholder="Buscar vacuna, enfermedad, presentacion o lote"
+                  value={stockSearch}
+                  onChange={(e) => {
+                    setStockSearch(e.target.value);
+                    setStockSearchPage(1);
+                  }}
+                />
+
+                <input
+                  className="form-input"
+                  type="number"
+                  min="1"
+                  step="1"
+                  max={
+                    selectedDraftStock
+                      ? Number(selectedDraftStock.current_stock)
+                      : undefined
+                  }
+                  value={draftItem.quantity}
+                  onChange={(e) =>
+                    setDraftItem({
+                      ...draftItem,
+                      quantity: Number(e.target.value)
+                    })
+                  }
+                />
+
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={addDraftItem}
+                >
+                  Agregar a grilla
+                </button>
+
+              </div>
+
+              <div className="table-container vaccine-transfer-picker-table">
+
+                <table className="data-table">
+
+                  <thead>
+                    <tr>
+                      <th>Vacuna</th>
+                      <th>Lote</th>
+                      <th>Vencimiento</th>
+                      <th>Stock</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {paginatedFacilityStocks.map((stock) => (
+                      <tr
+                        className={
+                          draftItem.vaccine_batch_id === String(stock.vaccine_batch_id)
+                            ? 'selected-row selectable-row'
+                            : 'selectable-row'
+                        }
+                        key={stock.vaccine_batch_id}
+                        onClick={() =>
+                          selectDraftStock(stock)
+                        }
+                        onKeyDown={(event) => {
+                          if (
+                            event.key === 'Enter' ||
+                            event.key === ' '
+                          ) {
+                            event.preventDefault();
+                            selectDraftStock(stock);
+                          }
+                        }}
+                        tabIndex={0}
+                        title="Seleccionar lote"
+                      >
+                        <td>
+                          {[
+                            stock.vaccine_name,
+                            stock.target_disease,
+                            stock.presentation,
+                            stock.dose_unit
+                          ]
+                            .filter(Boolean)
+                            .join(' - ')}
+                        </td>
+                        <td>{stock.batch_number}</td>
+                        <td>{formatDate(stock.expiration_date)}</td>
+                        <td>{Number(stock.current_stock)}</td>
+                      </tr>
+                    ))}
+
+                    {paginatedFacilityStocks.length === 0 && (
+                      <tr>
+                        <td colSpan={4}>
+                          No hay lotes disponibles para esa busqueda.
+                        </td>
+                      </tr>
+                    )}
+
+                    {stockPlaceholderRows.map((_, index) => (
+                      <tr key={`stock-placeholder-${index}`}>
+                        <td>&nbsp;</td>
+                        <td>&nbsp;</td>
+                        <td>&nbsp;</td>
+                        <td>&nbsp;</td>
+                      </tr>
+                    ))}
+                  </tbody>
+
+                </table>
+
+              </div>
+
+              <div className="modal-actions">
+                <span className="page-subtitle">
+                  Pagina {stockSearchPage} de {stockSearchTotalPages} - {filteredFacilityStocks.length} lotes
+                </span>
+
+                <div className="table-actions">
+                  <button
+                    className="btn-secondary"
+                    disabled={stockSearchPage <= 1}
+                    onClick={() =>
+                      setStockSearchPage((current) =>
+                        Math.max(1, current - 1)
+                      )
+                    }
+                    type="button"
+                  >
+                    Anterior
+                  </button>
+
+                  <button
+                    className="btn-secondary"
+                    disabled={stockSearchPage >= stockSearchTotalPages}
+                    onClick={() =>
+                      setStockSearchPage((current) =>
+                        Math.min(
+                          stockSearchTotalPages,
+                          current + 1
+                        )
+                      )
+                    }
+                    type="button"
+                  >
+                    Siguiente
+                  </button>
+                </div>
+              </div>
+
+              <div className="table-container vaccine-transfer-picker-table">
+
+                <table className="data-table">
+
+                  <thead>
+                    <tr>
+                      <th>Vacuna</th>
+                      <th>Lote</th>
+                      <th>Vencimiento</th>
+                      <th>Stock</th>
+                      <th>Cantidad</th>
+                      <th>Acciones</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {paginatedTransferItems.map((item, index) => {
+                      const stock =
+                        stocksById.get(
+                          Number(item.vaccine_batch_id)
+                        );
+
+                      const absoluteIndex =
+                        (transferItemsPage - 1) *
+                          transferItemsPageSize +
+                        index;
+
+                      return (
+                        <tr key={`${item.vaccine_batch_id}-${absoluteIndex}`}>
+                          <td>
+                            {stock
+                              ? [
+                                  stock.vaccine_name,
+                                  stock.target_disease,
+                                  stock.presentation,
+                                  stock.dose_unit
+                                ]
+                                  .filter(Boolean)
+                                  .join(' - ')
+                              : '-'}
+                          </td>
+                          <td>{stock?.batch_number || '-'}</td>
+                          <td>
+                            {stock
+                              ? formatDate(stock.expiration_date)
+                              : '-'}
+                          </td>
+                          <td>
+                            {stock
+                              ? Number(stock.current_stock)
+                              : '-'}
+                          </td>
+                          <td>{Number(item.quantity)}</td>
+                          <td>
+                            <IconButton
+                              icon="trash"
+                              label="Quitar vacuna"
+                              onClick={() =>
+                                removeItemByAbsoluteIndex(
+                                  absoluteIndex
+                                )
+                              }
+                              variant="danger"
+                            />
+                          </td>
+                        </tr>
+                      );
+                    })}
+
+                    {items.length === 0 && (
+                      <tr>
+                        <td colSpan={6}>
+                          Agrega vacunas al traslado.
+                        </td>
+                      </tr>
+                    )}
+
+                    {transferItemsPlaceholderRows.map((_, index) => (
+                      <tr key={`transfer-item-placeholder-${index}`}>
+                        <td>&nbsp;</td>
+                        <td>&nbsp;</td>
+                        <td>&nbsp;</td>
+                        <td>&nbsp;</td>
+                        <td>&nbsp;</td>
+                        <td>&nbsp;</td>
+                      </tr>
+                    ))}
+                  </tbody>
+
+                </table>
+
+              </div>
+
+              <div className="modal-actions">
+                <span className="page-subtitle">
+                  Pagina {transferItemsPage} de {transferItemsTotalPages} - {items.length} vacunas agregadas
+                </span>
+
+                <div className="table-actions">
+                  <button
+                    className="btn-secondary"
+                    disabled={transferItemsPage <= 1}
+                    onClick={() =>
+                      setTransferItemsPage((current) =>
+                        Math.max(1, current - 1)
+                      )
+                    }
+                    type="button"
+                  >
+                    Anterior
+                  </button>
+
+                  <button
+                    className="btn-secondary"
+                    disabled={transferItemsPage >= transferItemsTotalPages}
+                    onClick={() =>
+                      setTransferItemsPage((current) =>
+                        Math.min(
+                          transferItemsTotalPages,
+                          current + 1
+                        )
+                      )
+                    }
+                    type="button"
+                  >
+                    Siguiente
+                  </button>
+                </div>
+              </div>
+
+              <textarea
+                className="form-input"
+                placeholder="Observaciones"
+                rows={3}
+                value={form.notes}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    notes: e.target.value
+                  })
+                }
+              />
+
+              <div className="modal-actions">
+
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={closeCreateTransfer}
+                >
+                  Cancelar
+                </button>
+
+                <button
+                  type="submit"
+                  className="btn-success"
+                  disabled={loading || items.length === 0}
+                >
+                  {
+                    loading
+                      ? 'Guardando...'
+                      : 'Crear traslado'
+                  }
+                </button>
+
+              </div>
+
+            </form>
+
+          </div>
+
+        </div>
+      )}
 
       {selectedTransfer && (
 
