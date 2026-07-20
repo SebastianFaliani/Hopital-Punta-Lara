@@ -98,6 +98,14 @@ export default function VaccinesPage() {
         : ''
     );
 
+  const [alertModal, setAlertModal] =
+    useState<
+      'stock_bajo' |
+      'por_vencer' |
+      'vencidos' |
+      null
+    >(null);
+
   async function loadVaccines() {
     try {
       const facilityQuery =
@@ -394,65 +402,41 @@ export default function VaccinesPage() {
 
       <div className="dashboard-grid">
 
-        <div className="dashboard-card">
+        <button
+          className="dashboard-card dashboard-card-clickable"
+          onClick={() =>
+            setAlertModal('stock_bajo')
+          }
+          type="button"
+        >
           <h3>Stock bajo</h3>
           <p>{lowStockVaccines.length}</p>
           <span>Vacunas para revisar</span>
-        </div>
+        </button>
 
-        <div className="dashboard-card">
+        <button
+          className="dashboard-card dashboard-card-clickable"
+          onClick={() =>
+            setAlertModal('por_vencer')
+          }
+          type="button"
+        >
           <h3>Por vencer</h3>
           <p>{expiringBatches.length}</p>
           <span>Lotes en los proximos 30 dias</span>
-        </div>
+        </button>
 
-        <div className="dashboard-card">
+        <button
+          className="dashboard-card dashboard-card-clickable"
+          onClick={() =>
+            setAlertModal('vencidos')
+          }
+          type="button"
+        >
           <h3>Vencidos</h3>
           <p>{expiredBatches.length}</p>
           <span>Lotes activos vencidos</span>
-        </div>
-
-      </div>
-
-      <div className="dashboard-sections">
-
-        <section className="dashboard-panel">
-          <h2>Alertas de stock</h2>
-          <div className="dashboard-list">
-            {lowStockVaccines.slice(0, 5).map((vaccine) => (
-              <div
-                className="dashboard-list-item"
-                key={vaccine.id}
-              >
-                <strong>{vaccine.name}</strong>
-                <span>Stock: {Number(vaccine.total_stock || 0)}</span>
-                <span>Minimo: {Number(vaccine.minimum_stock || 0)}</span>
-              </div>
-            ))}
-            {lowStockVaccines.length === 0 && (
-              <p className="page-subtitle">Sin alertas de stock.</p>
-            )}
-          </div>
-        </section>
-
-        <section className="dashboard-panel">
-          <h2>Vencimientos proximos</h2>
-          <div className="dashboard-list">
-            {expiringBatches.slice(0, 5).map((batch) => (
-              <div
-                className="dashboard-list-item"
-                key={batch.id}
-              >
-                <strong>{batch.vaccineName} - lote {batch.batch_number}</strong>
-                <span>Vence: {formatDisplayDate(batch.expiration_date)}</span>
-                <span>Stock: {Number(batch.current_stock)}</span>
-              </div>
-            ))}
-            {expiringBatches.length === 0 && (
-              <p className="page-subtitle">Sin vencimientos proximos.</p>
-            )}
-          </div>
-        </section>
+        </button>
 
       </div>
 
@@ -762,6 +746,116 @@ export default function VaccinesPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {alertModal && (
+        <div className="modal-overlay">
+          <div className="modal-content modal-content-wide">
+            <h2 className="modal-title">
+              {
+                alertModal === 'stock_bajo'
+                  ? 'Stock bajo'
+                  : alertModal === 'por_vencer'
+                    ? 'Vencimientos proximos'
+                    : 'Lotes vencidos'
+              }
+            </h2>
+
+            {alertModal === 'stock_bajo' && (
+              <div className="table-container">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Vacuna</th>
+                      <th>Previene</th>
+                      <th>Presentacion</th>
+                      <th>Stock</th>
+                      <th>Minimo</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {lowStockVaccines.map((vaccine) => (
+                      <tr key={vaccine.id}>
+                        <td>{vaccine.name}</td>
+                        <td>{vaccine.target_disease || '-'}</td>
+                        <td>{vaccine.presentation || '-'}</td>
+                        <td>{Number(vaccine.total_stock || 0)}</td>
+                        <td>{Number(vaccine.minimum_stock || 0)}</td>
+                      </tr>
+                    ))}
+
+                    {lowStockVaccines.length === 0 && (
+                      <tr>
+                        <td colSpan={5}>
+                          Sin vacunas con stock bajo.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {alertModal !== 'stock_bajo' && (
+              <div className="table-container">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Vacuna</th>
+                      <th>Lote</th>
+                      <th>Vencimiento</th>
+                      <th>Stock</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {(
+                      alertModal === 'por_vencer'
+                        ? expiringBatches
+                        : expiredBatches
+                    ).map((batch) => (
+                      <tr key={batch.id}>
+                        <td>{batch.vaccineName}</td>
+                        <td>{batch.batch_number}</td>
+                        <td>{formatDisplayDate(batch.expiration_date)}</td>
+                        <td>{Number(batch.current_stock)}</td>
+                      </tr>
+                    ))}
+
+                    {(
+                      alertModal === 'por_vencer'
+                        ? expiringBatches
+                        : expiredBatches
+                    ).length === 0 && (
+                      <tr>
+                        <td colSpan={4}>
+                          {
+                            alertModal === 'por_vencer'
+                              ? 'Sin lotes por vencer.'
+                              : 'Sin lotes vencidos.'
+                          }
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            <div className="modal-actions">
+              <button
+                className="btn-secondary"
+                onClick={() =>
+                  setAlertModal(null)
+                }
+                type="button"
+              >
+                Cerrar
+              </button>
+            </div>
           </div>
         </div>
       )}
