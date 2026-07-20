@@ -3,6 +3,8 @@ import {
   useState
 } from 'react';
 
+import { Capacitor } from '@capacitor/core';
+
 import {
   getApiUrl
 } from '../api/api';
@@ -63,6 +65,10 @@ export default function AppUpdateModal() {
     useState<UpdateInfo | null>(null);
 
   useEffect(() => {
+    if (!Capacitor.isNativePlatform()) {
+      return;
+    }
+
     let cancelled =
       false;
 
