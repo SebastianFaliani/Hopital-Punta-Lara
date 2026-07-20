@@ -10,7 +10,8 @@ import {
   handleCancelMedicationDelivery,
   handleCreateMedicationDelivery,
   handleGetMedicationDeliveries,
-  handleGetMedicationDeliveryById
+  handleGetMedicationDeliveryById,
+  handleUpdateMedicationDelivery
 } from './medication-deliveries.controller';
 
 const router = Router();
@@ -45,6 +46,13 @@ router.post(
     'farmacia'
   ),
   handleCreateMedicationDelivery
+);
+
+router.put(
+  '/:id',
+  authenticateToken,
+  authorizeRoles('admin'),
+  handleUpdateMedicationDelivery
 );
 
 router.patch(

@@ -380,6 +380,150 @@ export async function createMedicationDelivery(
   }
 }
 
+export async function updateMedicationDelivery(
+  id: number,
+  data: MedicationDeliveryInput
+) {
+
+  const connection =
+    await pool.getConnection();
+
+  try {
+
+    await connection.beginTransaction();
+
+    const [deliveryRows]: any =
+      await connection.query(
+        `
+          SELECT *
+          FROM medication_deliveries
+          WHERE id = ?
+          FOR UPDATE
+        `,
+        [id]
+      );
+
+    if (deliveryRows.length === 0) {
+      throw new Error('Entrega no encontrada');
+    }
+
+    const delivery =
+      deliveryRows[0];
+
+    if (delivery.status !== 'entregado') {
+      throw new Error(
+        'Solo se pueden editar entregas activas'
+      );
+    }
+
+    const [oldItems]: any =
+      await connection.query(
+        `
+          SELECT medication_batch_id, quantity
+          FROM medication_delivery_items
+          WHERE medication_delivery_id = ?
+        `,
+        [id]
+      );
+
+    for (const item of oldItems) {
+      await updateFacilityStock(
+        connection,
+        Number(item.medication_batch_id),
+        Number(delivery.facility_id),
+        Number(item.quantity),
+        'No se pudo devolver el stock anterior de la entrega'
+      );
+    }
+
+    await connection.query(
+      `
+        UPDATE medication_deliveries
+        SET
+          facility_id = ?,
+          delivery_date = ?,
+          patient_id = ?,
+          patient_name = ?,
+          patient_document = ?,
+          patient_phone = ?,
+          delivery_reason = ?,
+          notes = ?
+        WHERE id = ?
+      `,
+      [
+        data.facility_id,
+        data.delivery_date,
+        data.patient_id ?? null,
+        data.patient_name,
+        data.patient_document ?? null,
+        data.patient_phone ?? null,
+        data.delivery_reason,
+        data.notes ?? null,
+        id
+      ]
+    );
+
+    await connection.query(
+      `
+        DELETE FROM medication_delivery_items
+        WHERE medication_delivery_id = ?
+      `,
+      [id]
+    );
+
+    for (const item of data.items) {
+      const quantity =
+        Number(item.quantity);
+
+      await updateFacilityStock(
+        connection,
+        Number(item.medication_batch_id),
+        data.facility_id,
+        quantity * -1,
+        'La entrega deja stock negativo en el punto seleccionado'
+      );
+
+      await connection.query(
+        `
+          INSERT INTO medication_delivery_items (
+            medication_delivery_id,
+            medication_batch_id,
+            quantity
+          )
+          VALUES (?, ?, ?)
+        `,
+        [
+          id,
+          Number(item.medication_batch_id),
+          quantity
+        ]
+      );
+
+      await insertDeliveryMovement(
+        connection,
+        Number(item.medication_batch_id),
+        data.facility_id,
+        'edicion_entrega_paciente',
+        quantity * -1,
+        id,
+        data.created_by
+      );
+    }
+
+    await connection.commit();
+
+  } catch (error) {
+
+    await connection.rollback();
+
+    throw error;
+
+  } finally {
+
+    connection.release();
+  }
+}
+
 export async function cancelMedicationDelivery(
   id: number,
   userId?: number | null

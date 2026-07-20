@@ -166,7 +166,9 @@
 }
 
 .vaccine-transfer-picker-table .data-table th,
-.vaccine-transfer-picker-table .data-table td {
+.vaccine-transfer-picker-table .data-table td,
+.medication-transfer-picker-table .data-table th,
+.medication-transfer-picker-table .data-table td {
 
   padding: 8px 10px;
 
@@ -178,6 +180,16 @@
 .data-table tbody tr.package-item-missing-row {
 
   background: #fffbeb;
+}
+
+.data-table tbody tr.table-placeholder-row {
+
+  background: transparent;
+}
+
+.data-table tbody tr.table-placeholder-row td {
+
+  height: 38px;
 }
 
 .data-table tbody tr.package-item-missing-row td {

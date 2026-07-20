@@ -40,7 +40,9 @@ type FacilityStock = {
 
 type Transfer = {
   id: number;
+  source_facility_id: number;
   source_facility_name: string;
+  destination_facility_id: number;
   destination_facility_name: string;
   transfer_date: string;
   status: string;
@@ -60,6 +62,7 @@ type TransferDetail = Transfer & {
     generic_name: string | null;
     presentation: string | null;
     concentration: string | null;
+    unit: string | null;
     batch_number: string;
     expiration_date: string;
     quantity: number;
@@ -70,6 +73,22 @@ type TransferItemForm = {
   medication_batch_id: string;
   quantity: number;
 };
+
+const emptyTransferForm = {
+  source_facility_id: '',
+  destination_facility_id: '',
+  transfer_date: todayInputValue(),
+  notes: ''
+};
+
+const emptyDraftItem: TransferItemForm = {
+  medication_batch_id: '',
+  quantity: 1
+};
+
+const stockSearchPageSize = 3;
+
+const transferItemsPageSize = 5;
 
 const statusLabels: Record<string, string> = {
   enviado: 'Enviado',
@@ -102,21 +121,6 @@ function formatDateTime(
   return formatDisplayDateTime(value);
 }
 
-function stockLabel(
-  stock: FacilityStock
-) {
-
-  return [
-    stock.medication_name,
-    stock.concentration,
-    stock.presentation,
-    `lote ${stock.batch_number}`,
-    `stock ${Number(stock.current_stock)}`
-  ]
-    .filter(Boolean)
-    .join(' - ');
-}
-
 export default function MedicationTransfersPage() {
 
   const { user } =
@@ -126,8 +130,11 @@ export default function MedicationTransfersPage() {
     hasPermission(
       user,
       'medications.manage',
-      ['admin', 'farmacia']
+      ['admin', 'vacu']
     );
+
+  const canReactivate =
+    user?.role === 'admin';
 
   const [facilities, setFacilities] =
     useState<Facility[]>([]);
@@ -139,6 +146,9 @@ export default function MedicationTransfersPage() {
     useState<Transfer[]>([]);
 
   const [selectedTransfer, setSelectedTransfer] =
+    useState<TransferDetail | null>(null);
+
+  const [editingTransfer, setEditingTransfer] =
     useState<TransferDetail | null>(null);
 
   const [filters, setFilters] =
@@ -159,20 +169,25 @@ export default function MedicationTransfersPage() {
     });
 
   const [form, setForm] =
-    useState({
-      source_facility_id: '',
-      destination_facility_id: '',
-      transfer_date: todayInputValue(),
-      notes: ''
-    });
+    useState(emptyTransferForm);
 
   const [items, setItems] =
-    useState<TransferItemForm[]>([
-      {
-        medication_batch_id: '',
-        quantity: 1
-      }
-    ]);
+    useState<TransferItemForm[]>([]);
+
+  const [draftItem, setDraftItem] =
+    useState<TransferItemForm>(emptyDraftItem);
+
+  const [showCreateModal, setShowCreateModal] =
+    useState(false);
+
+  const [stockSearch, setStockSearch] =
+    useState('');
+
+  const [stockSearchPage, setStockSearchPage] =
+    useState(1);
+
+  const [transferItemsPage, setTransferItemsPage] =
+    useState(1);
 
   const [loading, setLoading] =
     useState(false);
@@ -214,7 +229,7 @@ export default function MedicationTransfersPage() {
       0
     );
 
-  const stocksById =
+  const availableFacilityStocks =
     useMemo(() => {
       const map =
         new Map<number, FacilityStock>();
@@ -222,12 +237,194 @@ export default function MedicationTransfersPage() {
       facilityStocks.forEach((stock) =>
         map.set(
           Number(stock.medication_batch_id),
+          {
+            ...stock,
+            current_stock:
+              Number(stock.current_stock)
+          }
+        )
+      );
+
+      if (editingTransfer) {
+        editingTransfer.items.forEach((item) => {
+          const id =
+            Number(item.medication_batch_id);
+
+          const existing =
+            map.get(id);
+
+          if (existing) {
+            map.set(
+              id,
+              {
+                ...existing,
+                current_stock:
+                  Number(existing.current_stock) +
+                  Number(item.quantity)
+              }
+            );
+            return;
+          }
+
+          map.set(
+            id,
+            {
+              medication_batch_id:
+                id,
+              batch_number:
+                item.batch_number,
+              expiration_date:
+                item.expiration_date,
+              current_stock:
+                Number(item.quantity),
+              medication_name:
+                item.medication_name,
+              generic_name:
+                item.generic_name,
+              concentration:
+                item.concentration,
+              presentation:
+                item.presentation,
+              unit:
+                item.unit
+            }
+          );
+        });
+      }
+
+      return Array.from(map.values());
+    }, [
+      facilityStocks,
+      editingTransfer
+    ]);
+
+  const stocksById =
+    useMemo(() => {
+      const map =
+        new Map<number, FacilityStock>();
+
+      availableFacilityStocks.forEach((stock) =>
+        map.set(
+          Number(stock.medication_batch_id),
           stock
         )
       );
 
       return map;
-    }, [facilityStocks]);
+    }, [availableFacilityStocks]);
+
+  const sortedFacilityStocks =
+    useMemo(() =>
+      [...availableFacilityStocks].sort((first, second) =>
+        (
+          first.medication_name.localeCompare(
+            second.medication_name,
+            'es-AR',
+            {
+              sensitivity: 'base'
+            }
+          ) ||
+          String(first.generic_name || '').localeCompare(
+            String(second.generic_name || ''),
+            'es-AR',
+            {
+              sensitivity: 'base'
+            }
+          ) ||
+          String(first.expiration_date).localeCompare(
+            String(second.expiration_date)
+          )
+        )
+      ),
+    [availableFacilityStocks]);
+
+  const filteredFacilityStocks =
+    useMemo(() => {
+      const search =
+        stockSearch
+          .trim()
+          .toLowerCase();
+
+      if (!search) {
+        return sortedFacilityStocks;
+      }
+
+      return sortedFacilityStocks.filter((stock) =>
+        [
+          stock.medication_name,
+          stock.generic_name,
+          stock.concentration,
+          stock.presentation,
+          stock.unit,
+          stock.batch_number,
+          formatDate(stock.expiration_date)
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase()
+          .includes(search)
+      );
+    }, [
+      sortedFacilityStocks,
+      stockSearch
+    ]);
+
+  const stockSearchTotalPages =
+    Math.max(
+      1,
+      Math.ceil(
+        filteredFacilityStocks.length / stockSearchPageSize
+      )
+    );
+
+  const paginatedFacilityStocks =
+    filteredFacilityStocks.slice(
+      (stockSearchPage - 1) * stockSearchPageSize,
+      stockSearchPage * stockSearchPageSize
+    );
+
+  const stockResultVisibleRows =
+    paginatedFacilityStocks.length || 1;
+
+  const stockPlaceholderRows =
+    Array.from({
+      length:
+        Math.max(
+          0,
+          stockSearchPageSize - stockResultVisibleRows
+        )
+    });
+
+  const transferItemsTotalPages =
+    Math.max(
+      1,
+      Math.ceil(
+        items.length / transferItemsPageSize
+      )
+    );
+
+  const paginatedTransferItems =
+    items.slice(
+      (transferItemsPage - 1) * transferItemsPageSize,
+      transferItemsPage * transferItemsPageSize
+    );
+
+  const transferItemsVisibleRows =
+    paginatedTransferItems.length || 1;
+
+  const transferItemsPlaceholderRows =
+    Array.from({
+      length:
+        Math.max(
+          0,
+          transferItemsPageSize - transferItemsVisibleRows
+        )
+    });
+
+  const selectedDraftStock =
+    stocksById.get(
+      Number(draftItem.medication_batch_id)
+    );
 
   async function loadFacilities() {
 
@@ -365,44 +562,207 @@ export default function MedicationTransfersPage() {
     }
   }
 
-  function updateItem(
-    index: number,
-    key: keyof TransferItemForm,
-    value: string | number
-  ) {
+  function resetTransferDraft() {
+    setItems([]);
+    setDraftItem(emptyDraftItem);
+    setStockSearch('');
+    setStockSearchPage(1);
+    setTransferItemsPage(1);
+    setEditingTransfer(null);
+  }
 
-    setItems((current) =>
-      current.map((item, itemIndex) =>
-        itemIndex === index
+  function clearTransferItems() {
+    setItems([]);
+    setDraftItem(emptyDraftItem);
+    setStockSearch('');
+    setStockSearchPage(1);
+    setTransferItemsPage(1);
+    setEditingTransfer((current) =>
+      current
+        ? {
+            ...current,
+            items: []
+          }
+        : null
+    );
+  }
+
+  function openCreateTransfer() {
+    setError('');
+    resetTransferDraft();
+    setShowCreateModal(true);
+  }
+
+  function closeCreateTransfer() {
+    setShowCreateModal(false);
+    resetTransferDraft();
+  }
+
+  async function openEditTransfer(
+    id: number
+  ) {
+    try {
+      setError('');
+
+      const res =
+        await apiFetch(
+          `/medication-transfers/${id}`
+        );
+
+      const transfer =
+        res.data as TransferDetail;
+
+      setEditingTransfer(transfer);
+      setForm({
+        source_facility_id:
+          String(transfer.source_facility_id),
+        destination_facility_id:
+          String(transfer.destination_facility_id),
+        transfer_date:
+          String(transfer.transfer_date).slice(0, 10),
+        notes:
+          transfer.notes || ''
+      });
+      setItems(
+        transfer.items.map((item) => ({
+          medication_batch_id:
+            String(item.medication_batch_id),
+          quantity:
+            Number(item.quantity)
+        }))
+      );
+      setDraftItem(emptyDraftItem);
+      setStockSearch('');
+      setStockSearchPage(1);
+      setTransferItemsPage(1);
+      setShowCreateModal(true);
+    } catch (error: any) {
+      setError(error.message);
+    }
+  }
+
+  function addDraftItem() {
+    setError('');
+
+    if (!draftItem.medication_batch_id) {
+      setError('Selecciona un medicamento y lote para agregar.');
+      return;
+    }
+
+    if (Number(draftItem.quantity) <= 0) {
+      setError('La cantidad debe ser mayor a cero.');
+      return;
+    }
+
+    const stock =
+      stocksById.get(
+        Number(draftItem.medication_batch_id)
+      );
+
+    if (!stock) {
+      setError('El lote seleccionado no esta disponible.');
+      return;
+    }
+
+    const existingQuantity =
+      items
+        .filter((item) =>
+          item.medication_batch_id === draftItem.medication_batch_id
+        )
+        .reduce(
+          (total, item) =>
+            total + Number(item.quantity || 0),
+          0
+        );
+
+    const nextQuantity =
+      existingQuantity + Number(draftItem.quantity);
+
+    if (nextQuantity > Number(stock.current_stock)) {
+      setError(
+        `La cantidad supera el stock disponible del lote ${stock.batch_number}.`
+      );
+      return;
+    }
+
+    setItems((current) => {
+      const existingIndex =
+        current.findIndex((item) =>
+          item.medication_batch_id === draftItem.medication_batch_id
+        );
+
+      if (existingIndex === -1) {
+        setTransferItemsPage(
+          Math.max(
+            1,
+            Math.ceil(
+              (current.length + 1) / transferItemsPageSize
+            )
+          )
+        );
+
+        return [
+          ...current,
+          {
+            medication_batch_id: draftItem.medication_batch_id,
+            quantity: Number(draftItem.quantity)
+          }
+        ];
+      }
+
+      return current.map((item, index) =>
+        index === existingIndex
           ? {
               ...item,
-              [key]: value
+              quantity:
+                Number(item.quantity) + Number(draftItem.quantity)
             }
           : item
-      )
-    );
+      );
+    });
+
+    setDraftItem(emptyDraftItem);
   }
 
-  function addItem() {
-
-    setItems((current) => [
+  function selectDraftStock(
+    stock: FacilityStock
+  ) {
+    setDraftItem((current) => ({
       ...current,
-      {
-        medication_batch_id: '',
-        quantity: 1
-      }
-    ]);
+      medication_batch_id:
+        String(stock.medication_batch_id),
+      quantity: Math.min(
+        Math.max(
+          Number(current.quantity || 1),
+          1
+        ),
+        Number(stock.current_stock)
+      )
+    }));
+    setError('');
   }
 
-  function removeItem(
+  function removeItemByAbsoluteIndex(
     index: number
   ) {
+    setItems((current) => {
+      const next =
+        current.filter((_, itemIndex) =>
+          itemIndex !== index
+        );
 
-    setItems((current) =>
-      current.filter((_, itemIndex) =>
-        itemIndex !== index
-      )
-    );
+      setTransferItemsPage((page) =>
+        Math.min(
+          page,
+          Math.max(
+            1,
+            Math.ceil(next.length / transferItemsPageSize)
+          )
+        )
+      );
+
+      return next;
+    });
   }
 
   async function handleCreateTransfer(
@@ -416,10 +776,20 @@ export default function MedicationTransfersPage() {
       setLoading(true);
       setError('');
 
+      if (items.length === 0) {
+        setError('Agrega al menos un medicamento al traslado.');
+        return;
+      }
+
       await apiFetch(
-        '/medication-transfers',
+        editingTransfer
+          ? `/medication-transfers/${editingTransfer.id}`
+          : '/medication-transfers',
         {
-          method: 'POST',
+          method:
+            editingTransfer
+              ? 'PUT'
+              : 'POST',
           body: JSON.stringify({
             ...form,
             source_facility_id:
@@ -437,12 +807,8 @@ export default function MedicationTransfersPage() {
         }
       );
 
-      setItems([
-        {
-          medication_batch_id: '',
-          quantity: 1
-        }
-      ]);
+      resetTransferDraft();
+      setShowCreateModal(false);
 
       setForm((current) => ({
         ...current,
@@ -517,6 +883,32 @@ export default function MedicationTransfersPage() {
     }
   }
 
+  async function reactivateTransfer(
+    id: number
+  ) {
+    try {
+      setLoading(true);
+      setError('');
+
+      await apiFetch(
+        `/medication-transfers/${id}/reactivate`,
+        {
+          method: 'PATCH'
+        }
+      );
+
+      setSelectedTransfer(null);
+      await loadFacilityStocks(
+        form.source_facility_id
+      );
+      await loadTransfers();
+    } catch (error: any) {
+      setError(error.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   useEffect(() => {
 
     loadFacilities();
@@ -554,7 +946,7 @@ export default function MedicationTransfersPage() {
         <div>
 
           <PageTitle icon="medicamentos">
-            Traslados de medicamentos
+            Traslados de Medicamentos
           </PageTitle>
 
           <p className="page-subtitle">
@@ -562,6 +954,16 @@ export default function MedicationTransfersPage() {
           </p>
 
         </div>
+
+        {canEdit && (
+          <button
+            className="btn-primary"
+            onClick={openCreateTransfer}
+            type="button"
+          >
+            + Nuevo traslado
+          </button>
+        )}
 
       </div>
 
@@ -595,197 +997,11 @@ export default function MedicationTransfersPage() {
 
       </div>
 
-      {canEdit && (
-
-        <form
-          className="dashboard-panel auth-form"
-          onSubmit={handleCreateTransfer}
-        >
-
-          <h2>Nuevo traslado</h2>
-
-          <div className="filter-bar">
-
-            <select
-              className="form-input"
-              value={form.source_facility_id}
-              disabled={!canSelectSource}
-              onChange={(e) =>
-                setForm({
-                  ...form,
-                  source_facility_id: e.target.value
-                })
-              }
-            >
-              <option value="">
-                Origen
-              </option>
-
-              {facilities.map((facility) => (
-                <option
-                  key={facility.id}
-                  value={facility.id}
-                >
-                  {facility.name}
-                </option>
-              ))}
-            </select>
-
-            <select
-              className="form-input"
-              value={form.destination_facility_id}
-              onChange={(e) =>
-                setForm({
-                  ...form,
-                  destination_facility_id: e.target.value
-                })
-              }
-            >
-              <option value="">
-                Destino
-              </option>
-
-              {facilities.map((facility) => (
-                <option
-                  key={facility.id}
-                  value={facility.id}
-                >
-                  {facility.name}
-                </option>
-              ))}
-            </select>
-
-            <input
-              className="form-input"
-              type="date"
-              value={form.transfer_date}
-              onChange={(e) =>
-                setForm({
-                  ...form,
-                  transfer_date: e.target.value
-                })
-              }
-            />
-
-          </div>
-
-          {items.map((item, index) => {
-            const selectedStock =
-              stocksById.get(
-                Number(item.medication_batch_id)
-              );
-
-            return (
-              <div
-                className="filter-bar"
-                key={index}
-              >
-
-                <select
-                  className="form-input"
-                  value={item.medication_batch_id}
-                  onChange={(e) =>
-                    updateItem(
-                      index,
-                      'medication_batch_id',
-                      e.target.value
-                    )
-                  }
-                >
-                  <option value="">
-                    Medicamento / lote
-                  </option>
-
-                  {facilityStocks.map((stock) => (
-                    <option
-                      key={stock.medication_batch_id}
-                      value={stock.medication_batch_id}
-                    >
-                      {stockLabel(stock)}
-                    </option>
-                  ))}
-                </select>
-
-                <input
-                  className="form-input"
-                  type="number"
-                  min="0"
-                  step="1"
-                  max={
-                    selectedStock
-                      ? Number(selectedStock.current_stock)
-                      : undefined
-                  }
-                  value={item.quantity}
-                  onChange={(e) =>
-                    updateItem(
-                      index,
-                      'quantity',
-                      Number(e.target.value)
-                    )
-                  }
-                />
-
-                <button
-                  type="button"
-                  className="btn-danger"
-                  onClick={() =>
-                    removeItem(index)
-                  }
-                  disabled={items.length === 1}
-                >
-                  Quitar
-                </button>
-
-              </div>
-            );
-          })}
-
-          <textarea
-            className="form-input"
-            placeholder="Observaciones"
-            rows={3}
-            value={form.notes}
-            onChange={(e) =>
-              setForm({
-                ...form,
-                notes: e.target.value
-              })
-            }
-          />
-
-          <div className="modal-actions">
-
-            <button
-              type="button"
-              className="btn-secondary"
-              onClick={addItem}
-            >
-              + Agregar medicamento
-            </button>
-
-            <button
-              type="submit"
-              className="btn-success"
-              disabled={loading}
-            >
-              {
-                loading
-                  ? 'Guardando...'
-                  : 'Crear traslado'
-              }
-            </button>
-
-          </div>
-
-        </form>
-      )}
-
       <div className="filter-bar">
 
         <input
           className="form-input"
-          placeholder="Buscar medicamento, lote o punto"
+          placeholder="Buscar Medicamento, lote o punto"
           value={filters.search}
           onChange={(e) =>
             {
@@ -978,6 +1194,16 @@ export default function MedicationTransfersPage() {
                     />
                     {canEdit && transfer.status === 'enviado' && (
                       <IconButton
+                        icon="edit"
+                        label="Editar traslado"
+                        onClick={() =>
+                          openEditTransfer(transfer.id)
+                        }
+                        variant="primary"
+                      />
+                    )}
+                    {canEdit && transfer.status === 'enviado' && (
+                      <IconButton
                         icon="check"
                         label="Recibir traslado"
                         onClick={() =>
@@ -1000,6 +1226,16 @@ export default function MedicationTransfersPage() {
                           )
                         }
                         variant="danger"
+                      />
+                    )}
+                    {canReactivate && transfer.status === 'cancelado' && (
+                      <IconButton
+                        icon="unlock"
+                        label="Reactivar traslado"
+                        onClick={() =>
+                          reactivateTransfer(transfer.id)
+                        }
+                        variant="success"
                       />
                     )}
                   </div>
@@ -1060,6 +1296,422 @@ export default function MedicationTransfersPage() {
         </div>
       </div>
 
+      {showCreateModal && canEdit && (
+
+        <div className="modal-overlay">
+
+          <div className="modal-content modal-content-wide">
+
+            <h2 className="modal-title">
+              {
+                editingTransfer
+                  ? `Editar traslado #${editingTransfer.id}`
+                  : 'Nuevo traslado'
+              }
+            </h2>
+
+            <form
+              className="auth-form"
+              onSubmit={handleCreateTransfer}
+            >
+
+              <div className="filter-bar">
+
+                <select
+                  className="form-input"
+                  value={form.source_facility_id}
+                  disabled={!canSelectSource}
+                  onChange={(e) => {
+                    setForm({
+                      ...form,
+                      source_facility_id: e.target.value
+                    });
+                    clearTransferItems();
+                  }}
+                >
+                  <option value="">
+                    Origen
+                  </option>
+
+                  {facilities.map((facility) => (
+                    <option
+                      key={facility.id}
+                      value={facility.id}
+                    >
+                      {facility.name}
+                    </option>
+                  ))}
+                </select>
+
+                <select
+                  className="form-input"
+                  value={form.destination_facility_id}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      destination_facility_id: e.target.value
+                    })
+                  }
+                >
+                  <option value="">
+                    Destino
+                  </option>
+
+                  {facilities.map((facility) => (
+                    <option
+                      key={facility.id}
+                      value={facility.id}
+                    >
+                      {facility.name}
+                    </option>
+                  ))}
+                </select>
+
+                <input
+                  className="form-input"
+                  type="date"
+                  value={form.transfer_date}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      transfer_date: e.target.value
+                    })
+                  }
+                />
+
+              </div>
+
+              <div className="filter-bar">
+
+                <input
+                  className="form-input"
+                  placeholder="Buscar medicamento, generico, presentacion o lote"
+                  value={stockSearch}
+                  onChange={(e) => {
+                    setStockSearch(e.target.value);
+                    setStockSearchPage(1);
+                  }}
+                />
+
+                <input
+                  className="form-input"
+                  type="number"
+                  min="1"
+                  step="1"
+                  max={
+                    selectedDraftStock
+                      ? Number(selectedDraftStock.current_stock)
+                      : undefined
+                  }
+                  value={draftItem.quantity}
+                  onChange={(e) =>
+                    setDraftItem({
+                      ...draftItem,
+                      quantity: Number(e.target.value)
+                    })
+                  }
+                />
+
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={addDraftItem}
+                >
+                  Agregar a grilla
+                </button>
+
+              </div>
+
+              <div className="table-container medication-transfer-picker-table">
+
+                <table className="data-table">
+
+                  <thead>
+                    <tr>
+                      <th>Medicamento</th>
+                      <th>Lote</th>
+                      <th>Vencimiento</th>
+                      <th>Stock</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {paginatedFacilityStocks.map((stock) => (
+                      <tr
+                        className={
+                          draftItem.medication_batch_id === String(stock.medication_batch_id)
+                            ? 'selected-row selectable-row'
+                            : 'selectable-row'
+                        }
+                        key={stock.medication_batch_id}
+                        onClick={() =>
+                          selectDraftStock(stock)
+                        }
+                        onKeyDown={(event) => {
+                          if (
+                            event.key === 'Enter' ||
+                            event.key === ' '
+                          ) {
+                            event.preventDefault();
+                            selectDraftStock(stock);
+                          }
+                        }}
+                        tabIndex={0}
+                        title="Seleccionar lote"
+                      >
+                        <td>
+                          {[
+                            stock.medication_name,
+                            stock.generic_name,
+                            stock.concentration,
+                            stock.presentation,
+                            stock.unit
+                          ]
+                            .filter(Boolean)
+                            .join(' - ')}
+                        </td>
+                        <td>{stock.batch_number}</td>
+                        <td>{formatDate(stock.expiration_date)}</td>
+                        <td>{Number(stock.current_stock)}</td>
+                      </tr>
+                    ))}
+
+                    {paginatedFacilityStocks.length === 0 && (
+                      <tr>
+                        <td colSpan={4}>
+                          No hay lotes disponibles para esa busqueda.
+                        </td>
+                      </tr>
+                    )}
+
+                    {stockPlaceholderRows.map((_, index) => (
+                      <tr key={`stock-placeholder-${index}`}>
+                        <td>&nbsp;</td>
+                        <td>&nbsp;</td>
+                        <td>&nbsp;</td>
+                        <td>&nbsp;</td>
+                      </tr>
+                    ))}
+                  </tbody>
+
+                </table>
+
+              </div>
+
+              <div className="modal-actions">
+                <span className="page-subtitle">
+                  Pagina {stockSearchPage} de {stockSearchTotalPages} - {filteredFacilityStocks.length} lotes
+                </span>
+
+                <div className="table-actions">
+                  <button
+                    className="btn-secondary"
+                    disabled={stockSearchPage <= 1}
+                    onClick={() =>
+                      setStockSearchPage((current) =>
+                        Math.max(1, current - 1)
+                      )
+                    }
+                    type="button"
+                  >
+                    Anterior
+                  </button>
+
+                  <button
+                    className="btn-secondary"
+                    disabled={stockSearchPage >= stockSearchTotalPages}
+                    onClick={() =>
+                      setStockSearchPage((current) =>
+                        Math.min(
+                          stockSearchTotalPages,
+                          current + 1
+                        )
+                      )
+                    }
+                    type="button"
+                  >
+                    Siguiente
+                  </button>
+                </div>
+              </div>
+
+              <div className="table-container medication-transfer-picker-table">
+
+                <table className="data-table">
+
+                  <thead>
+                    <tr>
+                      <th>Medicamento</th>
+                      <th>Lote</th>
+                      <th>Vencimiento</th>
+                      <th>Stock</th>
+                      <th>Cantidad</th>
+                      <th>Acciones</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {paginatedTransferItems.map((item, index) => {
+                      const stock =
+                        stocksById.get(
+                          Number(item.medication_batch_id)
+                        );
+
+                      const absoluteIndex =
+                        (transferItemsPage - 1) *
+                          transferItemsPageSize +
+                        index;
+
+                      return (
+                        <tr key={`${item.medication_batch_id}-${absoluteIndex}`}>
+                          <td>
+                            {stock
+                              ? [
+                                  stock.medication_name,
+                                  stock.generic_name,
+                                  stock.concentration,
+                                  stock.presentation,
+                                  stock.unit
+                                ]
+                                  .filter(Boolean)
+                                  .join(' - ')
+                              : '-'}
+                          </td>
+                          <td>{stock?.batch_number || '-'}</td>
+                          <td>
+                            {stock
+                              ? formatDate(stock.expiration_date)
+                              : '-'}
+                          </td>
+                          <td>
+                            {stock
+                              ? Number(stock.current_stock)
+                              : '-'}
+                          </td>
+                          <td>{Number(item.quantity)}</td>
+                          <td>
+                            <IconButton
+                              icon="trash"
+                              label="Quitar medicamento"
+                              onClick={() =>
+                                removeItemByAbsoluteIndex(
+                                  absoluteIndex
+                                )
+                              }
+                              variant="danger"
+                            />
+                          </td>
+                        </tr>
+                      );
+                    })}
+
+                    {items.length === 0 && (
+                      <tr>
+                        <td colSpan={6}>
+                          Agrega medicamentos al traslado.
+                        </td>
+                      </tr>
+                    )}
+
+                    {transferItemsPlaceholderRows.map((_, index) => (
+                      <tr key={`transfer-item-placeholder-${index}`}>
+                        <td>&nbsp;</td>
+                        <td>&nbsp;</td>
+                        <td>&nbsp;</td>
+                        <td>&nbsp;</td>
+                        <td>&nbsp;</td>
+                        <td>&nbsp;</td>
+                      </tr>
+                    ))}
+                  </tbody>
+
+                </table>
+
+              </div>
+
+              <div className="modal-actions">
+                <span className="page-subtitle">
+                  Pagina {transferItemsPage} de {transferItemsTotalPages} - {items.length} medicamentos agregados
+                </span>
+
+                <div className="table-actions">
+                  <button
+                    className="btn-secondary"
+                    disabled={transferItemsPage <= 1}
+                    onClick={() =>
+                      setTransferItemsPage((current) =>
+                        Math.max(1, current - 1)
+                      )
+                    }
+                    type="button"
+                  >
+                    Anterior
+                  </button>
+
+                  <button
+                    className="btn-secondary"
+                    disabled={transferItemsPage >= transferItemsTotalPages}
+                    onClick={() =>
+                      setTransferItemsPage((current) =>
+                        Math.min(
+                          transferItemsTotalPages,
+                          current + 1
+                        )
+                      )
+                    }
+                    type="button"
+                  >
+                    Siguiente
+                  </button>
+                </div>
+              </div>
+
+              <textarea
+                className="form-input"
+                placeholder="Observaciones"
+                rows={3}
+                value={form.notes}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    notes: e.target.value
+                  })
+                }
+              />
+
+              <div className="modal-actions">
+
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={closeCreateTransfer}
+                >
+                  Cancelar
+                </button>
+
+                <button
+                  type="submit"
+                  className="btn-success"
+                  disabled={loading || items.length === 0}
+                >
+                  {
+                    loading
+                      ? 'Guardando...'
+                      : editingTransfer
+                        ? 'Guardar cambios'
+                        : 'Crear traslado'
+                  }
+                </button>
+
+              </div>
+
+            </form>
+
+          </div>
+
+        </div>
+      )}
+
       {selectedTransfer && (
 
         <div className="modal-overlay">
@@ -1093,8 +1745,10 @@ export default function MedicationTransfersPage() {
                       <td>
                         {[
                           item.medication_name,
+                          item.generic_name,
                           item.concentration,
-                          item.presentation
+                          item.presentation,
+                          item.unit
                         ]
                           .filter(Boolean)
                           .join(' - ')}
@@ -1123,6 +1777,21 @@ export default function MedicationTransfersPage() {
 
               {canEdit && selectedTransfer.status === 'enviado' && (
                 <button
+                  className="btn-primary"
+                  onClick={() => {
+                    const id =
+                      selectedTransfer.id;
+
+                    setSelectedTransfer(null);
+                    void openEditTransfer(id);
+                  }}
+                >
+                  Editar
+                </button>
+              )}
+
+              {canEdit && selectedTransfer.status === 'enviado' && (
+                <button
                   className="btn-success"
                   onClick={() =>
                     updateTransferStatus(
@@ -1132,6 +1801,17 @@ export default function MedicationTransfersPage() {
                   }
                 >
                   Recibir
+                </button>
+              )}
+
+              {canReactivate && selectedTransfer.status === 'cancelado' && (
+                <button
+                  className="btn-success"
+                  onClick={() =>
+                    reactivateTransfer(selectedTransfer.id)
+                  }
+                >
+                  Reactivar
                 </button>
               )}
 
@@ -1145,4 +1825,5 @@ export default function MedicationTransfersPage() {
     </div>
   );
 }
+
 

@@ -48,12 +48,25 @@ type Props = {
 };
 
 const movementLabels: Record<string, string> = {
-  compra: 'Compra',
-  donacion: 'Donacion',
-  ajuste: 'Ajuste',
+  compra: 'Entrada',
+  donacion: 'Entrada',
+  ajuste: 'Salida',
   perdida: 'Perdida',
   devolucion: 'Devolucion'
 };
+
+function formatMovementType(
+  movement: Movement
+) {
+  if (movement.movement_type === 'ajuste') {
+    return Number(movement.quantity) < 0
+      ? 'Salida'
+      : 'Entrada';
+  }
+
+  return movementLabels[movement.movement_type] ||
+    movement.movement_type;
+}
 
 function formatDateTime(
   value: string
@@ -267,18 +280,23 @@ export default function BatchMovementsModal({
             className="form-input"
             name="movement_type"
             value={form.movement_type}
-            onChange={handleChange}
+            onChange={(event) =>
+              setForm({
+                ...form,
+                movement_type: event.target.value,
+                movement_direction:
+                  event.target.value === 'ajuste'
+                    ? 'salida'
+                    : 'entrada'
+              })
+            }
           >
             <option value="compra">
-              Compra
-            </option>
-
-            <option value="donacion">
-              Donacion
+              Entrada
             </option>
 
             <option value="ajuste">
-              Ajuste
+              Salida
             </option>
 
             <option value="perdida">
@@ -310,26 +328,6 @@ export default function BatchMovementsModal({
             ))}
           </select>
 
-          {
-            form.movement_type === 'ajuste' && (
-
-              <select
-                className="form-input"
-                name="movement_direction"
-                value={form.movement_direction}
-                onChange={handleChange}
-              >
-                <option value="entrada">
-                  Entrada
-                </option>
-
-                <option value="salida">
-                  Salida
-                </option>
-              </select>
-            )
-          }
-
           <input
             className="form-input"
             type="number"
@@ -340,20 +338,6 @@ export default function BatchMovementsModal({
             value={form.quantity}
             onChange={handleChange}
           />
-
-          {
-            form.movement_type === 'donacion' && (
-
-              <input
-                className="form-input"
-                type="text"
-                name="donor_name"
-                placeholder="Quien dona"
-                value={form.donor_name}
-                onChange={handleChange}
-              />
-            )
-          }
 
           <textarea
             className="form-input"
@@ -456,11 +440,7 @@ export default function BatchMovementsModal({
                   </td>
 
                   <td>
-                    {
-                      movementLabels[
-                        movement.movement_type
-                      ]
-                    }
+                    {formatMovementType(movement)}
                   </td>
 
                   <td>

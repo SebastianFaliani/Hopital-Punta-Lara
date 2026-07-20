@@ -485,6 +485,231 @@ export async function createMedicationTransfer(
   }
 }
 
+export async function updateMedicationTransfer(
+  id: number,
+  data: MedicationTransferInput
+) {
+
+  const connection =
+    await pool.getConnection();
+
+  try {
+
+    await connection.beginTransaction();
+
+    if (
+      data.source_facility_id ===
+      data.destination_facility_id
+    ) {
+      throw new Error(
+        'El origen y destino no pueden ser el mismo punto'
+      );
+    }
+
+    const [transferRows]: any =
+      await connection.query(
+        `
+          SELECT *
+          FROM medication_transfers
+          WHERE id = ?
+          FOR UPDATE
+        `,
+        [id]
+      );
+
+    if (transferRows.length === 0) {
+      throw new Error('Traslado no encontrado');
+    }
+
+    const transfer =
+      transferRows[0];
+
+    if (transfer.status !== 'enviado') {
+      throw new Error(
+        'Solo se pueden editar traslados enviados'
+      );
+    }
+
+    const [oldItems]: any =
+      await connection.query(
+        `
+          SELECT medication_batch_id, quantity
+          FROM medication_transfer_items
+          WHERE medication_transfer_id = ?
+        `,
+        [id]
+      );
+
+    for (const item of oldItems) {
+      await updateFacilityStock(
+        connection,
+        Number(item.medication_batch_id),
+        Number(transfer.source_facility_id),
+        Number(item.quantity)
+      );
+    }
+
+    await connection.query(
+      `
+        UPDATE medication_transfers
+        SET
+          source_facility_id = ?,
+          destination_facility_id = ?,
+          transfer_date = ?,
+          notes = ?,
+          cancelled_by = NULL,
+          cancelled_at = NULL
+        WHERE id = ?
+      `,
+      [
+        data.source_facility_id,
+        data.destination_facility_id,
+        data.transfer_date,
+        data.notes ?? null,
+        id
+      ]
+    );
+
+    await connection.query(
+      `
+        DELETE FROM medication_transfer_items
+        WHERE medication_transfer_id = ?
+      `,
+      [id]
+    );
+
+    for (const item of data.items) {
+      const quantity =
+        Number(item.quantity);
+
+      await updateFacilityStock(
+        connection,
+        Number(item.medication_batch_id),
+        data.source_facility_id,
+        quantity * -1
+      );
+
+      await connection.query(
+        `
+          INSERT INTO medication_transfer_items (
+            medication_transfer_id,
+            medication_batch_id,
+            quantity
+          )
+          VALUES (?, ?, ?)
+        `,
+        [
+          id,
+          Number(item.medication_batch_id),
+          quantity
+        ]
+      );
+
+      await insertTransferMovement(
+        connection,
+        Number(item.medication_batch_id),
+        data.source_facility_id,
+        'traslado_edicion',
+        quantity * -1,
+        id,
+        data.created_by
+      );
+    }
+
+    await connection.commit();
+
+  } catch (error) {
+
+    await connection.rollback();
+
+    throw error;
+
+  } finally {
+
+    connection.release();
+  }
+}
+
+export async function reactivateMedicationTransfer(
+  id: number
+) {
+
+  const connection =
+    await pool.getConnection();
+
+  try {
+
+    await connection.beginTransaction();
+
+    const [transferRows]: any =
+      await connection.query(
+        `
+          SELECT *
+          FROM medication_transfers
+          WHERE id = ?
+          FOR UPDATE
+        `,
+        [id]
+      );
+
+    if (transferRows.length === 0) {
+      throw new Error('Traslado no encontrado');
+    }
+
+    const transfer =
+      transferRows[0];
+
+    if (transfer.status !== 'cancelado') {
+      throw new Error(
+        'Solo se pueden reactivar traslados cancelados'
+      );
+    }
+
+    const [items]: any =
+      await connection.query(
+        `
+          SELECT medication_batch_id, quantity
+          FROM medication_transfer_items
+          WHERE medication_transfer_id = ?
+        `,
+        [id]
+      );
+
+    for (const item of items) {
+      await updateFacilityStock(
+        connection,
+        Number(item.medication_batch_id),
+        Number(transfer.source_facility_id),
+        Number(item.quantity) * -1
+      );
+    }
+
+    await connection.query(
+      `
+        UPDATE medication_transfers
+        SET
+          status = 'enviado',
+          cancelled_by = NULL,
+          cancelled_at = NULL
+        WHERE id = ?
+      `,
+      [id]
+    );
+
+    await connection.commit();
+
+  } catch (error) {
+
+    await connection.rollback();
+
+    throw error;
+
+  } finally {
+
+    connection.release();
+  }
+}
+
 export async function receiveMedicationTransfer(
   id: number,
   userId?: number | null

@@ -20,7 +20,8 @@ import {
   cancelMedicationDelivery,
   createMedicationDelivery,
   getMedicationDeliveries,
-  getMedicationDeliveryById
+  getMedicationDeliveryById,
+  updateMedicationDelivery
 } from './medication-deliveries.service';
 
 const allowedStatuses = [
@@ -273,6 +274,116 @@ export async function handleCreateMedicationDelivery(
       message:
         error.message ||
         'Error al registrar entrega'
+    });
+  }
+}
+
+export async function handleUpdateMedicationDelivery(
+  req: AuthRequest,
+  res: Response
+) {
+
+  try {
+
+    if (req.user?.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Solo el administrador puede editar entregas'
+      });
+    }
+
+    const validationError =
+      validateDeliveryBody(req.body);
+
+    if (validationError) {
+      return res.status(400).json({
+        success: false,
+        message: validationError
+      });
+    }
+
+    const id =
+      Number(req.params.id);
+
+    const delivery =
+      await getMedicationDeliveryById(id);
+
+    if (!delivery) {
+      return res.status(404).json({
+        success: false,
+        message: 'Entrega no encontrada'
+      });
+    }
+
+    assertFacilityAccess(
+      req.user,
+      Number(delivery.facility_id)
+    );
+
+    assertFacilityAccess(
+      req.user,
+      Number(req.body.facility_id)
+    );
+
+    await updateMedicationDelivery(
+      id,
+      {
+        facility_id:
+          Number(req.body.facility_id),
+        delivery_date:
+          req.body.delivery_date,
+        patient_id:
+          req.body.patient_id
+            ? Number(req.body.patient_id)
+            : null,
+        patient_name:
+          String(req.body.patient_name).trim(),
+        patient_document:
+          req.body.patient_document || null,
+        patient_phone:
+          req.body.patient_phone || null,
+        delivery_reason:
+          req.body.delivery_reason,
+        notes:
+          req.body.notes || null,
+        created_by:
+          req.user?.userId ?? null,
+        items:
+          req.body.items.map((item: any) => ({
+            medication_batch_id:
+              Number(item.medication_batch_id),
+            quantity:
+              Number(item.quantity)
+          }))
+      }
+    );
+
+    await logAudit({
+      user: req.user,
+      module: 'farmacia',
+      action: 'editar_entrega_medicamento',
+      entityType: 'medication_delivery',
+      entityId: id,
+      description: `Edito entrega de medicamentos #${id}`,
+      newData: req.body,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'] || null
+    });
+
+    return res.json({
+      success: true,
+      message: 'Entrega actualizada'
+    });
+
+  } catch (error: any) {
+
+    console.error(error);
+
+    return res.status(400).json({
+      success: false,
+      message:
+        error.message ||
+        'Error al actualizar entrega'
     });
   }
 }

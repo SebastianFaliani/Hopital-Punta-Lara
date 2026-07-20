@@ -39,6 +39,7 @@ type FacilityStock = {
 
 type Delivery = {
   id: number;
+  facility_id: number;
   facility_name: string;
   delivery_date: string;
   patient_name: string;
@@ -58,8 +59,10 @@ type DeliveryDetail = Delivery & {
     id: number;
     medication_batch_id: number;
     medication_name: string;
+    generic_name: string | null;
     presentation: string | null;
     concentration: string | null;
+    unit: string | null;
     batch_number: string;
     expiration_date: string;
     quantity: number;
@@ -70,6 +73,25 @@ type DeliveryItemForm = {
   medication_batch_id: string;
   quantity: number;
 };
+
+const emptyDeliveryForm = {
+  facility_id: '',
+  delivery_date: todayInputValue(),
+  patient_name: '',
+  patient_document: '',
+  patient_phone: '',
+  delivery_reason: 'tratamiento',
+  notes: ''
+};
+
+const emptyDraftItem: DeliveryItemForm = {
+  medication_batch_id: '',
+  quantity: 1
+};
+
+const stockSearchPageSize = 3;
+
+const deliveryItemsPageSize = 3;
 
 const reasonLabels: Record<string, string> = {
   tratamiento: 'Tratamiento',
@@ -97,21 +119,6 @@ function formatDate(
   return formatDisplayDate(value);
 }
 
-function stockLabel(
-  stock: FacilityStock
-) {
-
-  return [
-    stock.medication_name,
-    stock.concentration,
-    stock.presentation,
-    `lote ${stock.batch_number}`,
-    `stock ${Number(stock.current_stock)}`
-  ]
-    .filter(Boolean)
-    .join(' - ');
-}
-
 export default function MedicationDeliveriesPage() {
 
   const { user } =
@@ -121,8 +128,11 @@ export default function MedicationDeliveriesPage() {
     hasPermission(
       user,
       'medications.manage',
-      ['admin', 'farmacia']
+      ['admin', 'vacu']
     );
+
+  const canEditDelivery =
+    user?.role === 'admin';
 
   const [facilities, setFacilities] =
     useState<Facility[]>([]);
@@ -136,6 +146,9 @@ export default function MedicationDeliveriesPage() {
   const [selectedDelivery, setSelectedDelivery] =
     useState<DeliveryDetail | null>(null);
 
+  const [editingDelivery, setEditingDelivery] =
+    useState<DeliveryDetail | null>(null);
+
   const [filters, setFilters] =
     useState({
       status: 'todos',
@@ -147,23 +160,25 @@ export default function MedicationDeliveriesPage() {
     });
 
   const [form, setForm] =
-    useState({
-      facility_id: '',
-      delivery_date: todayInputValue(),
-      patient_name: '',
-      patient_document: '',
-      patient_phone: '',
-      delivery_reason: 'tratamiento',
-      notes: ''
-    });
+    useState(emptyDeliveryForm);
 
   const [items, setItems] =
-    useState<DeliveryItemForm[]>([
-      {
-        medication_batch_id: '',
-        quantity: 1
-      }
-    ]);
+    useState<DeliveryItemForm[]>([]);
+
+  const [draftItem, setDraftItem] =
+    useState<DeliveryItemForm>(emptyDraftItem);
+
+  const [showCreateModal, setShowCreateModal] =
+    useState(false);
+
+  const [stockSearch, setStockSearch] =
+    useState('');
+
+  const [stockSearchPage, setStockSearchPage] =
+    useState(1);
+
+  const [deliveryItemsPage, setDeliveryItemsPage] =
+    useState(1);
 
   const [loading, setLoading] =
     useState(false);
@@ -212,7 +227,7 @@ export default function MedicationDeliveriesPage() {
         0
       );
 
-  const stocksById =
+  const availableFacilityStocks =
     useMemo(() => {
       const map =
         new Map<number, FacilityStock>();
@@ -220,12 +235,194 @@ export default function MedicationDeliveriesPage() {
       facilityStocks.forEach((stock) =>
         map.set(
           Number(stock.medication_batch_id),
+          {
+            ...stock,
+            current_stock:
+              Number(stock.current_stock)
+          }
+        )
+      );
+
+      if (editingDelivery) {
+        editingDelivery.items.forEach((item) => {
+          const id =
+            Number(item.medication_batch_id);
+
+          const existing =
+            map.get(id);
+
+          if (existing) {
+            map.set(
+              id,
+              {
+                ...existing,
+                current_stock:
+                  Number(existing.current_stock) +
+                  Number(item.quantity)
+              }
+            );
+            return;
+          }
+
+          map.set(
+            id,
+            {
+              medication_batch_id:
+                id,
+              batch_number:
+                item.batch_number,
+              expiration_date:
+                item.expiration_date,
+              current_stock:
+                Number(item.quantity),
+              medication_name:
+                item.medication_name,
+              generic_name:
+                item.generic_name,
+              concentration:
+                item.concentration,
+              presentation:
+                item.presentation,
+              unit:
+                item.unit
+            }
+          );
+        });
+      }
+
+      return Array.from(map.values());
+    }, [
+      facilityStocks,
+      editingDelivery
+    ]);
+
+  const stocksById =
+    useMemo(() => {
+      const map =
+        new Map<number, FacilityStock>();
+
+      availableFacilityStocks.forEach((stock) =>
+        map.set(
+          Number(stock.medication_batch_id),
           stock
         )
       );
 
       return map;
-    }, [facilityStocks]);
+    }, [availableFacilityStocks]);
+
+  const sortedFacilityStocks =
+    useMemo(() =>
+      [...availableFacilityStocks].sort((first, second) =>
+        (
+          first.medication_name.localeCompare(
+            second.medication_name,
+            'es-AR',
+            {
+              sensitivity: 'base'
+            }
+          ) ||
+          String(first.generic_name || '').localeCompare(
+            String(second.generic_name || ''),
+            'es-AR',
+            {
+              sensitivity: 'base'
+            }
+          ) ||
+          String(first.expiration_date).localeCompare(
+            String(second.expiration_date)
+          )
+        )
+      ),
+    [availableFacilityStocks]);
+
+  const filteredFacilityStocks =
+    useMemo(() => {
+      const search =
+        stockSearch
+          .trim()
+          .toLowerCase();
+
+      if (!search) {
+        return sortedFacilityStocks;
+      }
+
+      return sortedFacilityStocks.filter((stock) =>
+        [
+          stock.medication_name,
+          stock.generic_name,
+          stock.concentration,
+          stock.presentation,
+          stock.unit,
+          stock.batch_number,
+          formatDate(stock.expiration_date)
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase()
+          .includes(search)
+      );
+    }, [
+      sortedFacilityStocks,
+      stockSearch
+    ]);
+
+  const stockSearchTotalPages =
+    Math.max(
+      1,
+      Math.ceil(
+        filteredFacilityStocks.length / stockSearchPageSize
+      )
+    );
+
+  const paginatedFacilityStocks =
+    filteredFacilityStocks.slice(
+      (stockSearchPage - 1) * stockSearchPageSize,
+      stockSearchPage * stockSearchPageSize
+    );
+
+  const stockResultVisibleRows =
+    paginatedFacilityStocks.length || 1;
+
+  const stockPlaceholderRows =
+    Array.from({
+      length:
+        Math.max(
+          0,
+          stockSearchPageSize - stockResultVisibleRows
+        )
+    });
+
+  const deliveryItemsTotalPages =
+    Math.max(
+      1,
+      Math.ceil(
+        items.length / deliveryItemsPageSize
+      )
+    );
+
+  const paginatedDeliveryItems =
+    items.slice(
+      (deliveryItemsPage - 1) * deliveryItemsPageSize,
+      deliveryItemsPage * deliveryItemsPageSize
+    );
+
+  const deliveryItemsVisibleRows =
+    paginatedDeliveryItems.length || 1;
+
+  const deliveryItemsPlaceholderRows =
+    Array.from({
+      length:
+        Math.max(
+          0,
+          deliveryItemsPageSize - deliveryItemsVisibleRows
+        )
+    });
+
+  const selectedDraftStock =
+    stocksById.get(
+      Number(draftItem.medication_batch_id)
+    );
 
   async function loadFacilities() {
 
@@ -326,44 +523,213 @@ export default function MedicationDeliveriesPage() {
     }
   }
 
-  function updateItem(
-    index: number,
-    key: keyof DeliveryItemForm,
-    value: string | number
-  ) {
+  function resetDeliveryDraft() {
+    setItems([]);
+    setDraftItem(emptyDraftItem);
+    setStockSearch('');
+    setStockSearchPage(1);
+    setDeliveryItemsPage(1);
+    setEditingDelivery(null);
+  }
 
-    setItems((current) =>
-      current.map((item, itemIndex) =>
-        itemIndex === index
+  function openCreateDelivery() {
+    setError('');
+    resetDeliveryDraft();
+    setShowCreateModal(true);
+  }
+
+  function closeCreateDelivery() {
+    setShowCreateModal(false);
+    resetDeliveryDraft();
+  }
+
+  function clearDeliveryItems() {
+    setItems([]);
+    setDraftItem(emptyDraftItem);
+    setStockSearch('');
+    setStockSearchPage(1);
+    setDeliveryItemsPage(1);
+    setEditingDelivery((current) =>
+      current
+        ? {
+            ...current,
+            items: []
+          }
+        : null
+    );
+  }
+
+  async function openEditDelivery(
+    id: number
+  ) {
+    try {
+      setError('');
+
+      const res =
+        await apiFetch(
+          `/medication-deliveries/${id}`
+        );
+
+      const delivery =
+        res.data as DeliveryDetail;
+
+      setEditingDelivery(delivery);
+      setForm({
+        facility_id:
+          String(delivery.facility_id),
+        delivery_date:
+          String(delivery.delivery_date).slice(0, 10),
+        patient_name:
+          delivery.patient_name || '',
+        patient_document:
+          delivery.patient_document || '',
+        patient_phone:
+          delivery.patient_phone || '',
+        delivery_reason:
+          delivery.delivery_reason,
+        notes:
+          delivery.notes || ''
+      });
+      setItems(
+        delivery.items.map((item) => ({
+          medication_batch_id:
+            String(item.medication_batch_id),
+          quantity:
+            Number(item.quantity)
+        }))
+      );
+      setDraftItem(emptyDraftItem);
+      setStockSearch('');
+      setStockSearchPage(1);
+      setDeliveryItemsPage(1);
+      setShowCreateModal(true);
+    } catch (error: any) {
+      setError(error.message);
+    }
+  }
+
+  function selectDraftStock(
+    stock: FacilityStock
+  ) {
+    setDraftItem((current) => ({
+      ...current,
+      medication_batch_id:
+        String(stock.medication_batch_id),
+      quantity: Math.min(
+        Math.max(
+          Number(current.quantity || 1),
+          1
+        ),
+        Number(stock.current_stock)
+      )
+    }));
+    setError('');
+  }
+
+  function addDraftItem() {
+    setError('');
+
+    if (!draftItem.medication_batch_id) {
+      setError('Selecciona un medicamento y lote para agregar.');
+      return;
+    }
+
+    if (Number(draftItem.quantity) <= 0) {
+      setError('La cantidad debe ser mayor a cero.');
+      return;
+    }
+
+    const stock =
+      stocksById.get(
+        Number(draftItem.medication_batch_id)
+      );
+
+    if (!stock) {
+      setError('El lote seleccionado no esta disponible.');
+      return;
+    }
+
+    const existingQuantity =
+      items
+        .filter((item) =>
+          item.medication_batch_id === draftItem.medication_batch_id
+        )
+        .reduce(
+          (total, item) =>
+            total + Number(item.quantity || 0),
+          0
+        );
+
+    const nextQuantity =
+      existingQuantity + Number(draftItem.quantity);
+
+    if (nextQuantity > Number(stock.current_stock)) {
+      setError(
+        `La cantidad supera el stock disponible del lote ${stock.batch_number}.`
+      );
+      return;
+    }
+
+    setItems((current) => {
+      const existingIndex =
+        current.findIndex((item) =>
+          item.medication_batch_id === draftItem.medication_batch_id
+        );
+
+      if (existingIndex === -1) {
+        setDeliveryItemsPage(
+          Math.max(
+            1,
+            Math.ceil(
+              (current.length + 1) / deliveryItemsPageSize
+            )
+          )
+        );
+
+        return [
+          ...current,
+          {
+            medication_batch_id: draftItem.medication_batch_id,
+            quantity: Number(draftItem.quantity)
+          }
+        ];
+      }
+
+      return current.map((item, index) =>
+        index === existingIndex
           ? {
               ...item,
-              [key]: value
+              quantity:
+                Number(item.quantity) + Number(draftItem.quantity)
             }
           : item
-      )
-    );
+      );
+    });
+
+    setDraftItem(emptyDraftItem);
   }
 
-  function addItem() {
-
-    setItems((current) => [
-      ...current,
-      {
-        medication_batch_id: '',
-        quantity: 1
-      }
-    ]);
-  }
-
-  function removeItem(
+  function removeItemByAbsoluteIndex(
     index: number
   ) {
+    setItems((current) => {
+      const next =
+        current.filter((_, itemIndex) =>
+          itemIndex !== index
+        );
 
-    setItems((current) =>
-      current.filter((_, itemIndex) =>
-        itemIndex !== index
-      )
-    );
+      setDeliveryItemsPage((page) =>
+        Math.min(
+          page,
+          Math.max(
+            1,
+            Math.ceil(next.length / deliveryItemsPageSize)
+          )
+        )
+      );
+
+      return next;
+    });
   }
 
   async function handleCreateDelivery(
@@ -377,10 +743,20 @@ export default function MedicationDeliveriesPage() {
       setLoading(true);
       setError('');
 
+      if (items.length === 0) {
+        setError('Agrega al menos un medicamento a la entrega.');
+        return;
+      }
+
       await apiFetch(
-        '/medication-deliveries',
+        editingDelivery
+          ? `/medication-deliveries/${editingDelivery.id}`
+          : '/medication-deliveries',
         {
-          method: 'POST',
+          method:
+            editingDelivery
+              ? 'PUT'
+              : 'POST',
           body: JSON.stringify({
             ...form,
             facility_id:
@@ -404,12 +780,8 @@ export default function MedicationDeliveriesPage() {
         notes: ''
       }));
 
-      setItems([
-        {
-          medication_batch_id: '',
-          quantity: 1
-        }
-      ]);
+      resetDeliveryDraft();
+      setShowCreateModal(false);
 
       await loadFacilityStocks(form.facility_id);
       await loadDeliveries();
@@ -518,6 +890,16 @@ export default function MedicationDeliveriesPage() {
 
         </div>
 
+        {canEdit && (
+          <button
+            className="btn-primary"
+            onClick={openCreateDelivery}
+            type="button"
+          >
+            + Nueva entrega
+          </button>
+        )}
+
       </div>
 
       <MedicationModuleTabs />
@@ -556,237 +938,11 @@ export default function MedicationDeliveriesPage() {
 
       </div>
 
-      {canEdit && (
-
-        <form
-          className="dashboard-panel auth-form"
-          onSubmit={handleCreateDelivery}
-        >
-
-          <h2>Nueva entrega</h2>
-
-          <div className="filter-bar">
-
-            <select
-              className="form-input"
-              value={form.facility_id}
-              disabled={!canSelectFacility}
-              onChange={(e) =>
-                setForm({
-                  ...form,
-                  facility_id: e.target.value
-                })
-              }
-            >
-              <option value="">
-                Punto de entrega
-              </option>
-
-              {facilities.map((facility) => (
-                <option
-                  key={facility.id}
-                  value={facility.id}
-                >
-                  {facility.name}
-                </option>
-              ))}
-            </select>
-
-            <input
-              className="form-input"
-              type="date"
-              value={form.delivery_date}
-              onChange={(e) =>
-                setForm({
-                  ...form,
-                  delivery_date: e.target.value
-                })
-              }
-            />
-
-            <select
-              className="form-input"
-              value={form.delivery_reason}
-              onChange={(e) =>
-                setForm({
-                  ...form,
-                  delivery_reason: e.target.value
-                })
-              }
-            >
-              <option value="tratamiento">
-                Tratamiento
-              </option>
-              <option value="cronico">
-                Cronico
-              </option>
-              <option value="guardia">
-                Guardia
-              </option>
-              <option value="otro">
-                Otro
-              </option>
-            </select>
-
-          </div>
-
-          <div className="filter-bar">
-
-            <input
-              className="form-input"
-              placeholder="Paciente"
-              value={form.patient_name}
-              onChange={(e) =>
-                setForm({
-                  ...form,
-                  patient_name: e.target.value
-                })
-              }
-            />
-
-            <input
-              className="form-input"
-              placeholder="DNI"
-              value={form.patient_document}
-              onChange={(e) =>
-                setForm({
-                  ...form,
-                  patient_document: e.target.value
-                })
-              }
-            />
-
-            <input
-              className="form-input"
-              placeholder="Telefono"
-              value={form.patient_phone}
-              onChange={(e) =>
-                setForm({
-                  ...form,
-                  patient_phone: e.target.value
-                })
-              }
-            />
-
-          </div>
-
-          {items.map((item, index) => {
-            const selectedStock =
-              stocksById.get(
-                Number(item.medication_batch_id)
-              );
-
-            return (
-              <div
-                className="filter-bar"
-                key={index}
-              >
-
-                <select
-                  className="form-input"
-                  value={item.medication_batch_id}
-                  onChange={(e) =>
-                    updateItem(
-                      index,
-                      'medication_batch_id',
-                      e.target.value
-                    )
-                  }
-                >
-                  <option value="">
-                    Medicamento / lote
-                  </option>
-
-                  {facilityStocks.map((stock) => (
-                    <option
-                      key={stock.medication_batch_id}
-                      value={stock.medication_batch_id}
-                    >
-                      {stockLabel(stock)}
-                    </option>
-                  ))}
-                </select>
-
-                <input
-                  className="form-input"
-                  type="number"
-                  min="0"
-                  step="1"
-                  max={
-                    selectedStock
-                      ? Number(selectedStock.current_stock)
-                      : undefined
-                  }
-                  value={item.quantity}
-                  onChange={(e) =>
-                    updateItem(
-                      index,
-                      'quantity',
-                      Number(e.target.value)
-                    )
-                  }
-                />
-
-                <button
-                  type="button"
-                  className="btn-danger"
-                  disabled={items.length === 1}
-                  onClick={() =>
-                    removeItem(index)
-                  }
-                >
-                  Quitar
-                </button>
-
-              </div>
-            );
-          })}
-
-          <textarea
-            className="form-input"
-            placeholder="Observaciones"
-            rows={3}
-            value={form.notes}
-            onChange={(e) =>
-              setForm({
-                ...form,
-                notes: e.target.value
-              })
-            }
-          />
-
-          <div className="modal-actions">
-
-            <button
-              type="button"
-              className="btn-secondary"
-              onClick={addItem}
-            >
-              + Agregar medicamento
-            </button>
-
-            <button
-              type="submit"
-              className="btn-success"
-              disabled={loading}
-            >
-              {
-                loading
-                  ? 'Guardando...'
-                  : 'Registrar entrega'
-              }
-            </button>
-
-          </div>
-
-        </form>
-      )}
-
       <div className="filter-bar">
 
         <input
           className="form-input"
-          placeholder="Buscar paciente, DNI, medicamento o lote"
+          placeholder="Buscar paciente, DNI, Medicamento o lote"
           value={filters.search}
           onChange={(e) =>
             setFilters({
@@ -964,6 +1120,16 @@ export default function MedicationDeliveriesPage() {
                       }
                       variant="secondary"
                     />
+                    {canEditDelivery && delivery.status === 'entregado' && (
+                      <IconButton
+                        icon="edit"
+                        label="Editar entrega"
+                        onClick={() =>
+                          openEditDelivery(delivery.id)
+                        }
+                        variant="primary"
+                      />
+                    )}
                     {canEdit && delivery.status === 'entregado' && (
                       <IconButton
                         icon="close"
@@ -992,6 +1158,462 @@ export default function MedicationDeliveriesPage() {
         </table>
 
       </div>
+
+      {showCreateModal && canEdit && (
+
+        <div className="modal-overlay">
+
+          <div className="modal-content modal-content-wide">
+
+            <h2 className="modal-title">
+              {
+                editingDelivery
+                  ? `Editar entrega #${editingDelivery.id}`
+                  : 'Nueva entrega'
+              }
+            </h2>
+
+            <form
+              className="auth-form"
+              onSubmit={handleCreateDelivery}
+            >
+
+              <div className="filter-bar">
+
+                <select
+                  className="form-input"
+                  value={form.facility_id}
+                  disabled={!canSelectFacility}
+                  onChange={(e) => {
+                    setForm({
+                      ...form,
+                      facility_id: e.target.value
+                    });
+                    clearDeliveryItems();
+                  }}
+                >
+                  <option value="">
+                    Punto de entrega
+                  </option>
+
+                  {facilities.map((facility) => (
+                    <option
+                      key={facility.id}
+                      value={facility.id}
+                    >
+                      {facility.name}
+                    </option>
+                  ))}
+                </select>
+
+                <input
+                  className="form-input"
+                  type="date"
+                  value={form.delivery_date}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      delivery_date: e.target.value
+                    })
+                  }
+                />
+
+                <select
+                  className="form-input"
+                  value={form.delivery_reason}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      delivery_reason: e.target.value
+                    })
+                  }
+                >
+                  <option value="tratamiento">
+                    Tratamiento
+                  </option>
+                  <option value="cronico">
+                    Cronico
+                  </option>
+                  <option value="guardia">
+                    Guardia
+                  </option>
+                  <option value="otro">
+                    Otro
+                  </option>
+                </select>
+
+              </div>
+
+              <div className="filter-bar">
+
+                <input
+                  className="form-input"
+                  placeholder="Paciente"
+                  value={form.patient_name}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      patient_name: e.target.value
+                    })
+                  }
+                />
+
+                <input
+                  className="form-input"
+                  placeholder="DNI"
+                  value={form.patient_document}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      patient_document: e.target.value
+                    })
+                  }
+                />
+
+                <input
+                  className="form-input"
+                  placeholder="Telefono"
+                  value={form.patient_phone}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      patient_phone: e.target.value
+                    })
+                  }
+                />
+
+              </div>
+
+              <div className="filter-bar">
+
+                <input
+                  className="form-input"
+                  placeholder="Buscar medicamento, generico, presentacion o lote"
+                  value={stockSearch}
+                  onChange={(e) => {
+                    setStockSearch(e.target.value);
+                    setStockSearchPage(1);
+                  }}
+                />
+
+                <input
+                  className="form-input"
+                  type="number"
+                  min="1"
+                  step="1"
+                  max={
+                    selectedDraftStock
+                      ? Number(selectedDraftStock.current_stock)
+                      : undefined
+                  }
+                  value={draftItem.quantity}
+                  onChange={(e) =>
+                    setDraftItem({
+                      ...draftItem,
+                      quantity: Number(e.target.value)
+                    })
+                  }
+                />
+
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={addDraftItem}
+                >
+                  Agregar a grilla
+                </button>
+
+              </div>
+
+              <div className="table-container medication-transfer-picker-table">
+
+                <table className="data-table">
+
+                  <thead>
+                    <tr>
+                      <th>Medicamento</th>
+                      <th>Lote</th>
+                      <th>Vencimiento</th>
+                      <th>Stock</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {paginatedFacilityStocks.map((stock) => (
+                      <tr
+                        className={
+                          draftItem.medication_batch_id === String(stock.medication_batch_id)
+                            ? 'selected-row selectable-row'
+                            : 'selectable-row'
+                        }
+                        key={stock.medication_batch_id}
+                        onClick={() =>
+                          selectDraftStock(stock)
+                        }
+                        onKeyDown={(event) => {
+                          if (
+                            event.key === 'Enter' ||
+                            event.key === ' '
+                          ) {
+                            event.preventDefault();
+                            selectDraftStock(stock);
+                          }
+                        }}
+                        tabIndex={0}
+                        title="Seleccionar lote"
+                      >
+                        <td>
+                          {[
+                            stock.medication_name,
+                            stock.generic_name,
+                            stock.concentration,
+                            stock.presentation,
+                            stock.unit
+                          ]
+                            .filter(Boolean)
+                            .join(' - ')}
+                        </td>
+                        <td>{stock.batch_number}</td>
+                        <td>{formatDate(stock.expiration_date)}</td>
+                        <td>{Number(stock.current_stock)}</td>
+                      </tr>
+                    ))}
+
+                    {paginatedFacilityStocks.length === 0 && (
+                      <tr>
+                        <td colSpan={4}>
+                          No hay lotes disponibles para esa busqueda.
+                        </td>
+                      </tr>
+                    )}
+
+                    {stockPlaceholderRows.map((_, index) => (
+                      <tr key={`delivery-stock-placeholder-${index}`}>
+                        <td>&nbsp;</td>
+                        <td>&nbsp;</td>
+                        <td>&nbsp;</td>
+                        <td>&nbsp;</td>
+                      </tr>
+                    ))}
+                  </tbody>
+
+                </table>
+
+              </div>
+
+              <div className="modal-actions">
+                <span className="page-subtitle">
+                  Pagina {stockSearchPage} de {stockSearchTotalPages} - {filteredFacilityStocks.length} lotes
+                </span>
+
+                <div className="table-actions">
+                  <button
+                    className="btn-secondary"
+                    disabled={stockSearchPage <= 1}
+                    onClick={() =>
+                      setStockSearchPage((current) =>
+                        Math.max(1, current - 1)
+                      )
+                    }
+                    type="button"
+                  >
+                    Anterior
+                  </button>
+
+                  <button
+                    className="btn-secondary"
+                    disabled={stockSearchPage >= stockSearchTotalPages}
+                    onClick={() =>
+                      setStockSearchPage((current) =>
+                        Math.min(
+                          stockSearchTotalPages,
+                          current + 1
+                        )
+                      )
+                    }
+                    type="button"
+                  >
+                    Siguiente
+                  </button>
+                </div>
+              </div>
+
+              <div className="table-container medication-transfer-picker-table">
+
+                <table className="data-table">
+
+                  <thead>
+                    <tr>
+                      <th>Medicamento</th>
+                      <th>Lote</th>
+                      <th>Vencimiento</th>
+                      <th>Stock</th>
+                      <th>Cantidad</th>
+                      <th>Acciones</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {paginatedDeliveryItems.map((item, index) => {
+                      const stock =
+                        stocksById.get(
+                          Number(item.medication_batch_id)
+                        );
+
+                      const absoluteIndex =
+                        (deliveryItemsPage - 1) *
+                          deliveryItemsPageSize +
+                        index;
+
+                      return (
+                        <tr key={`${item.medication_batch_id}-${absoluteIndex}`}>
+                          <td>
+                            {stock
+                              ? [
+                                  stock.medication_name,
+                                  stock.generic_name,
+                                  stock.concentration,
+                                  stock.presentation,
+                                  stock.unit
+                                ]
+                                  .filter(Boolean)
+                                  .join(' - ')
+                              : '-'}
+                          </td>
+                          <td>{stock?.batch_number || '-'}</td>
+                          <td>
+                            {stock
+                              ? formatDate(stock.expiration_date)
+                              : '-'}
+                          </td>
+                          <td>
+                            {stock
+                              ? Number(stock.current_stock)
+                              : '-'}
+                          </td>
+                          <td>{Number(item.quantity)}</td>
+                          <td>
+                            <IconButton
+                              icon="trash"
+                              label="Quitar medicamento"
+                              onClick={() =>
+                                removeItemByAbsoluteIndex(
+                                  absoluteIndex
+                                )
+                              }
+                              variant="danger"
+                            />
+                          </td>
+                        </tr>
+                      );
+                    })}
+
+                    {items.length === 0 && (
+                      <tr>
+                        <td colSpan={6}>
+                          Agrega medicamentos a la entrega.
+                        </td>
+                      </tr>
+                    )}
+
+                    {deliveryItemsPlaceholderRows.map((_, index) => (
+                      <tr key={`delivery-item-placeholder-${index}`}>
+                        <td>&nbsp;</td>
+                        <td>&nbsp;</td>
+                        <td>&nbsp;</td>
+                        <td>&nbsp;</td>
+                        <td>&nbsp;</td>
+                        <td>&nbsp;</td>
+                      </tr>
+                    ))}
+                  </tbody>
+
+                </table>
+
+              </div>
+
+              <div className="modal-actions">
+                <span className="page-subtitle">
+                  Pagina {deliveryItemsPage} de {deliveryItemsTotalPages} - {items.length} medicamentos agregados
+                </span>
+
+                <div className="table-actions">
+                  <button
+                    className="btn-secondary"
+                    disabled={deliveryItemsPage <= 1}
+                    onClick={() =>
+                      setDeliveryItemsPage((current) =>
+                        Math.max(1, current - 1)
+                      )
+                    }
+                    type="button"
+                  >
+                    Anterior
+                  </button>
+
+                  <button
+                    className="btn-secondary"
+                    disabled={deliveryItemsPage >= deliveryItemsTotalPages}
+                    onClick={() =>
+                      setDeliveryItemsPage((current) =>
+                        Math.min(
+                          deliveryItemsTotalPages,
+                          current + 1
+                        )
+                      )
+                    }
+                    type="button"
+                  >
+                    Siguiente
+                  </button>
+                </div>
+              </div>
+
+              <textarea
+                className="form-input"
+                placeholder="Observaciones"
+                rows={3}
+                value={form.notes}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    notes: e.target.value
+                  })
+                }
+              />
+
+              <div className="modal-actions">
+
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={closeCreateDelivery}
+                >
+                  Cancelar
+                </button>
+
+                <button
+                  type="submit"
+                  className="btn-success"
+                  disabled={loading || items.length === 0}
+                >
+                  {
+                    loading
+                      ? 'Guardando...'
+                      : editingDelivery
+                        ? 'Guardar cambios'
+                        : 'Registrar entrega'
+                  }
+                </button>
+
+              </div>
+
+            </form>
+
+          </div>
+
+        </div>
+      )}
 
       {selectedDelivery && (
 
@@ -1026,8 +1648,10 @@ export default function MedicationDeliveriesPage() {
                       <td>
                         {[
                           item.medication_name,
+                          item.generic_name,
                           item.concentration,
-                          item.presentation
+                          item.presentation,
+                          item.unit
                         ]
                           .filter(Boolean)
                           .join(' - ')}
@@ -1054,6 +1678,21 @@ export default function MedicationDeliveriesPage() {
                 Cerrar
               </button>
 
+              {canEditDelivery && selectedDelivery.status === 'entregado' && (
+                <button
+                  className="btn-primary"
+                  onClick={() => {
+                    const id =
+                      selectedDelivery.id;
+
+                    setSelectedDelivery(null);
+                    void openEditDelivery(id);
+                  }}
+                >
+                  Editar
+                </button>
+              )}
+
               {canEdit && selectedDelivery.status === 'entregado' && (
                 <button
                   className="btn-danger"
@@ -1075,4 +1714,5 @@ export default function MedicationDeliveriesPage() {
     </div>
   );
 }
+
 

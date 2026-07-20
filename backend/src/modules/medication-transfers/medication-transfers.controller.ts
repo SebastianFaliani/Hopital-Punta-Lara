@@ -24,7 +24,9 @@ import {
   getFacilityBatchStocks,
   getMedicationTransferById,
   getMedicationTransfers,
-  receiveMedicationTransfer
+  reactivateMedicationTransfer,
+  receiveMedicationTransfer,
+  updateMedicationTransfer
 } from './medication-transfers.service';
 
 const allowedStatuses = [
@@ -308,6 +310,140 @@ export async function handleCreateMedicationTransfer(
       message:
         error.message ||
         'Error al crear traslado'
+    });
+  }
+}
+
+export async function handleUpdateMedicationTransfer(
+  req: AuthRequest,
+  res: Response
+) {
+
+  try {
+
+    const validationError =
+      validateTransferBody(req.body);
+
+    if (validationError) {
+      return res.status(400).json({
+        success: false,
+        message: validationError
+      });
+    }
+
+    const id =
+      Number(req.params.id);
+
+    const transfer =
+      await getMedicationTransferById(id);
+
+    if (!transfer) {
+      return res.status(404).json({
+        success: false,
+        message: 'Traslado no encontrado'
+      });
+    }
+
+    assertFacilityAccess(
+      req.user,
+      Number(transfer.source_facility_id)
+    );
+
+    assertFacilityAccess(
+      req.user,
+      Number(req.body.source_facility_id)
+    );
+
+    await updateMedicationTransfer(
+      id,
+      {
+        source_facility_id:
+          Number(req.body.source_facility_id),
+        destination_facility_id:
+          Number(req.body.destination_facility_id),
+        transfer_date:
+          req.body.transfer_date,
+        notes:
+          req.body.notes || null,
+        created_by:
+          req.user?.userId ?? null,
+        items:
+          req.body.items.map((item: any) => ({
+            medication_batch_id:
+              Number(item.medication_batch_id),
+            quantity:
+              Number(item.quantity)
+          }))
+      }
+    );
+
+    await logAudit({
+      user: req.user,
+      module: 'farmacia',
+      action: 'editar_traslado_medicamento',
+      entityType: 'medication_transfer',
+      entityId: id,
+      description: `Edito traslado de medicamentos #${id}`,
+      newData: req.body,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'] || null
+    });
+
+    return res.json({
+      success: true,
+      message: 'Traslado actualizado'
+    });
+
+  } catch (error: any) {
+
+    console.error(error);
+
+    return res.status(400).json({
+      success: false,
+      message:
+        error.message ||
+        'Error al actualizar traslado'
+    });
+  }
+}
+
+export async function handleReactivateMedicationTransfer(
+  req: AuthRequest,
+  res: Response
+) {
+
+  try {
+
+    const id =
+      Number(req.params.id);
+
+    await reactivateMedicationTransfer(id);
+
+    await logAudit({
+      user: req.user,
+      module: 'farmacia',
+      action: 'reactivar_traslado_medicamento',
+      entityType: 'medication_transfer',
+      entityId: id,
+      description: `Reactivo traslado de medicamentos #${id}`,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'] || null
+    });
+
+    return res.json({
+      success: true,
+      message: 'Traslado reactivado'
+    });
+
+  } catch (error: any) {
+
+    console.error(error);
+
+    return res.status(400).json({
+      success: false,
+      message:
+        error.message ||
+        'Error al reactivar traslado'
     });
   }
 }

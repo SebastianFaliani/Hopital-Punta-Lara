@@ -15,6 +15,9 @@ import { hasPermission } from '../auth/permissions';
 import { IconButton } from '../components/IconButton';
 import PageTitle from '../components/PageTitle';
 import MedicationModuleTabs from '../components/medications/MedicationModuleTabs';
+import {
+  formatDisplayDate
+} from '../utils/dateFormat';
 
 type Facility = {
   id: number;
@@ -119,6 +122,8 @@ const emptyPatientForm = {
   notes: ''
 };
 
+const packageStockPageSize = 3;
+
 const packageStatusLabels: Record<string, string> = {
   preparado: 'Preparado',
   enviado: 'Enviado',
@@ -146,21 +151,6 @@ function medicationLabel(
     medication.name,
     medication.concentration,
     medication.presentation
-  ]
-    .filter(Boolean)
-    .join(' - ');
-}
-
-function stockLabel(
-  stock: FacilityStock
-) {
-
-  return [
-    stock.medication_name,
-    stock.concentration,
-    stock.presentation,
-    `lote ${stock.batch_number}`,
-    `stock ${Number(stock.current_stock)}`
   ]
     .filter(Boolean)
     .join(' - ');
@@ -212,6 +202,32 @@ export default function ChronicMedicationsPage() {
 
   const [selectedPackage, setSelectedPackage] =
     useState<PackageDetail | null>(null);
+
+  const [showPatientModal, setShowPatientModal] =
+    useState(false);
+
+  const [showPlanModal, setShowPlanModal] =
+    useState(false);
+
+  const [showPackageModal, setShowPackageModal] =
+    useState(false);
+
+  const [activePackageItemId, setActivePackageItemId] =
+    useState<number | null>(null);
+
+  const [packageStockSearch, setPackageStockSearch] =
+    useState('');
+
+  const [packageStockPage, setPackageStockPage] =
+    useState(1);
+
+  const [summaryModal, setSummaryModal] =
+    useState<
+      'activos' |
+      'pendientes' |
+      'planes' |
+      null
+    >(null);
 
   const [facilityStocks, setFacilityStocks] =
     useState<FacilityStock[]>([]);
@@ -281,6 +297,21 @@ export default function ChronicMedicationsPage() {
       patient.is_active
     ).length;
 
+  const activePatientRows =
+    patients.filter((patient) =>
+      patient.is_active
+    );
+
+  const pendingPatientRows =
+    patients.filter((patient) =>
+      Number(patient.pending_packages || 0) > 0
+    );
+
+  const planPatientRows =
+    patients.filter((patient) =>
+      Number(patient.active_plan_items || 0) > 0
+    );
+
   const userFacility =
     facilities.find((facility) =>
       facility.id === user?.facility_id
@@ -316,6 +347,87 @@ export default function ChronicMedicationsPage() {
 
       return map;
     }, [facilityStocks]);
+
+  const activePackageItem =
+    selectedPackage?.items.find((item) =>
+      item.id === activePackageItemId
+    ) || null;
+
+  const activePackageStocks =
+    useMemo(() => {
+      if (!activePackageItem) {
+        return [];
+      }
+
+      return [
+        ...(stocksByMedication.get(
+          Number(activePackageItem.medication_id)
+        ) || [])
+      ].sort((first, second) =>
+        first.medication_name.localeCompare(
+          second.medication_name,
+          'es-AR',
+          { sensitivity: 'base' }
+        ) ||
+        new Date(first.expiration_date).getTime() -
+          new Date(second.expiration_date).getTime() ||
+        first.batch_number.localeCompare(
+          second.batch_number,
+          'es-AR',
+          { sensitivity: 'base' }
+        )
+      );
+    }, [
+      activePackageItem,
+      stocksByMedication
+    ]);
+
+  const filteredPackageStocks =
+    activePackageStocks.filter((stock) => {
+      const query =
+        packageStockSearch.trim().toLowerCase();
+
+      if (!query) {
+        return true;
+      }
+
+      return [
+        stock.medication_name,
+        stock.concentration,
+        stock.presentation,
+        stock.batch_number
+      ]
+        .filter(Boolean)
+        .some((value) =>
+          String(value).toLowerCase().includes(query)
+        );
+    });
+
+  const packageStockTotalPages =
+    Math.max(
+      1,
+      Math.ceil(
+        filteredPackageStocks.length / packageStockPageSize
+      )
+    );
+
+  const paginatedPackageStocks =
+    filteredPackageStocks.slice(
+      (packageStockPage - 1) * packageStockPageSize,
+      packageStockPage * packageStockPageSize
+    );
+
+  const packageStockVisibleRows =
+    paginatedPackageStocks.length || 1;
+
+  const packageStockPlaceholderRows =
+    Array.from({
+      length:
+        Math.max(
+          0,
+          packageStockPageSize - packageStockVisibleRows
+        )
+    });
 
   async function loadBaseData() {
 
@@ -429,6 +541,61 @@ export default function ChronicMedicationsPage() {
     });
 
     setDeliveryItems(nextItems);
+    setActivePackageItemId(
+      res.data.items.find((item: PackageDetail['items'][number]) =>
+        item.item_status === 'pendiente'
+      )?.id || null
+    );
+    setPackageStockSearch('');
+    setPackageStockPage(1);
+  }
+
+  function openPatientModal() {
+    setPatientForm(emptyPatientForm);
+    setShowPatientModal(true);
+    setError('');
+  }
+
+  function openPlanModal() {
+    setPlanForm({
+      medication_id: '',
+      monthly_quantity: 1,
+      instructions: ''
+    });
+    setShowPlanModal(true);
+    setError('');
+  }
+
+  function openPackageModal() {
+    setPackageForm((current) => ({
+      ...current,
+      package_year: currentYear(),
+      package_month: currentMonth()
+    }));
+    setShowPackageModal(true);
+    setError('');
+  }
+
+  function selectPackageStock(
+    stock: FacilityStock
+  ) {
+    if (!activePackageItem) {
+      return;
+    }
+
+    setDeliveryItems((current) => ({
+      ...current,
+      [activePackageItem.id]: {
+        ...current[activePackageItem.id],
+        medication_batch_id:
+          String(stock.medication_batch_id),
+        delivered_quantity:
+          Number(
+            current[activePackageItem.id]?.delivered_quantity ||
+            activePackageItem.planned_quantity
+          )
+      }
+    }));
   }
 
   async function handleCreatePatient(
@@ -457,6 +624,7 @@ export default function ChronicMedicationsPage() {
       );
 
       setPatientForm(emptyPatientForm);
+      setShowPatientModal(false);
       await loadPatients();
 
     } catch (error: any) {
@@ -503,6 +671,7 @@ export default function ChronicMedicationsPage() {
         monthly_quantity: 1,
         instructions: ''
       });
+      setShowPlanModal(false);
 
       await loadPatientDetail(selectedPatient.id);
 
@@ -536,6 +705,7 @@ export default function ChronicMedicationsPage() {
         }
       );
 
+      setShowPackageModal(false);
       await loadPatientDetail(selectedPatient.id);
       await loadPatients();
 
@@ -948,6 +1118,16 @@ export default function ChronicMedicationsPage() {
 
         </div>
 
+        {canEdit && (
+          <button
+            className="btn-primary"
+            onClick={openPatientModal}
+            type="button"
+          >
+            + Nuevo paciente
+          </button>
+        )}
+
       </div>
 
       <MedicationModuleTabs />
@@ -960,19 +1140,37 @@ export default function ChronicMedicationsPage() {
 
       <div className="dashboard-grid">
 
-        <div className="dashboard-card">
+        <button
+          className="dashboard-card dashboard-card-clickable"
+          onClick={() =>
+            setSummaryModal('activos')
+          }
+          type="button"
+        >
           <h3>Pacientes activos</h3>
           <p>{activePatients}</p>
           <span>Con seguimiento cronico</span>
-        </div>
+        </button>
 
-        <div className="dashboard-card">
+        <button
+          className="dashboard-card dashboard-card-clickable"
+          onClick={() =>
+            setSummaryModal('pendientes')
+          }
+          type="button"
+        >
           <h3>Pendientes</h3>
           <p>{totalPending}</p>
           <span>Paquetes sin retirar</span>
-        </div>
+        </button>
 
-        <div className="dashboard-card">
+        <button
+          className="dashboard-card dashboard-card-clickable"
+          onClick={() =>
+            setSummaryModal('planes')
+          }
+          type="button"
+        >
           <h3>Planes</h3>
           <p>
             {
@@ -984,124 +1182,9 @@ export default function ChronicMedicationsPage() {
             }
           </p>
           <span>Medicaciones activas</span>
-        </div>
+        </button>
 
       </div>
-
-      {canEdit && (
-
-        <form
-          className="dashboard-panel auth-form"
-          onSubmit={handleCreatePatient}
-        >
-
-          <h2>Nuevo paciente cronico</h2>
-
-          <div className="filter-bar">
-
-            <input
-              className="form-input"
-              placeholder="Nombre y apellido"
-              value={patientForm.full_name}
-              onChange={(e) =>
-                setPatientForm({
-                  ...patientForm,
-                  full_name: e.target.value
-                })
-              }
-            />
-
-            <input
-              className="form-input"
-              placeholder="DNI"
-              value={patientForm.document_number}
-              onChange={(e) =>
-                setPatientForm({
-                  ...patientForm,
-                  document_number: e.target.value
-                })
-              }
-            />
-
-            <input
-              className="form-input"
-              placeholder="Telefono"
-              value={patientForm.phone}
-              onChange={(e) =>
-                setPatientForm({
-                  ...patientForm,
-                  phone: e.target.value
-                })
-              }
-            />
-
-          </div>
-
-          <div className="filter-bar">
-
-            <select
-              className="form-input"
-              value={patientForm.default_facility_id}
-              onChange={(e) =>
-                setPatientForm({
-                  ...patientForm,
-                  default_facility_id: e.target.value
-                })
-              }
-            >
-              <option value="">
-                Punto de retiro habitual
-              </option>
-
-              {facilities.map((facility) => (
-                <option
-                  key={facility.id}
-                  value={facility.id}
-                >
-                  {facility.name}
-                </option>
-              ))}
-            </select>
-
-            <input
-              className="form-input"
-              placeholder="Direccion"
-              value={patientForm.address}
-              onChange={(e) =>
-                setPatientForm({
-                  ...patientForm,
-                  address: e.target.value
-                })
-              }
-            />
-
-          </div>
-
-          <textarea
-            className="form-input"
-            placeholder="Observaciones"
-            rows={2}
-            value={patientForm.notes}
-            onChange={(e) =>
-              setPatientForm({
-                ...patientForm,
-                notes: e.target.value
-              })
-            }
-          />
-
-          <div className="modal-actions">
-            <button
-              type="submit"
-              className="btn-success"
-              disabled={loading}
-            >
-              Guardar paciente
-            </button>
-          </div>
-
-        </form>
-      )}
 
       <div className="filter-bar">
 
@@ -1199,6 +1282,203 @@ export default function ChronicMedicationsPage() {
 
       </div>
 
+      {summaryModal && (
+        <div className="modal-overlay">
+          <div className="modal-content modal-content-wide">
+            <h2 className="modal-title">
+              {
+                summaryModal === 'activos'
+                  ? 'Pacientes activos'
+                  : summaryModal === 'pendientes'
+                    ? 'Paquetes pendientes'
+                    : 'Planes activos'
+              }
+            </h2>
+
+            <div className="table-container">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Paciente</th>
+                    <th>DNI</th>
+                    <th>Punto habitual</th>
+                    <th>Plan</th>
+                    <th>Pendientes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(
+                    summaryModal === 'activos'
+                      ? activePatientRows
+                      : summaryModal === 'pendientes'
+                        ? pendingPatientRows
+                        : planPatientRows
+                  ).map((patient) => (
+                    <tr key={patient.id}>
+                      <td>{patient.full_name}</td>
+                      <td>{patient.document_number || '-'}</td>
+                      <td>{patient.default_facility_name || '-'}</td>
+                      <td>{Number(patient.active_plan_items || 0)}</td>
+                      <td>{Number(patient.pending_packages || 0)}</td>
+                    </tr>
+                  ))}
+
+                  {(
+                    summaryModal === 'activos'
+                      ? activePatientRows
+                      : summaryModal === 'pendientes'
+                        ? pendingPatientRows
+                        : planPatientRows
+                  ).length === 0 && (
+                    <tr>
+                      <td colSpan={5}>
+                        Sin registros para mostrar.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="modal-actions">
+              <button
+                className="btn-secondary"
+                onClick={() =>
+                  setSummaryModal(null)
+                }
+                type="button"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showPatientModal && canEdit && (
+        <div className="modal-overlay">
+          <div className="modal-content modal-content-wide">
+            <h2 className="modal-title">
+              Nuevo paciente cronico
+            </h2>
+
+            <form
+              className="auth-form"
+              onSubmit={handleCreatePatient}
+            >
+              <div className="filter-bar">
+                <input
+                  className="form-input"
+                  placeholder="Nombre y apellido"
+                  value={patientForm.full_name}
+                  onChange={(e) =>
+                    setPatientForm({
+                      ...patientForm,
+                      full_name: e.target.value
+                    })
+                  }
+                />
+
+                <input
+                  className="form-input"
+                  placeholder="DNI"
+                  value={patientForm.document_number}
+                  onChange={(e) =>
+                    setPatientForm({
+                      ...patientForm,
+                      document_number: e.target.value
+                    })
+                  }
+                />
+
+                <input
+                  className="form-input"
+                  placeholder="Telefono"
+                  value={patientForm.phone}
+                  onChange={(e) =>
+                    setPatientForm({
+                      ...patientForm,
+                      phone: e.target.value
+                    })
+                  }
+                />
+              </div>
+
+              <div className="filter-bar">
+                <select
+                  className="form-input"
+                  value={patientForm.default_facility_id}
+                  onChange={(e) =>
+                    setPatientForm({
+                      ...patientForm,
+                      default_facility_id: e.target.value
+                    })
+                  }
+                >
+                  <option value="">
+                    Punto de retiro habitual
+                  </option>
+
+                  {facilities.map((facility) => (
+                    <option
+                      key={facility.id}
+                      value={facility.id}
+                    >
+                      {facility.name}
+                    </option>
+                  ))}
+                </select>
+
+                <input
+                  className="form-input"
+                  placeholder="Direccion"
+                  value={patientForm.address}
+                  onChange={(e) =>
+                    setPatientForm({
+                      ...patientForm,
+                      address: e.target.value
+                    })
+                  }
+                />
+              </div>
+
+              <textarea
+                className="form-input"
+                placeholder="Observaciones"
+                rows={2}
+                value={patientForm.notes}
+                onChange={(e) =>
+                  setPatientForm({
+                    ...patientForm,
+                    notes: e.target.value
+                  })
+                }
+              />
+
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() =>
+                    setShowPatientModal(false)
+                  }
+                >
+                  Cancelar
+                </button>
+
+                <button
+                  type="submit"
+                  className="btn-success"
+                  disabled={loading}
+                >
+                  Guardar paciente
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {selectedPatient && (
 
         <div className="modal-overlay">
@@ -1225,74 +1505,15 @@ export default function ChronicMedicationsPage() {
             </p>
 
             {canEdit && (
-
-              <form
-                className="auth-form"
-                onSubmit={handleAddPlanItem}
-              >
-                <h3>Plan mensual</h3>
-
-                <div className="filter-bar">
-
-                  <select
-                    className="form-input"
-                    value={planForm.medication_id}
-                    onChange={(e) =>
-                      setPlanForm({
-                        ...planForm,
-                        medication_id: e.target.value
-                      })
-                    }
-                  >
-                    <option value="">
-                      Medicamento
-                    </option>
-
-                    {medications.map((medication) => (
-                      <option
-                        key={medication.id}
-                        value={medication.id}
-                      >
-                        {medicationLabel(medication)}
-                      </option>
-                    ))}
-                  </select>
-
-                  <input
-                    className="form-input"
-                    type="number"
-                    min="0"
-                    step="1"
-                    value={planForm.monthly_quantity}
-                    onChange={(e) =>
-                      setPlanForm({
-                        ...planForm,
-                        monthly_quantity: Number(e.target.value)
-                      })
-                    }
-                  />
-
-                  <input
-                    className="form-input"
-                    placeholder="Indicaciones"
-                    value={planForm.instructions}
-                    onChange={(e) =>
-                      setPlanForm({
-                        ...planForm,
-                        instructions: e.target.value
-                      })
-                    }
-                  />
-
-                  <button
-                    className="btn-success"
-                    type="submit"
-                  >
-                    Agregar
-                  </button>
-
-                </div>
-              </form>
+              <div className="modal-actions">
+                <button
+                  className="btn-primary"
+                  onClick={openPlanModal}
+                  type="button"
+                >
+                  + Agregar medicacion
+                </button>
+              </div>
             )}
 
             <div className="table-container">
@@ -1362,68 +1583,14 @@ export default function ChronicMedicationsPage() {
             </div>
 
             {canPreparePackages && (
-              <div className="dashboard-panel auth-form">
-                <h3>Crear paquete mensual</h3>
-                <div className="filter-bar">
-                  <select
-                    className="form-input"
-                    value={packageForm.facility_id}
-                    onChange={(e) =>
-                      setPackageForm({
-                        ...packageForm,
-                        facility_id: e.target.value
-                      })
-                    }
-                  >
-                    <option value="">
-                      Punto de retiro
-                    </option>
-                    {facilities.map((facility) => (
-                      <option
-                        key={facility.id}
-                        value={facility.id}
-                      >
-                        {facility.name}
-                      </option>
-                    ))}
-                  </select>
-
-                  <input
-                    className="form-input"
-                    type="number"
-                    min="2020"
-                    value={packageForm.package_year}
-                    onChange={(e) =>
-                      setPackageForm({
-                        ...packageForm,
-                        package_year: Number(e.target.value)
-                      })
-                    }
-                  />
-
-                  <input
-                    className="form-input"
-                    type="number"
-                    min="1"
-                    max="12"
-                    value={packageForm.package_month}
-                    onChange={(e) =>
-                      setPackageForm({
-                        ...packageForm,
-                        package_month: Number(e.target.value)
-                      })
-                    }
-                  />
-
-                  <button
-                    className="btn-success"
-                    type="button"
-                    disabled={loading}
-                    onClick={createPackage}
-                  >
-                    Crear paquete
-                  </button>
-                </div>
+              <div className="modal-actions">
+                <button
+                  className="btn-primary"
+                  onClick={openPackageModal}
+                  type="button"
+                >
+                  + Crear paquete mensual
+                </button>
               </div>
             )}
 
@@ -1519,6 +1686,187 @@ export default function ChronicMedicationsPage() {
         </div>
       )}
 
+      {showPlanModal && selectedPatient && canEdit && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <h2 className="modal-title">
+              Agregar medicacion al plan
+            </h2>
+
+            <form
+              className="auth-form"
+              onSubmit={handleAddPlanItem}
+            >
+              <select
+                className="form-input"
+                value={planForm.medication_id}
+                onChange={(e) =>
+                  setPlanForm({
+                    ...planForm,
+                    medication_id: e.target.value
+                  })
+                }
+              >
+                <option value="">
+                  Medicamento
+                </option>
+
+                {medications.map((medication) => (
+                  <option
+                    key={medication.id}
+                    value={medication.id}
+                  >
+                    {medicationLabel(medication)}
+                  </option>
+                ))}
+              </select>
+
+              <input
+                className="form-input"
+                type="number"
+                min="0"
+                step="1"
+                value={planForm.monthly_quantity}
+                onChange={(e) =>
+                  setPlanForm({
+                    ...planForm,
+                    monthly_quantity: Number(e.target.value)
+                  })
+                }
+              />
+
+              <input
+                className="form-input"
+                placeholder="Indicaciones"
+                value={planForm.instructions}
+                onChange={(e) =>
+                  setPlanForm({
+                    ...planForm,
+                    instructions: e.target.value
+                  })
+                }
+              />
+
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() =>
+                    setShowPlanModal(false)
+                  }
+                >
+                  Cancelar
+                </button>
+
+                <button
+                  className="btn-success"
+                  type="submit"
+                  disabled={loading}
+                >
+                  Agregar
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showPackageModal && selectedPatient && canPreparePackages && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <h2 className="modal-title">
+              Crear paquete mensual
+            </h2>
+
+            <div className="auth-form">
+              <select
+                className="form-input"
+                value={packageForm.facility_id}
+                onChange={(e) =>
+                  setPackageForm({
+                    ...packageForm,
+                    facility_id: e.target.value
+                  })
+                }
+              >
+                <option value="">
+                  Punto de retiro
+                </option>
+                {facilities.map((facility) => (
+                  <option
+                    key={facility.id}
+                    value={facility.id}
+                  >
+                    {facility.name}
+                  </option>
+                ))}
+              </select>
+
+              <input
+                className="form-input"
+                type="number"
+                min="2020"
+                value={packageForm.package_year}
+                onChange={(e) =>
+                  setPackageForm({
+                    ...packageForm,
+                    package_year: Number(e.target.value)
+                  })
+                }
+              />
+
+              <input
+                className="form-input"
+                type="number"
+                min="1"
+                max="12"
+                value={packageForm.package_month}
+                onChange={(e) =>
+                  setPackageForm({
+                    ...packageForm,
+                    package_month: Number(e.target.value)
+                  })
+                }
+              />
+
+              <textarea
+                className="form-input"
+                rows={2}
+                placeholder="Observaciones"
+                value={packageForm.notes}
+                onChange={(e) =>
+                  setPackageForm({
+                    ...packageForm,
+                    notes: e.target.value
+                  })
+                }
+              />
+
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() =>
+                    setShowPackageModal(false)
+                  }
+                >
+                  Cancelar
+                </button>
+
+                <button
+                  className="btn-success"
+                  type="button"
+                  disabled={loading}
+                  onClick={createPackage}
+                >
+                  Crear paquete
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {selectedPackage && (
         <div className="modal-overlay">
           <div className="modal-content modal-content-wide">
@@ -1610,9 +1958,37 @@ export default function ChronicMedicationsPage() {
                       <tr
                         key={item.id}
                         className={
+                          [
+                            item.item_status === 'pendiente'
+                              ? 'package-item-missing-row'
+                              : '',
+                            activePackageItemId === item.id
+                              ? 'selected-row selectable-row'
+                              : item.item_status === 'pendiente'
+                                ? 'selectable-row'
+                                : ''
+                          ]
+                            .filter(Boolean)
+                            .join(' ')
+                        }
+                        onClick={() => {
+                          if (
+                            canPreparePackages &&
+                            (
+                              selectedPackage.status === 'preparado' ||
+                              selectedPackage.status === 'parcial'
+                            ) &&
+                            item.item_status === 'pendiente'
+                          ) {
+                            setActivePackageItemId(item.id);
+                            setPackageStockSearch('');
+                            setPackageStockPage(1);
+                          }
+                        }}
+                        tabIndex={
                           item.item_status === 'pendiente'
-                            ? 'package-item-missing-row'
-                            : ''
+                            ? 0
+                            : undefined
                         }
                       >
                         <td>
@@ -1642,42 +2018,18 @@ export default function ChronicMedicationsPage() {
                         </td>
                         <td>{Number(item.planned_quantity)}</td>
                         <td>
-                          <select
-                            className="form-input"
-                            value={deliveryItems[item.id]?.medication_batch_id || ''}
-                            onChange={(e) =>
-                              setDeliveryItems({
-                                ...deliveryItems,
-                                [item.id]: {
-                                  ...deliveryItems[item.id],
-                                  medication_batch_id: e.target.value
-                                }
-                              })
-                            }
-                            disabled={
-                              !canPreparePackages ||
-                              selectedPackage.status !== 'preparado' &&
-                              selectedPackage.status !== 'parcial' ||
-                              item.item_status !== 'pendiente'
-                            }
-                          >
-                            <option value="">
-                              Seleccionar lote
-                            </option>
-                            {item.medication_batch_id && (
-                              <option value={item.medication_batch_id}>
-                                Lote {item.batch_number || item.medication_batch_id}
-                              </option>
-                            )}
-                            {availableStocks.map((stock) => (
-                              <option
-                                key={stock.medication_batch_id}
-                                value={stock.medication_batch_id}
-                              >
-                                {stockLabel(stock)}
-                              </option>
-                            ))}
-                          </select>
+                          {
+                            deliveryItems[item.id]?.medication_batch_id
+                              ? (
+                                availableStocks.find((stock) =>
+                                  Number(stock.medication_batch_id) ===
+                                  Number(deliveryItems[item.id]?.medication_batch_id)
+                                )?.batch_number ||
+                                item.batch_number ||
+                                deliveryItems[item.id]?.medication_batch_id
+                              )
+                              : 'Seleccionar en la grilla'
+                          }
                         </td>
                         <td>
                           <input
@@ -1720,6 +2072,123 @@ export default function ChronicMedicationsPage() {
                 </tbody>
               </table>
             </div>
+
+            {canPreparePackages &&
+              activePackageItem &&
+              (
+                selectedPackage.status === 'preparado' ||
+                selectedPackage.status === 'parcial'
+              ) && (
+              <>
+                <div className="filter-bar">
+                  <input
+                    className="form-input"
+                    placeholder="Buscar lote, medicamento o presentacion"
+                    value={packageStockSearch}
+                    onChange={(event) => {
+                      setPackageStockSearch(event.target.value);
+                      setPackageStockPage(1);
+                    }}
+                  />
+                </div>
+
+                <div className="table-container medication-transfer-picker-table">
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>Medicamento</th>
+                        <th>Lote</th>
+                        <th>Vencimiento</th>
+                        <th>Stock</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {paginatedPackageStocks.map((stock) => {
+                        const selected =
+                          deliveryItems[activePackageItem.id]?.medication_batch_id ===
+                          String(stock.medication_batch_id);
+
+                        return (
+                          <tr
+                            key={stock.medication_batch_id}
+                            className={
+                              selected
+                                ? 'selected-row selectable-row'
+                                : 'selectable-row'
+                            }
+                            onClick={() =>
+                              selectPackageStock(stock)
+                            }
+                            tabIndex={0}
+                          >
+                            <td>
+                              {[
+                                stock.medication_name,
+                                stock.concentration,
+                                stock.presentation
+                              ]
+                                .filter(Boolean)
+                                .join(' - ')}
+                            </td>
+                            <td>{stock.batch_number}</td>
+                            <td>{formatDisplayDate(stock.expiration_date)}</td>
+                            <td>{Number(stock.current_stock)}</td>
+                          </tr>
+                        );
+                      })}
+
+                      {paginatedPackageStocks.length === 0 && (
+                        <tr>
+                          <td colSpan={4}>
+                            No hay lotes disponibles para este medicamento.
+                          </td>
+                        </tr>
+                      )}
+
+                      {packageStockPlaceholderRows.map((_, index) => (
+                        <tr
+                          key={`package-stock-placeholder-${index}`}
+                          className="table-placeholder-row"
+                          aria-hidden="true"
+                        >
+                          <td colSpan={4}>&nbsp;</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="pagination-bar">
+                  <button
+                    className="btn-secondary"
+                    type="button"
+                    disabled={packageStockPage <= 1}
+                    onClick={() =>
+                      setPackageStockPage((current) =>
+                        Math.max(1, current - 1)
+                      )
+                    }
+                  >
+                    Anterior
+                  </button>
+                  <span>
+                    Pagina {packageStockPage} de {packageStockTotalPages} - {filteredPackageStocks.length} lotes
+                  </span>
+                  <button
+                    className="btn-secondary"
+                    type="button"
+                    disabled={packageStockPage >= packageStockTotalPages}
+                    onClick={() =>
+                      setPackageStockPage((current) =>
+                        Math.min(packageStockTotalPages, current + 1)
+                      )
+                    }
+                  >
+                    Siguiente
+                  </button>
+                </div>
+              </>
+            )}
 
             <div className="modal-actions">
               {canEdit && selectedPackage.status === 'no_retirado' && (

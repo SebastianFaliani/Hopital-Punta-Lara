@@ -12,7 +12,9 @@ import {
   handleGetFacilityBatchStocks,
   handleGetMedicationTransferById,
   handleGetMedicationTransfers,
-  handleReceiveMedicationTransfer
+  handleReactivateMedicationTransfer,
+  handleReceiveMedicationTransfer,
+  handleUpdateMedicationTransfer
 } from './medication-transfers.controller';
 
 const router = Router();
@@ -60,6 +62,16 @@ router.post(
   handleCreateMedicationTransfer
 );
 
+router.put(
+  '/:id',
+  authenticateToken,
+  authorizeRoles(
+    'admin',
+    'farmacia'
+  ),
+  handleUpdateMedicationTransfer
+);
+
 router.patch(
   '/:id/receive',
   authenticateToken,
@@ -78,6 +90,13 @@ router.patch(
     'farmacia'
   ),
   handleCancelMedicationTransfer
+);
+
+router.patch(
+  '/:id/reactivate',
+  authenticateToken,
+  authorizeRoles('admin'),
+  handleReactivateMedicationTransfer
 );
 
 export default router;

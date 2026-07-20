@@ -197,20 +197,28 @@ export default function MedicationBatchesPage() {
 
         <div>
 
-          <Link
-            to="/medications"
-            className="page-back-link"
-          >
-            Volver a medicamentos
-          </Link>
-
           <PageTitle icon="medicamentos">
             Lotes de {medication?.name}
           </PageTitle>
 
-          <p className="page-subtitle">
-            Stock total activo: {totalStock}
-          </p>
+          <div className="vaccine-batches-subtitle-row">
+            <Link
+              to="/medications"
+              className="icon-button icon-button-secondary vaccine-custom-back-link"
+              title="Volver a medicamentos"
+              aria-label="Volver a medicamentos"
+            >
+              <img
+                src="/back-icon-transparent.png"
+                alt=""
+                className="vaccine-custom-back-icon"
+              />
+            </Link>
+
+            <p className="page-subtitle">
+              Stock total activo: {totalStock}
+            </p>
+          </div>
 
         </div>
 
@@ -290,7 +298,7 @@ export default function MedicationBatchesPage() {
                         .map((stock) =>
                           `${stock.facility_name}: ${Number(stock.current_stock)}`
                         )
-                        .join(' | ')
+                        .join(' - ')
                       : '-'
                   }
                 </td>
