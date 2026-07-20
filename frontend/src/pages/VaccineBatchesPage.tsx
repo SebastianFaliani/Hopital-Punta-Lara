@@ -11,7 +11,9 @@ import {
 import { apiFetch } from '../api/api';
 import { useAuth } from '../auth/useAuth';
 import { hasPermission } from '../auth/permissions';
-import { IconButton } from '../components/IconButton';
+import {
+  IconButton
+} from '../components/IconButton';
 import PageTitle from '../components/PageTitle';
 import {
   formatDisplayDate,
@@ -67,11 +69,24 @@ const emptyBatchForm = {
 };
 
 const movementLabels: Record<string, string> = {
-  ingreso: 'Ingreso',
-  ajuste: 'Ajuste',
+  ingreso: 'Entrada',
+  ajuste: 'Salida',
   perdida: 'Perdida',
   devolucion: 'Devolucion'
 };
+
+function formatMovementType(
+  movement: Movement
+) {
+  if (movement.movement_type === 'ajuste') {
+    return Number(movement.quantity) < 0
+      ? 'Salida'
+      : 'Entrada';
+  }
+
+  return movementLabels[movement.movement_type] ||
+    movement.movement_type;
+}
 
 function formatDate(
   value: string
@@ -413,11 +428,11 @@ export default function VaccineBatchesPage() {
 
       setMovementForm({
         movement_type: 'ingreso',
-      movement_direction: 'entrada',
-      quantity: 0,
-      facility_id: movementForm.facility_id,
-      notes: ''
-    });
+        movement_direction: 'entrada',
+        quantity: 0,
+        facility_id: movementForm.facility_id,
+        notes: ''
+      });
     } catch (error: any) {
       setError(error.message);
     } finally {
@@ -444,20 +459,28 @@ export default function VaccineBatchesPage() {
 
       <div className="page-header">
         <div>
-          <Link
-            to="/vaccines"
-            className="page-back-link"
-          >
-            Volver a vacunas
-          </Link>
-
           <PageTitle icon="vacunas">
             Lotes de {vaccine?.name}
           </PageTitle>
 
-          <p className="page-subtitle">
-            Stock total activo: {totalStock}
-          </p>
+          <div className="vaccine-batches-subtitle-row">
+            <Link
+              aria-label="Volver a vacunas"
+              className="icon-button icon-button-secondary vaccine-custom-back-link"
+              title="Volver a vacunas"
+              to="/vaccines"
+            >
+              <img
+                alt=""
+                className="vaccine-custom-back-icon"
+                src="/back-icon-transparent.png"
+              />
+            </Link>
+
+            <p className="page-subtitle">
+              Stock total activo: {totalStock}
+            </p>
+          </div>
         </div>
 
         {canEdit && (
@@ -498,13 +521,13 @@ export default function VaccineBatchesPage() {
                   <div>
                     <strong>{Number(batch.current_stock)}</strong>
                     {batch.stock_by_facility &&
-                      batch.stock_by_facility.length > 0 && (
+                    batch.stock_by_facility.length > 0 && (
                       <div className="batch-stock-list">
-                        {batch.stock_by_facility.map((stock) => (
-                          <span key={stock.facility_id}>
-                            {stock.facility_name}: {Number(stock.current_stock)}
-                          </span>
-                        ))}
+                        {batch.stock_by_facility
+                          .map((stock) =>
+                            `${stock.facility_name}: ${Number(stock.current_stock)}`
+                          )
+                          .join(' - ')}
                       </div>
                     )}
                   </div>
@@ -711,31 +734,19 @@ export default function VaccineBatchesPage() {
                 onChange={(e) =>
                   setMovementForm({
                     ...movementForm,
-                    movement_type: e.target.value
+                    movement_type: e.target.value,
+                    movement_direction:
+                      e.target.value === 'ajuste'
+                        ? 'salida'
+                        : 'entrada'
                   })
                 }
               >
-                <option value="ingreso">Ingreso</option>
-                <option value="ajuste">Ajuste</option>
+                <option value="ingreso">Entrada</option>
+                <option value="ajuste">Salida</option>
                 <option value="perdida">Perdida</option>
                 <option value="devolucion">Devolucion</option>
               </select>
-
-              {movementForm.movement_type === 'ajuste' && (
-                <select
-                  className="form-input"
-                  value={movementForm.movement_direction}
-                  onChange={(e) =>
-                    setMovementForm({
-                      ...movementForm,
-                      movement_direction: e.target.value
-                    })
-                  }
-                >
-                  <option value="entrada">Entrada</option>
-                  <option value="salida">Salida</option>
-                </select>
-              )}
 
               <select
                 className="form-input"
@@ -825,7 +836,7 @@ export default function VaccineBatchesPage() {
                     <tr key={movement.id}>
                       <td>{formatDateTime(movement.created_at)}</td>
                       <td>{movement.facility_name || '-'}</td>
-                      <td>{movementLabels[movement.movement_type]}</td>
+                      <td>{formatMovementType(movement)}</td>
                       <td>{formatQuantity(movement.quantity)}</td>
                       <td>{movement.created_by_name || '-'}</td>
                       <td>{movement.notes || '-'}</td>

@@ -9,7 +9,8 @@ import {
   handleCancelVaccineDelivery,
   handleCreateVaccineDelivery,
   handleGetVaccineDeliveries,
-  handleGetVaccineDeliveryById
+  handleGetVaccineDeliveryById,
+  handleUpdateVaccineDelivery
 } from './vaccine-deliveries.controller';
 
 const router = Router();
@@ -44,6 +45,13 @@ router.get(
   authenticateToken,
   authorizeRoles(...vaccineRoles),
   handleGetVaccineDeliveryById
+);
+
+router.put(
+  '/:id',
+  authenticateToken,
+  authorizeRoles('admin'),
+  handleUpdateVaccineDelivery
 );
 
 router.patch(

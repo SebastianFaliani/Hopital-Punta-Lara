@@ -309,6 +309,139 @@ export async function createVaccineDelivery(
   }
 }
 
+export async function updateVaccineDelivery(
+  id: number,
+  data: VaccineDeliveryInput
+) {
+
+  const connection =
+    await pool.getConnection();
+
+  try {
+
+    await connection.beginTransaction();
+
+    const [deliveryRows]: any =
+      await connection.query(
+        `
+          SELECT *
+          FROM vaccine_deliveries
+          WHERE id = ?
+          FOR UPDATE
+        `,
+        [id]
+      );
+
+    if (deliveryRows.length === 0) {
+      throw new Error('Entrega no encontrada');
+    }
+
+    const delivery =
+      deliveryRows[0];
+
+    if (delivery.status !== 'entregado') {
+      throw new Error(
+        'Solo se pueden editar entregas activas'
+      );
+    }
+
+    const [previousItems]: any =
+      await connection.query(
+        `
+          SELECT vaccine_batch_id, quantity
+          FROM vaccine_delivery_items
+          WHERE vaccine_delivery_id = ?
+        `,
+        [id]
+      );
+
+    for (const item of previousItems) {
+      await updateFacilityStock(
+        connection,
+        Number(item.vaccine_batch_id),
+        Number(delivery.facility_id),
+        Number(item.quantity),
+        'No se pudo devolver el stock anterior de la entrega'
+      );
+    }
+
+    await connection.query(
+      `
+        UPDATE vaccine_deliveries
+        SET
+          facility_id = ?,
+          delivery_date = ?,
+          patient_id = ?,
+          patient_name = ?,
+          patient_document = ?,
+          patient_phone = ?,
+          delivery_reason = ?,
+          notes = ?
+        WHERE id = ?
+      `,
+      [
+        data.facility_id,
+        data.delivery_date,
+        data.patient_id ?? null,
+        data.patient_name,
+        data.patient_document ?? null,
+        data.patient_phone ?? null,
+        data.delivery_reason,
+        data.notes ?? null,
+        id
+      ]
+    );
+
+    await connection.query(
+      `
+        DELETE FROM vaccine_delivery_items
+        WHERE vaccine_delivery_id = ?
+      `,
+      [id]
+    );
+
+    for (const item of data.items) {
+      const quantity =
+        Number(item.quantity);
+
+      await updateFacilityStock(
+        connection,
+        Number(item.vaccine_batch_id),
+        data.facility_id,
+        quantity * -1,
+        'La entrega deja stock negativo en el punto seleccionado'
+      );
+
+      await connection.query(
+        `
+          INSERT INTO vaccine_delivery_items (
+            vaccine_delivery_id,
+            vaccine_batch_id,
+            quantity
+          )
+          VALUES (?, ?, ?)
+        `,
+        [
+          id,
+          Number(item.vaccine_batch_id),
+          quantity
+        ]
+      );
+    }
+
+    await connection.commit();
+
+  } catch (error) {
+
+    await connection.rollback();
+    throw error;
+
+  } finally {
+
+    connection.release();
+  }
+}
+
 export async function cancelVaccineDelivery(
   id: number,
   userId?: number | null
