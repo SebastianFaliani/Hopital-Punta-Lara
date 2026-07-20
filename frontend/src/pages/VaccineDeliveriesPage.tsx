@@ -16,7 +16,8 @@ import { IconButton } from '../components/IconButton';
 import PageTitle from '../components/PageTitle';
 import VaccineModuleTabs from '../components/vaccines/VaccineModuleTabs';
 import {
-  formatDisplayDate
+  formatDisplayDate,
+  todayInputValue
 } from '../utils/dateFormat';
 
 type Facility = {
@@ -103,12 +104,6 @@ const statusLabels: Record<string, string> = {
   cancelado: 'Cancelado'
 };
 
-function todayInputValue() {
-
-  return new Date()
-    .toISOString()
-    .slice(0, 10);
-}
 
 function formatDate(
   value: string

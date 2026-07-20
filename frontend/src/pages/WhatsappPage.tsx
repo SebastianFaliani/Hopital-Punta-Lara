@@ -13,7 +13,9 @@ import { IconButton } from '../components/IconButton';
 import PageTitle from '../components/PageTitle';
 import {
   formatDisplayDate,
-  formatDisplayDateTime
+  formatDisplayDateTime,
+  todayInputValue,
+  toDateTimeLocalInputValue
 } from '../utils/dateFormat';
 
 type WebStatus = {
@@ -519,9 +521,7 @@ export default function WhatsappPage() {
 
     link.href = url;
     link.download =
-      `whatsapp-historial-${new Date()
-        .toISOString()
-        .slice(0, 10)}.csv`;
+      `whatsapp-historial-${todayInputValue()}.csv`;
     link.click();
 
     window.URL.revokeObjectURL(url);
@@ -596,7 +596,7 @@ export default function WhatsappPage() {
       is_booking_open: Boolean(doctor.is_booking_open),
       next_open_at:
         doctor.next_open_at
-          ? doctor.next_open_at.slice(0, 16)
+          ? toDateTimeLocalInputValue(doctor.next_open_at)
           : '',
       closed_message:
         doctor.closed_message || ''
@@ -728,7 +728,7 @@ export default function WhatsappPage() {
     if (doctor.is_booking_open) {
       const nextOpenAt =
         doctor.next_open_at
-          ? doctor.next_open_at.slice(0, 16)
+          ? toDateTimeLocalInputValue(doctor.next_open_at)
           : '';
 
       setClosingDoctor(doctor);

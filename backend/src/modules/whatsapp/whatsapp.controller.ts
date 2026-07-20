@@ -786,8 +786,9 @@ export async function rejectAppointmentRequest(
 
     const nextOpen =
       request.next_open_at
-        ? new Date(request.next_open_at)
-          .toLocaleString(
+        ? new Date(
+            `${String(request.next_open_at).replace(' ', 'T')}-03:00`
+          ).toLocaleString(
             'es-AR',
             {
               day: '2-digit',

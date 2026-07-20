@@ -15,7 +15,8 @@ import { IconButton } from '../components/IconButton';
 import PageTitle from '../components/PageTitle';
 import {
   formatDisplayDate,
-  formatDisplayDateTime
+  formatDisplayDateTime,
+  todayInputValue
 } from '../utils/dateFormat';
 
 type LaboratoryTest = {
@@ -69,7 +70,7 @@ type LaboratoryStats = {
 };
 
 const emptyForm = {
-  study_date: new Date().toISOString().slice(0, 10),
+  study_date: todayInputValue(),
   patient_last_name: '',
   patient_first_name: '',
   patient_document: '',
@@ -325,7 +326,7 @@ export default function LaboratoryPage() {
 
   const [pickupForm, setPickupForm] =
     useState({
-      pickup_date: new Date().toISOString().slice(0, 10),
+      pickup_date: todayInputValue(),
       picked_up_by: '',
       pickup_document: '',
       notes: ''
@@ -509,7 +510,12 @@ export default function LaboratoryPage() {
         }).join('');
 
       const printedAt =
-        new Date().toLocaleString('es-AR');
+        new Date().toLocaleString(
+          'es-AR',
+          {
+            timeZone: 'America/Argentina/Buenos_Aires'
+          }
+        );
 
       printWindow.document.open();
       printWindow.document.write(`
@@ -605,7 +611,7 @@ export default function LaboratoryPage() {
     setPickupForm({
       pickup_date:
         toDateInput(record.pickup_date) ||
-        new Date().toISOString().slice(0, 10),
+        todayInputValue(),
       picked_up_by: record.picked_up_by || '',
       pickup_document: record.pickup_document || '',
       notes: record.notes || ''
@@ -1116,7 +1122,7 @@ export default function LaboratoryPage() {
                       <span
                         className={
                           yesNo(record.is_complete)
-                            ? 'badge badge-success'
+                            ? 'badge badge-info'
                             : 'badge badge-danger'
                         }
                       >

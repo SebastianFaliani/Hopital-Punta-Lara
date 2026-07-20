@@ -13,7 +13,8 @@ import { hasPermission } from '../auth/permissions';
 import { useAuth } from '../auth/useAuth';
 import PageTitle from '../components/PageTitle';
 import {
-  formatDisplayDate
+  formatDisplayDate,
+  todayInputValue
 } from '../utils/dateFormat';
 
 type Item = {
@@ -70,7 +71,7 @@ const emptyItemForm = {
 };
 
 const emptyMovementForm = {
-  movement_date: new Date().toISOString().slice(0, 10),
+  movement_date: todayInputValue(),
   item_id: '',
   movement_type: 'prestamo',
   quantity: '1',
@@ -84,7 +85,7 @@ const emptyMovementForm = {
 };
 
 const emptyReturnForm = {
-  return_date: new Date().toISOString().slice(0, 10),
+  return_date: todayInputValue(),
   returned_quantity: '',
   return_signature_name: '',
   return_signed_on_paper: true,

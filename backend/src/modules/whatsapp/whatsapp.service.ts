@@ -54,16 +54,28 @@ function formatDateTimeForMessage(
     return 'fecha a confirmar';
   }
 
-  return new Date(value)
-    .toLocaleString(
-      'es-AR',
-      {
-        dateStyle: 'short',
-        timeStyle: 'short',
-        timeZone: 'America/Argentina/Buenos_Aires',
-        hour12: false
-      }
+  const input =
+    String(value);
+
+  const hasTimezone =
+    /T.*(?:Z|[+-]\d{2}:?\d{2})$/i.test(input);
+
+  const date =
+    new Date(
+      hasTimezone
+        ? input
+        : `${input.replace(' ', 'T')}-03:00`
     );
+
+  return date.toLocaleString(
+    'es-AR',
+    {
+      dateStyle: 'short',
+      timeStyle: 'short',
+      timeZone: 'America/Argentina/Buenos_Aires',
+      hour12: false
+    }
+  );
 }
 
 function formatTime(
@@ -288,7 +300,10 @@ export async function getWhatsappAppointmentDoctors() {
           d.specialty,
           d.is_active,
           d.is_booking_open,
-          d.next_open_at,
+          DATE_FORMAT(
+            d.next_open_at,
+            '%Y-%m-%dT%H:%i:%s'
+          ) AS next_open_at,
           d.closed_message
         FROM whatsapp_appointment_doctors d
         ORDER BY d.specialty ASC, d.doctor_name ASC
@@ -751,7 +766,10 @@ export async function markWhatsappAppointmentNoAvailability(
           r.patient_name,
           d.doctor_name,
           d.specialty,
-          d.next_open_at
+          DATE_FORMAT(
+            d.next_open_at,
+            '%Y-%m-%dT%H:%i:%s'
+          ) AS next_open_at
         FROM whatsapp_appointment_requests r
         INNER JOIN whatsapp_appointment_doctors d
           ON d.id = r.doctor_id
@@ -855,7 +873,10 @@ async function getActiveDoctorsForBot(
           doctor_name,
           specialty,
           is_booking_open,
-          next_open_at,
+          DATE_FORMAT(
+            next_open_at,
+            '%Y-%m-%dT%H:%i:%s'
+          ) AS next_open_at,
           closed_message
         FROM whatsapp_appointment_doctors
         WHERE is_active = TRUE
@@ -924,7 +945,10 @@ async function getActiveDoctorsBySpecialtyForBot(
           doctor_name,
           specialty,
           is_booking_open,
-          next_open_at,
+          DATE_FORMAT(
+            next_open_at,
+            '%Y-%m-%dT%H:%i:%s'
+          ) AS next_open_at,
           closed_message
         FROM whatsapp_appointment_doctors
         WHERE is_active = TRUE

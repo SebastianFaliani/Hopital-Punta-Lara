@@ -13,7 +13,8 @@ import { useAuth } from '../auth/useAuth';
 import { hasPermission } from '../auth/permissions';
 import PageTitle from '../components/PageTitle';
 import {
-  formatDisplayDate
+  formatDisplayDate,
+  todayInputValue
 } from '../utils/dateFormat';
 
 type Patient = {
@@ -83,7 +84,7 @@ const emptyPatientForm = {
 
 const emptyControlForm = {
   control_date:
-    new Date().toISOString().slice(0, 10),
+    todayInputValue(),
   weight_kg: '',
   height_m: '',
   waist_circumference_cm: '',

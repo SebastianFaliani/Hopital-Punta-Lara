@@ -9,6 +9,60 @@ export function toDateInputValue(
     .slice(0, 10);
 }
 
+const applicationTimeZone =
+  'America/Argentina/Buenos_Aires';
+
+function getZonedPart(
+  date: Date,
+  type: Intl.DateTimeFormatPartTypes
+) {
+  const parts =
+    new Intl.DateTimeFormat(
+      'es-AR',
+      {
+        timeZone: applicationTimeZone,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      }
+    ).formatToParts(date);
+
+  return parts.find((item) => item.type === type)?.value || '';
+}
+
+export function todayInputValue(
+  date = new Date()
+) {
+  return `${getZonedPart(date, 'year')}-${getZonedPart(date, 'month')}-${getZonedPart(date, 'day')}`;
+}
+
+export function toDateTimeLocalInputValue(
+  value?: string | null
+) {
+  if (!value) {
+    return '';
+  }
+
+  const input =
+    String(value);
+
+  if (/T.*(?:Z|[+-]\d{2}:?\d{2})$/i.test(input)) {
+    const parsed =
+      new Date(input);
+
+    if (!Number.isNaN(parsed.getTime())) {
+      return `${getZonedPart(parsed, 'year')}-${getZonedPart(parsed, 'month')}-${getZonedPart(parsed, 'day')}T${getZonedPart(parsed, 'hour')}:${getZonedPart(parsed, 'minute')}`;
+    }
+  }
+
+  return input
+    .replace(' ', 'T')
+    .slice(0, 16);
+}
+
 export function formatDisplayDate(
   value?: string | null,
   fallback = '-'
@@ -53,25 +107,7 @@ export function formatDisplayDateTime(
       new Date(input);
 
     if (!Number.isNaN(parsed.getTime())) {
-      const parts =
-        new Intl.DateTimeFormat(
-          'es-AR',
-          {
-            timeZone: 'America/Argentina/Buenos_Aires',
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit',
-            hour12: false
-          }
-        ).formatToParts(parsed);
-
-      const part =
-        (type: Intl.DateTimeFormatPartTypes) =>
-          parts.find((item) => item.type === type)?.value || '';
-
-      return `${part('day')}-${part('month')}-${part('year')} ${part('hour')}:${part('minute')}`;
+      return `${getZonedPart(parsed, 'day')}-${getZonedPart(parsed, 'month')}-${getZonedPart(parsed, 'year')} ${getZonedPart(parsed, 'hour')}:${getZonedPart(parsed, 'minute')}`;
     }
   }
 
