@@ -7,12 +7,16 @@ import {
 import {
   SystemAlertModal
 } from './components/SystemAlertModal';
+import UppercaseInputNormalizer
+  from './components/UppercaseInputNormalizer';
 
 function App() {
 
   return (
 
     <AuthProvider>
+
+      <UppercaseInputNormalizer />
 
       <AppRouter />
 

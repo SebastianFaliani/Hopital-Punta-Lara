@@ -26,6 +26,9 @@ import vaccineTransfersRoutes from './modules/vaccine-transfers/vaccine-transfer
 import vaccineDeliveriesRoutes from './modules/vaccine-deliveries/vaccine-deliveries.routes';
 import nutritionRoutes from './modules/nutrition/nutrition.routes';
 import housekeepingRoutes from './modules/housekeeping/housekeeping.routes';
+import {
+  uppercaseFieldsMiddleware
+} from './middleware/uppercase-fields.middleware';
 
 dotenv.config();
 
@@ -69,6 +72,7 @@ app.use(
 );
 
 app.use(express.json());
+app.use(uppercaseFieldsMiddleware);
 
 app.get('/', (req, res) => {
   res.json({
