@@ -11,7 +11,9 @@ import {
   handleGetVaccineFacilityBatchStocks,
   handleGetVaccineTransferById,
   handleGetVaccineTransfers,
-  handleReceiveVaccineTransfer
+  handleReactivateVaccineTransfer,
+  handleReceiveVaccineTransfer,
+  handleUpdateVaccineTransfer
 } from './vaccine-transfers.controller';
 
 const router = Router();
@@ -55,6 +57,13 @@ router.get(
   handleGetVaccineTransferById
 );
 
+router.put(
+  '/:id',
+  authenticateToken,
+  authorizeRoles(...vaccineWriteRoles),
+  handleUpdateVaccineTransfer
+);
+
 router.patch(
   '/:id/receive',
   authenticateToken,
@@ -67,6 +76,13 @@ router.patch(
   authenticateToken,
   authorizeRoles(...vaccineWriteRoles),
   handleCancelVaccineTransfer
+);
+
+router.patch(
+  '/:id/reactivate',
+  authenticateToken,
+  authorizeRoles('admin'),
+  handleReactivateVaccineTransfer
 );
 
 export default router;

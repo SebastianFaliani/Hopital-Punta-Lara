@@ -23,7 +23,9 @@ import {
   getVaccineFacilityBatchStocks,
   getVaccineTransferById,
   getVaccineTransfers,
-  receiveVaccineTransfer
+  reactivateVaccineTransfer,
+  receiveVaccineTransfer,
+  updateVaccineTransfer
 } from './vaccine-transfers.service';
 
 const allowedStatuses = [
@@ -308,6 +310,99 @@ export async function handleCreateVaccineTransfer(
   }
 }
 
+export async function handleUpdateVaccineTransfer(
+  req: AuthRequest,
+  res: Response
+) {
+
+  try {
+
+    const id =
+      Number(req.params.id);
+
+    const validationError =
+      validateTransferBody(req.body);
+
+    if (validationError) {
+      return res.status(400).json({
+        success: false,
+        message: validationError
+      });
+    }
+
+    const transfer =
+      await getVaccineTransferById(id);
+
+    if (!transfer) {
+      return res.status(404).json({
+        success: false,
+        message: 'Traslado no encontrado'
+      });
+    }
+
+    assertFacilityAccess(
+      req.user,
+      Number(transfer.source_facility_id)
+    );
+
+    assertFacilityAccess(
+      req.user,
+      Number(req.body.source_facility_id)
+    );
+
+    await updateVaccineTransfer(
+      id,
+      {
+        source_facility_id:
+          Number(req.body.source_facility_id),
+        destination_facility_id:
+          Number(req.body.destination_facility_id),
+        transfer_date:
+          req.body.transfer_date,
+        notes:
+          req.body.notes || null,
+        created_by:
+          req.user?.userId ?? null,
+        items:
+          req.body.items.map((item: any) => ({
+            vaccine_batch_id:
+              Number(item.vaccine_batch_id),
+            quantity:
+              Number(item.quantity)
+          }))
+      }
+    );
+
+    await logAudit({
+      user: req.user,
+      module: 'vacunas',
+      action: 'editar_traslado_vacuna',
+      entityType: 'vaccine_transfer',
+      entityId: id,
+      description: `Edito traslado de vacunas #${id}`,
+      newData: req.body,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'] || null
+    });
+
+    return res.json({
+      success: true,
+      message: 'Traslado actualizado'
+    });
+
+  } catch (error: any) {
+
+    console.error(error);
+
+    return res.status(400).json({
+      success: false,
+      message:
+        error.message ||
+        'Error al editar traslado'
+    });
+  }
+}
+
 export async function handleReceiveVaccineTransfer(
   req: AuthRequest,
   res: Response
@@ -422,6 +517,64 @@ export async function handleCancelVaccineTransfer(
       message:
         error.message ||
         'Error al cancelar traslado'
+    });
+  }
+}
+
+export async function handleReactivateVaccineTransfer(
+  req: AuthRequest,
+  res: Response
+) {
+
+  try {
+
+    const id =
+      Number(req.params.id);
+
+    if (req.user?.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Solo admin puede reactivar traslados cancelados'
+      });
+    }
+
+    const transfer =
+      await getVaccineTransferById(id);
+
+    if (!transfer) {
+      return res.status(404).json({
+        success: false,
+        message: 'Traslado no encontrado'
+      });
+    }
+
+    await reactivateVaccineTransfer(id);
+
+    await logAudit({
+      user: req.user,
+      module: 'vacunas',
+      action: 'reactivar_traslado_vacuna',
+      entityType: 'vaccine_transfer',
+      entityId: id,
+      description: `Reactivo traslado de vacunas #${id}`,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'] || null
+    });
+
+    return res.json({
+      success: true,
+      message: 'Traslado reactivado'
+    });
+
+  } catch (error: any) {
+
+    console.error(error);
+
+    return res.status(400).json({
+      success: false,
+      message:
+        error.message ||
+        'Error al reactivar traslado'
     });
   }
 }

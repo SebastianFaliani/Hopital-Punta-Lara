@@ -39,7 +39,9 @@ type FacilityStock = {
 
 type Transfer = {
   id: number;
+  source_facility_id: number;
   source_facility_name: string;
+  destination_facility_id: number;
   destination_facility_name: string;
   transfer_date: string;
   status: string;
@@ -129,6 +131,9 @@ export default function VaccineTransfersPage() {
       ['admin', 'vacu']
     );
 
+  const canReactivate =
+    user?.role === 'admin';
+
   const [facilities, setFacilities] =
     useState<Facility[]>([]);
 
@@ -139,6 +144,9 @@ export default function VaccineTransfersPage() {
     useState<Transfer[]>([]);
 
   const [selectedTransfer, setSelectedTransfer] =
+    useState<TransferDetail | null>(null);
+
+  const [editingTransfer, setEditingTransfer] =
     useState<TransferDetail | null>(null);
 
   const [filters, setFilters] =
@@ -219,7 +227,7 @@ export default function VaccineTransfersPage() {
       0
     );
 
-  const stocksById =
+  const availableFacilityStocks =
     useMemo(() => {
       const map =
         new Map<number, FacilityStock>();
@@ -227,16 +235,83 @@ export default function VaccineTransfersPage() {
       facilityStocks.forEach((stock) =>
         map.set(
           Number(stock.vaccine_batch_id),
+          {
+            ...stock,
+            current_stock:
+              Number(stock.current_stock)
+          }
+        )
+      );
+
+      if (editingTransfer) {
+        editingTransfer.items.forEach((item) => {
+          const id =
+            Number(item.vaccine_batch_id);
+
+          const existing =
+            map.get(id);
+
+          if (existing) {
+            map.set(
+              id,
+              {
+                ...existing,
+                current_stock:
+                  Number(existing.current_stock) +
+                  Number(item.quantity)
+              }
+            );
+            return;
+          }
+
+          map.set(
+            id,
+            {
+              vaccine_batch_id:
+                id,
+              batch_number:
+                item.batch_number,
+              expiration_date:
+                item.expiration_date,
+              current_stock:
+                Number(item.quantity),
+              vaccine_name:
+                item.vaccine_name,
+              target_disease:
+                item.target_disease,
+              presentation:
+                item.presentation,
+              dose_unit:
+                item.dose_unit
+            }
+          );
+        });
+      }
+
+      return Array.from(map.values());
+    }, [
+      facilityStocks,
+      editingTransfer
+    ]);
+
+  const stocksById =
+    useMemo(() => {
+      const map =
+        new Map<number, FacilityStock>();
+
+      availableFacilityStocks.forEach((stock) =>
+        map.set(
+          Number(stock.vaccine_batch_id),
           stock
         )
       );
 
       return map;
-    }, [facilityStocks]);
+    }, [availableFacilityStocks]);
 
   const sortedFacilityStocks =
     useMemo(() =>
-      [...facilityStocks].sort((first, second) =>
+      [...availableFacilityStocks].sort((first, second) =>
         (
           first.vaccine_name.localeCompare(
             second.vaccine_name,
@@ -257,7 +332,7 @@ export default function VaccineTransfersPage() {
           )
         )
       ),
-    [facilityStocks]);
+    [availableFacilityStocks]);
 
   const filteredFacilityStocks =
     useMemo(() => {
@@ -488,6 +563,23 @@ export default function VaccineTransfersPage() {
     setStockSearch('');
     setStockSearchPage(1);
     setTransferItemsPage(1);
+    setEditingTransfer(null);
+  }
+
+  function clearTransferItems() {
+    setItems([]);
+    setDraftItem(emptyDraftItem);
+    setStockSearch('');
+    setStockSearchPage(1);
+    setTransferItemsPage(1);
+    setEditingTransfer((current) =>
+      current
+        ? {
+            ...current,
+            items: []
+          }
+        : null
+    );
   }
 
   function openCreateTransfer() {
@@ -499,6 +591,49 @@ export default function VaccineTransfersPage() {
   function closeCreateTransfer() {
     setShowCreateModal(false);
     resetTransferDraft();
+  }
+
+  async function openEditTransfer(
+    id: number
+  ) {
+    try {
+      setError('');
+
+      const res =
+        await apiFetch(
+          `/vaccine-transfers/${id}`
+        );
+
+      const transfer =
+        res.data as TransferDetail;
+
+      setEditingTransfer(transfer);
+      setForm({
+        source_facility_id:
+          String(transfer.source_facility_id),
+        destination_facility_id:
+          String(transfer.destination_facility_id),
+        transfer_date:
+          String(transfer.transfer_date).slice(0, 10),
+        notes:
+          transfer.notes || ''
+      });
+      setItems(
+        transfer.items.map((item) => ({
+          vaccine_batch_id:
+            String(item.vaccine_batch_id),
+          quantity:
+            Number(item.quantity)
+        }))
+      );
+      setDraftItem(emptyDraftItem);
+      setStockSearch('');
+      setStockSearchPage(1);
+      setTransferItemsPage(1);
+      setShowCreateModal(true);
+    } catch (error: any) {
+      setError(error.message);
+    }
   }
 
   function addDraftItem() {
@@ -642,9 +777,14 @@ export default function VaccineTransfersPage() {
       }
 
       await apiFetch(
-        '/vaccine-transfers',
+        editingTransfer
+          ? `/vaccine-transfers/${editingTransfer.id}`
+          : '/vaccine-transfers',
         {
-          method: 'POST',
+          method:
+            editingTransfer
+              ? 'PUT'
+              : 'POST',
           body: JSON.stringify({
             ...form,
             source_facility_id:
@@ -734,6 +874,32 @@ export default function VaccineTransfersPage() {
 
     } finally {
 
+      setLoading(false);
+    }
+  }
+
+  async function reactivateTransfer(
+    id: number
+  ) {
+    try {
+      setLoading(true);
+      setError('');
+
+      await apiFetch(
+        `/vaccine-transfers/${id}/reactivate`,
+        {
+          method: 'PATCH'
+        }
+      );
+
+      setSelectedTransfer(null);
+      await loadFacilityStocks(
+        form.source_facility_id
+      );
+      await loadTransfers();
+    } catch (error: any) {
+      setError(error.message);
+    } finally {
       setLoading(false);
     }
   }
@@ -1023,6 +1189,16 @@ export default function VaccineTransfersPage() {
                     />
                     {canEdit && transfer.status === 'enviado' && (
                       <IconButton
+                        icon="edit"
+                        label="Editar traslado"
+                        onClick={() =>
+                          openEditTransfer(transfer.id)
+                        }
+                        variant="primary"
+                      />
+                    )}
+                    {canEdit && transfer.status === 'enviado' && (
+                      <IconButton
                         icon="check"
                         label="Recibir traslado"
                         onClick={() =>
@@ -1045,6 +1221,16 @@ export default function VaccineTransfersPage() {
                           )
                         }
                         variant="danger"
+                      />
+                    )}
+                    {canReactivate && transfer.status === 'cancelado' && (
+                      <IconButton
+                        icon="unlock"
+                        label="Reactivar traslado"
+                        onClick={() =>
+                          reactivateTransfer(transfer.id)
+                        }
+                        variant="success"
                       />
                     )}
                   </div>
@@ -1112,7 +1298,11 @@ export default function VaccineTransfersPage() {
           <div className="modal-content modal-content-wide">
 
             <h2 className="modal-title">
-              Nuevo traslado
+              {
+                editingTransfer
+                  ? `Editar traslado #${editingTransfer.id}`
+                  : 'Nuevo traslado'
+              }
             </h2>
 
             <form
@@ -1131,7 +1321,7 @@ export default function VaccineTransfersPage() {
                       ...form,
                       source_facility_id: e.target.value
                     });
-                    resetTransferDraft();
+                    clearTransferItems();
                   }}
                 >
                   <option value="">
@@ -1500,7 +1690,9 @@ export default function VaccineTransfersPage() {
                   {
                     loading
                       ? 'Guardando...'
-                      : 'Crear traslado'
+                      : editingTransfer
+                        ? 'Guardar cambios'
+                        : 'Crear traslado'
                   }
                 </button>
 
@@ -1577,6 +1769,21 @@ export default function VaccineTransfersPage() {
 
               {canEdit && selectedTransfer.status === 'enviado' && (
                 <button
+                  className="btn-primary"
+                  onClick={() => {
+                    const id =
+                      selectedTransfer.id;
+
+                    setSelectedTransfer(null);
+                    void openEditTransfer(id);
+                  }}
+                >
+                  Editar
+                </button>
+              )}
+
+              {canEdit && selectedTransfer.status === 'enviado' && (
+                <button
                   className="btn-success"
                   onClick={() =>
                     updateTransferStatus(
@@ -1586,6 +1793,17 @@ export default function VaccineTransfersPage() {
                   }
                 >
                   Recibir
+                </button>
+              )}
+
+              {canReactivate && selectedTransfer.status === 'cancelado' && (
+                <button
+                  className="btn-success"
+                  onClick={() =>
+                    reactivateTransfer(selectedTransfer.id)
+                  }
+                >
+                  Reactivar
                 </button>
               )}
 

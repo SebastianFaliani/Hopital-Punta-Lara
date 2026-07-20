@@ -403,6 +403,214 @@ export async function createVaccineTransfer(
   }
 }
 
+export async function updateVaccineTransfer(
+  id: number,
+  data: VaccineTransferInput
+) {
+
+  const connection =
+    await pool.getConnection();
+
+  try {
+
+    await connection.beginTransaction();
+
+    if (data.source_facility_id === data.destination_facility_id) {
+      throw new Error(
+        'El origen y destino no pueden ser el mismo punto'
+      );
+    }
+
+    const [transferRows]: any =
+      await connection.query(
+        `
+          SELECT *
+          FROM vaccine_transfers
+          WHERE id = ?
+          FOR UPDATE
+        `,
+        [id]
+      );
+
+    if (transferRows.length === 0) {
+      throw new Error('Traslado no encontrado');
+    }
+
+    const transfer =
+      transferRows[0];
+
+    if (transfer.status !== 'enviado') {
+      throw new Error(
+        'Solo se pueden editar traslados enviados'
+      );
+    }
+
+    const [previousItems]: any =
+      await connection.query(
+        `
+          SELECT vaccine_batch_id, quantity
+          FROM vaccine_transfer_items
+          WHERE vaccine_transfer_id = ?
+        `,
+        [id]
+      );
+
+    for (const item of previousItems) {
+      await updateFacilityStock(
+        connection,
+        Number(item.vaccine_batch_id),
+        Number(transfer.source_facility_id),
+        Number(item.quantity)
+      );
+    }
+
+    await connection.query(
+      `
+        UPDATE vaccine_transfers
+        SET
+          source_facility_id = ?,
+          destination_facility_id = ?,
+          transfer_date = ?,
+          notes = ?
+        WHERE id = ?
+      `,
+      [
+        data.source_facility_id,
+        data.destination_facility_id,
+        data.transfer_date,
+        data.notes ?? null,
+        id
+      ]
+    );
+
+    await connection.query(
+      `
+        DELETE FROM vaccine_transfer_items
+        WHERE vaccine_transfer_id = ?
+      `,
+      [id]
+    );
+
+    for (const item of data.items) {
+      const quantity =
+        Number(item.quantity);
+
+      await updateFacilityStock(
+        connection,
+        Number(item.vaccine_batch_id),
+        data.source_facility_id,
+        quantity * -1
+      );
+
+      await connection.query(
+        `
+          INSERT INTO vaccine_transfer_items (
+            vaccine_transfer_id,
+            vaccine_batch_id,
+            quantity
+          )
+          VALUES (?, ?, ?)
+        `,
+        [
+          id,
+          Number(item.vaccine_batch_id),
+          quantity
+        ]
+      );
+    }
+
+    await connection.commit();
+
+  } catch (error) {
+
+    await connection.rollback();
+    throw error;
+
+  } finally {
+
+    connection.release();
+  }
+}
+
+export async function reactivateVaccineTransfer(
+  id: number
+) {
+
+  const connection =
+    await pool.getConnection();
+
+  try {
+
+    await connection.beginTransaction();
+
+    const [transferRows]: any =
+      await connection.query(
+        `
+          SELECT *
+          FROM vaccine_transfers
+          WHERE id = ?
+          FOR UPDATE
+        `,
+        [id]
+      );
+
+    if (transferRows.length === 0) {
+      throw new Error('Traslado no encontrado');
+    }
+
+    const transfer =
+      transferRows[0];
+
+    if (transfer.status !== 'cancelado') {
+      throw new Error(
+        'Solo se pueden reactivar traslados cancelados'
+      );
+    }
+
+    const [items]: any =
+      await connection.query(
+        `
+          SELECT vaccine_batch_id, quantity
+          FROM vaccine_transfer_items
+          WHERE vaccine_transfer_id = ?
+        `,
+        [id]
+      );
+
+    for (const item of items) {
+      await updateFacilityStock(
+        connection,
+        Number(item.vaccine_batch_id),
+        Number(transfer.source_facility_id),
+        Number(item.quantity) * -1
+      );
+    }
+
+    await connection.query(
+      `
+        UPDATE vaccine_transfers
+        SET
+          status = 'enviado',
+          cancelled_by = NULL,
+          cancelled_at = NULL
+        WHERE id = ?
+      `,
+      [id]
+    );
+
+    await connection.commit();
+
+  } catch (error) {
+
+    await connection.rollback();
+    throw error;
+
+  } finally {
+
+    connection.release();
+  }
+}
+
 export async function receiveVaccineTransfer(
   id: number,
   userId?: number | null
