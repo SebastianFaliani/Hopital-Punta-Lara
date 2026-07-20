@@ -10,6 +10,7 @@ type LaboratoryFilters = {
   pickup_status?: string;
   completion_status?: string;
   test_status?: string;
+  record_status?: string;
   page?: string | number;
   per_page?: string | number;
 };
@@ -109,13 +110,11 @@ function buildWhereClause(
         OR CONCAT(laboratory_records.patient_first_name, ' ', laboratory_records.patient_last_name) LIKE ?
         OR laboratory_records.patient_document LIKE ?
         ${hasPhoneColumn ? 'OR laboratory_records.patient_phone LIKE ?' : ''}
-        OR laboratory_records.protocol_number LIKE ?
         OR laboratory_records.picked_up_by LIKE ?
       )`
     );
 
     values.push(
-      search,
       search,
       search,
       search,
@@ -202,6 +201,30 @@ function buildWhereClause(
   if (filters.completion_status === 'incompleto') {
     where.push(
       'laboratory_records.is_complete = FALSE'
+    );
+  }
+
+  if (filters.record_status === 'enviado') {
+    where.push(
+      "laboratory_records.status = 'enviado'"
+    );
+  }
+
+  if (filters.record_status === 'parcial') {
+    where.push(
+      "laboratory_records.status = 'parcial'"
+    );
+  }
+
+  if (filters.record_status === 'completo') {
+    where.push(
+      "laboratory_records.status = 'completo'"
+    );
+  }
+
+  if (filters.record_status === 'retirado') {
+    where.push(
+      "laboratory_records.status = 'retirado'"
     );
   }
 
@@ -447,7 +470,6 @@ export async function getLaboratoryRecords(
       `
         SELECT
           laboratory_records.id,
-          laboratory_records.protocol_number,
           laboratory_records.study_date,
           laboratory_records.patient_last_name,
           laboratory_records.patient_first_name,
@@ -622,7 +644,6 @@ export async function createLaboratoryRecord(
       await connection.query(
         `
           INSERT INTO laboratory_records (
-            protocol_number,
             study_date,
             patient_last_name,
             patient_first_name,
@@ -640,10 +661,9 @@ export async function createLaboratoryRecord(
             created_by,
             updated_by
           )
-          VALUES (?, ?, ?, ?, ?, ?, ${hasPhoneColumn ? '?,' : ''} ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          VALUES (?, ?, ?, ?, ?, ${hasPhoneColumn ? '?,' : ''} ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `,
         [
-          data.protocol_number || null,
           data.study_date,
           data.patient_last_name,
           data.patient_first_name,
@@ -699,7 +719,6 @@ export async function updateLaboratoryRecord(
       `
         UPDATE laboratory_records
         SET
-          protocol_number = ?,
           study_date = ?,
           patient_last_name = ?,
           patient_first_name = ?,
@@ -713,7 +732,6 @@ export async function updateLaboratoryRecord(
         WHERE id = ?
       `,
       [
-        data.protocol_number || null,
         data.study_date,
         data.patient_last_name,
         data.patient_first_name,

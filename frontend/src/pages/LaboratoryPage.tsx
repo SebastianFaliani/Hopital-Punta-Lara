@@ -31,7 +31,6 @@ type LaboratoryTest = {
 
 type LaboratoryRecord = {
   id: number;
-  protocol_number: string | null;
   study_date: string;
   patient_last_name: string;
   patient_first_name: string;
@@ -70,7 +69,6 @@ type LaboratoryStats = {
 };
 
 const emptyForm = {
-  protocol_number: '',
   study_date: new Date().toISOString().slice(0, 10),
   patient_last_name: '',
   patient_first_name: '',
@@ -248,10 +246,28 @@ function getStatusLabel(
 
   return {
     text: 'Enviado',
-    className: 'badge badge-info'
+    className: 'badge badge-danger'
   };
 }
 
+function escapePrintHtml(
+  value: unknown
+) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+const laboratoryStatusLabels: Record<string, string> = {
+  todos: 'Todos los estados',
+  enviado: 'Enviados',
+  parcial: 'Parciales',
+  completo: 'Completos',
+  retirado: 'Retirados'
+};
 export default function LaboratoryPage() {
 
   const { user } = useAuth();
@@ -268,8 +284,8 @@ export default function LaboratoryPage() {
       month: 'todos',
       year: String(currentYear),
       sample_type: 'todas',
+      record_status: 'todos',
       pickup_status: 'todos',
-      completion_status: 'todos',
       test_status: 'todos',
       page: 1,
       per_page: 25
@@ -409,6 +425,150 @@ export default function LaboratoryPage() {
     loadLaboratory();
   }, [queryString]);
 
+  async function printFilteredRecords() {
+    const printWindow =
+      window.open('', '_blank', 'width=1200,height=800');
+
+    if (!printWindow) {
+      showSystemAlert(
+        'No se pudo abrir la ventana de impresion. Revisa si el navegador bloqueo las ventanas emergentes.'
+      );
+      return;
+    }
+
+    printWindow.document.write(
+      '<p style="font-family: Arial, sans-serif; padding: 24px;">Preparando listado...</p>'
+    );
+
+    try {
+      const params =
+        new URLSearchParams(
+          queryString.replace(/^\?/, '')
+        );
+
+      params.set('page', '1');
+      params.set('per_page', '100');
+
+      const firstResponse =
+        await apiFetch(`/laboratory?${params.toString()}`);
+
+      const allRecords: LaboratoryRecord[] = [
+        ...firstResponse.data
+      ];
+
+      const totalPages =
+        Number(firstResponse.pagination?.total_pages || 1);
+
+      for (let page = 2; page <= totalPages; page += 1) {
+        params.set('page', String(page));
+
+        const response =
+          await apiFetch(`/laboratory?${params.toString()}`);
+
+        allRecords.push(...response.data);
+      }
+
+      if (allRecords.length === 0) {
+        printWindow.close();
+        showSystemAlert(
+          'No hay estudios que coincidan con los filtros seleccionados.',
+          'Listado vacio',
+          'warning'
+        );
+        return;
+      }
+
+      const statusLabel =
+        laboratoryStatusLabels[filters.record_status] ||
+        laboratoryStatusLabels.todos;
+
+      const title =
+        filters.record_status === 'enviado'
+          ? 'Reclamo al laboratorio - estudios enviados pendientes'
+          : `Listado de laboratorio - ${statusLabel}`;
+
+      const rows =
+        allRecords.map((record, index) => {
+          const status =
+            getStatusLabel(
+              record.status,
+              record.is_complete,
+              record.pickup_date
+            ).text;
+
+          return `
+            <tr>
+              <td>${index + 1}</td>
+              <td>${escapePrintHtml(formatDate(record.study_date))}</td>
+              <td>${escapePrintHtml(`${record.patient_last_name} ${record.patient_first_name}`)}</td>
+              <td>${escapePrintHtml(record.patient_document || '-')}</td>
+              <td>${escapePrintHtml(getSampleSummary(record))}</td>
+              <td>${escapePrintHtml(status)}</td>
+            </tr>
+          `;
+        }).join('');
+
+      const printedAt =
+        new Date().toLocaleString('es-AR');
+
+      printWindow.document.open();
+      printWindow.document.write(`
+        <!doctype html>
+        <html lang="es">
+          <head>
+            <meta charset="utf-8" />
+            <title>${escapePrintHtml(title)}</title>
+            <style>
+              @page { size: A4 portrait; margin: 10mm; }
+              * { box-sizing: border-box; }
+              body { margin: 0; color: #111827; font-family: Arial, sans-serif; font-size: 10px; }
+              h1 { margin: 0 0 6px; font-size: 18px; text-transform: uppercase; }
+              .summary { margin: 0 0 12px; color: #374151; }
+              table { width: 100%; border-collapse: collapse; }
+              th, td { border: 1px solid #9ca3af; padding: 5px; text-align: left; vertical-align: top; }
+              th { background: #e5e7eb; font-size: 9px; text-transform: uppercase; }
+              tr { break-inside: avoid; }
+              footer { margin-top: 10px; display: flex; justify-content: space-between; color: #4b5563; }
+            </style>
+          </head>
+          <body>
+            <h1>${escapePrintHtml(title)}</h1>
+            <p class="summary">
+              Estado: ${escapePrintHtml(statusLabel)} · Total: ${allRecords.length}
+            </p>
+            <table>
+              <thead>
+                <tr>
+                  <th>N°</th>
+                  <th>Fecha</th>
+                  <th>Paciente</th>
+                  <th>DNI</th>
+                  <th>Muestra</th>
+                  <th>Estado</th>
+                </tr>
+              </thead>
+              <tbody>${rows}</tbody>
+            </table>
+            <footer>
+              <span>Impreso por: ${escapePrintHtml(user?.username || '-')}</span>
+              <span>${escapePrintHtml(printedAt)}</span>
+            </footer>
+          </body>
+        </html>
+      `);
+      printWindow.document.close();
+      printWindow.focus();
+      window.setTimeout(() => printWindow.print(), 250);
+    } catch (error) {
+      printWindow.close();
+      showSystemAlert(
+        error instanceof Error
+          ? error.message
+          : 'No se pudo preparar el listado para imprimir.'
+      );
+    }
+  }
+
   function openCreate() {
     setEditing(null);
     setForm(emptyForm);
@@ -420,7 +580,6 @@ export default function LaboratoryPage() {
   ) {
     setEditing(record);
     setForm({
-      protocol_number: record.protocol_number || '',
       study_date: toDateInput(record.study_date),
       patient_last_name: record.patient_last_name || '',
       patient_first_name: record.patient_first_name || '',
@@ -693,7 +852,7 @@ export default function LaboratoryPage() {
       <div className="filter-bar laboratory-filter-bar">
         <input
           className="form-input laboratory-search-filter"
-          placeholder="Buscar paciente, DNI, telefono, protocolo o quien retiro"
+          placeholder="Buscar paciente, DNI, telefono o quien retiro"
           value={filters.search}
           onChange={(e) =>
             setFilters({
@@ -766,6 +925,23 @@ export default function LaboratoryPage() {
 
         <select
           className="form-input laboratory-compact-filter"
+          value={filters.record_status}
+          onChange={(e) =>
+            setFilters({
+              ...filters,
+              record_status: e.target.value,
+              page: 1
+            })
+          }
+        >
+          <option value="todos">Todos los estados</option>
+          <option value="enviado">Enviados</option>
+          <option value="parcial">Parciales</option>
+          <option value="completo">Completos</option>
+          <option value="retirado">Retirados</option>
+        </select>
+        <select
+          className="form-input laboratory-compact-filter"
           value={filters.pickup_status}
           onChange={(e) =>
             setFilters({
@@ -780,22 +956,13 @@ export default function LaboratoryPage() {
           <option value="retirado">Retirados</option>
         </select>
 
-        <select
-          className="form-input laboratory-compact-filter"
-          value={filters.completion_status}
-          onChange={(e) =>
-            setFilters({
-              ...filters,
-              completion_status: e.target.value,
-              page: 1
-            })
-          }
+        <button
+          className="btn-primary"
+          type="button"
+          onClick={printFilteredRecords}
         >
-          <option value="todos">Todos los estados</option>
-          <option value="completo">Completos</option>
-          <option value="incompleto">Con pendientes</option>
-        </select>
-
+          Imprimir listado
+        </button>
         <button
           className="btn-secondary"
           onClick={() =>
@@ -804,8 +971,8 @@ export default function LaboratoryPage() {
               month: 'todos',
               year: String(currentYear),
               sample_type: 'todas',
+              record_status: 'todos',
               pickup_status: 'todos',
-              completion_status: 'todos',
               test_status: 'todos',
               page: 1,
               per_page: filters.per_page
@@ -878,7 +1045,6 @@ export default function LaboratoryPage() {
           <thead>
             <tr>
               <th>Fecha</th>
-              <th>Protocolo</th>
               <th>Paciente</th>
               <th>DNI</th>
               <th>Teléfono</th>
@@ -909,7 +1075,6 @@ export default function LaboratoryPage() {
               return (
                 <tr key={record.id}>
                   <td>{formatDate(record.study_date)}</td>
-                  <td>{record.protocol_number || '-'}</td>
                   <td>
                     {record.patient_last_name} {record.patient_first_name}
                   </td>
@@ -1030,13 +1195,66 @@ export default function LaboratoryPage() {
 
             {records.length === 0 && (
               <tr>
-                <td colSpan={canSeePickupAudit ? 11 : 10}>
+                <td colSpan={canSeePickupAudit ? 10 : 9}>
                   No hay estudios para esos filtros.
                 </td>
               </tr>
             )}
           </tbody>
         </table>
+      </div>
+
+      <div className="pagination-bar">
+        <span>
+          Pagina {pagination.page} de {pagination.total_pages}
+        </span>
+
+        <div className="table-actions">
+          <select
+            className="form-input"
+            value={filters.per_page}
+            onChange={(e) =>
+              setFilters({
+                ...filters,
+                per_page: Number(e.target.value),
+                page: 1
+              })
+            }
+          >
+            <option value={25}>25 por pagina</option>
+            <option value={50}>50 por pagina</option>
+            <option value={100}>100 por pagina</option>
+          </select>
+
+          <button
+            className="btn-secondary"
+            disabled={pagination.page <= 1}
+            onClick={() =>
+              setFilters({
+                ...filters,
+                page: Math.max(1, pagination.page - 1)
+              })
+            }
+          >
+            Anterior
+          </button>
+
+          <button
+            className="btn-secondary"
+            disabled={pagination.page >= pagination.total_pages}
+            onClick={() =>
+              setFilters({
+                ...filters,
+                page: Math.min(
+                  pagination.total_pages,
+                  pagination.page + 1
+                )
+              })
+            }
+          >
+            Siguiente
+          </button>
+        </div>
       </div>
 
       {showForm && (
@@ -1085,20 +1303,6 @@ export default function LaboratoryPage() {
                       setForm({
                         ...form,
                         patient_first_name: e.target.value.toUpperCase()
-                      })
-                    }
-                  />
-                </label>
-
-                <label className="form-field laboratory-field-compact">
-                  <span>Protocolo</span>
-                  <input
-                    className="form-input"
-                    value={form.protocol_number}
-                    onChange={(e) =>
-                      setForm({
-                        ...form,
-                        protocol_number: e.target.value
                       })
                     }
                   />
