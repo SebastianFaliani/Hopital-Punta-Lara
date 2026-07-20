@@ -89,6 +89,28 @@ app.get('/health', (req, res) => {
   });
 });
 
+app.get('/app-update', (req, res) => {
+  const latestVersion =
+    process.env.APP_UPDATE_VERSION || '';
+
+  const downloadUrl =
+    process.env.APP_UPDATE_URL || '';
+
+  res.json({
+    success: true,
+    data: {
+      enabled:
+        Boolean(latestVersion && downloadUrl),
+      latest_version:
+        latestVersion,
+      download_url:
+        downloadUrl,
+      release_notes:
+        process.env.APP_UPDATE_NOTES || ''
+    }
+  });
+});
+
 app.use('/auth', authRoutes);
 app.use('/users', usersRoutes);
 app.use('/roles', rolesRoutes);

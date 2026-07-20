@@ -9,6 +9,8 @@ import {
 } from './components/SystemAlertModal';
 import UppercaseInputNormalizer
   from './components/UppercaseInputNormalizer';
+import AppUpdateModal
+  from './components/AppUpdateModal';
 
 function App() {
 
@@ -19,6 +21,8 @@ function App() {
       <UppercaseInputNormalizer />
 
       <AppRouter />
+
+      <AppUpdateModal />
 
       <SystemAlertModal />
 
