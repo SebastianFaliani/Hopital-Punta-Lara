@@ -134,6 +134,10 @@ function getRequestPermission(
       manage: 'nutrition.manage'
     },
     {
+      paths: ['/patients'],
+      view: 'patients.view',
+      manage: 'patients.manage'
+    },    {
       paths: ['/laboratory'],
       view: 'laboratory.view',
       manage:

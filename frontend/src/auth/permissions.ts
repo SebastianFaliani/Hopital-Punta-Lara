@@ -184,8 +184,8 @@ export function getAvailableNavigation(
     hospitalModules &&
     hasPermission(
       user,
-      'laboratory.view',
-      ['admin', 'lab', 'user', 'dir']
+      'patients.view',
+      ['admin', 'lab', 'dir']
     )
   ) {
     items.push({

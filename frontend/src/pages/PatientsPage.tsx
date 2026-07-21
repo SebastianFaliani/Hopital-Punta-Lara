@@ -1,6 +1,7 @@
-﻿import { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { apiFetch } from '../api/api';
 import { useAuth } from '../auth/useAuth';
+import { hasPermission } from '../auth/permissions';
 import { IconButton } from '../components/IconButton';
 import PageTitle from '../components/PageTitle';
 import { formatDisplayDate } from '../utils/dateFormat';
@@ -13,7 +14,7 @@ const badgeClass = (status:string) => status === 'enviado' ? 'badge badge-danger
 
 export default function PatientsPage() {
   const { user } = useAuth();
-  const canEdit = ['admin', 'dir', 'lab'].includes(user?.role || '');
+  const canEdit = hasPermission(user, 'patients.manage', ['admin', 'dir', 'lab']);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
