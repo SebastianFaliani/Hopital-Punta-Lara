@@ -22,6 +22,8 @@ type WhatsappWebState = {
 
 let client: any = null;
 let initializing = false;
+let whatsappAuthenticated = false;
+let syncFallbackTimer: ReturnType<typeof setTimeout> | null = null;
 const processedMessageIds =
   new Set<string>();
 
@@ -110,6 +112,13 @@ function getPuppeteerOptions() {
 }
 
 async function destroyClient() {
+  if (syncFallbackTimer) {
+    clearTimeout(syncFallbackTimer);
+    syncFallbackTimer = null;
+  }
+
+  whatsappAuthenticated = false;
+
   if (!client) {
     return;
   }
@@ -464,6 +473,48 @@ export async function getWhatsappProfilePictureUrl(
   }
 }
 
+async function triggerWhatsappSyncFallback() {
+  if (!client || state.isReady) {
+    return;
+  }
+
+  try {
+    const result = await client.pupPage?.evaluate(() => {
+      const appState = (window as any).AuthStore?.AppState;
+      const connectionState = appState?.state || null;
+      const canTrigger =
+        connectionState === 'CONNECTED' &&
+        typeof (window as any).onAppStateHasSyncedEvent === 'function';
+
+      if (canTrigger) {
+        (window as any).onAppStateHasSyncedEvent();
+      }
+
+      return {
+        connectionState,
+        hasSynced: Boolean(appState?.hasSynced),
+        triggered: canTrigger
+      };
+    });
+
+    if (!state.isReady) {
+      setEvent(
+        whatsappAuthenticated ? 'authenticated' : 'initializing',
+        result?.triggered
+          ? 'Conexion detectada. Completando sincronizacion de WhatsApp...'
+          : `WhatsApp cargado, esperando sincronizacion${result?.connectionState ? ` (${result.connectionState})` : ''}`
+      );
+    }
+  } catch (error: any) {
+    console.error('[whatsapp] Error recuperando sincronizacion:', error);
+    if (!state.isReady) {
+      setEvent(
+        'failed',
+        `No se pudo completar la sincronizacion: ${error?.message || String(error)}`
+      );
+    }
+  }
+}
 export async function startWhatsappWebSession() {
   if (client || initializing) {
     return getWhatsappWebStatus();
@@ -476,6 +527,7 @@ export async function startWhatsappWebSession() {
   } = await loadWhatsappModules();
 
   initializing = true;
+  whatsappAuthenticated = false;
   state.qr = null;
   state.qrDataUrl = null;
   state.phone = null;
@@ -515,12 +567,24 @@ export async function startWhatsappWebSession() {
   client.on(
     'loading_screen',
     (percent: string, message: string) => {
-      state.qr = null;
-      state.qrDataUrl = null;
+      const numericPercent = Number(percent || 0);
+
+      if (numericPercent >= 95) {
+        state.qr = null;
+        state.qrDataUrl = null;
+      }
+
       setEvent(
-        'authenticated',
+        whatsappAuthenticated ? 'authenticated' : 'initializing',
         `Cargando WhatsApp: ${percent}% ${message || ''}`.trim()
       );
+
+      if (numericPercent >= 99 && !syncFallbackTimer) {
+        syncFallbackTimer = setTimeout(() => {
+          syncFallbackTimer = null;
+          void triggerWhatsappSyncFallback();
+        }, 2500);
+      }
     }
   );
 
@@ -539,6 +603,7 @@ export async function startWhatsappWebSession() {
   client.on(
     'authenticated',
     () => {
+      whatsappAuthenticated = true;
       state.qr = null;
       state.qrDataUrl = null;
       setEvent(
@@ -551,7 +616,12 @@ export async function startWhatsappWebSession() {
   client.on(
     'ready',
     () => {
+      if (syncFallbackTimer) {
+        clearTimeout(syncFallbackTimer);
+        syncFallbackTimer = null;
+      }
       initializing = false;
+      whatsappAuthenticated = true;
       state.isReady = true;
       state.qr = null;
       state.qrDataUrl = null;
