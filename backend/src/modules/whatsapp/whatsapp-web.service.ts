@@ -776,6 +776,13 @@ export async function startWhatsappWebSession() {
   try {
     await client.initialize();
 
+    // whatsapp-web.js reinjecta toda la aplicacion ante navegaciones de
+    // cualquier frame. En Chromium headless esto puede superponer una nueva
+    // inyeccion sobre una sesion lista y bloquear Runtime.evaluate.
+    client?.pupPage?.removeAllListeners(
+      'framenavigated'
+    );
+
     client?.pupPage?.on(
       'pageerror',
       (error: Error) => {
