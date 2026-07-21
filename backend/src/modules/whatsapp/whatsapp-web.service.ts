@@ -459,7 +459,11 @@ export async function sendWhatsappTextMessage(
   await withTimeout(
     client.sendMessage(
       recipient,
-      message
+      message,
+      {
+        sendSeen: false,
+        linkPreview: false
+      }
     ),
     30000,
     'WhatsApp no confirmo el envio en 30 segundos. Verifica la conexion y volve a intentar.'
