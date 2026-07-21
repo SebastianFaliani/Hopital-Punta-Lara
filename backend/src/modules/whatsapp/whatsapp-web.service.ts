@@ -491,6 +491,10 @@ export async function startWhatsappWebSession() {
         new LocalAuth({
           dataPath: getSessionPath()
         }),
+      deviceName: 'Hospital Punta Lara',
+      browserName: 'Chrome',
+      takeoverOnConflict: true,
+      takeoverTimeoutMs: 10000,
       puppeteer: getPuppeteerOptions()
     });
 
@@ -505,6 +509,30 @@ export async function startWhatsappWebSession() {
         'qr',
         'Escanea el codigo QR con WhatsApp'
       );
+    }
+  );
+
+  client.on(
+    'loading_screen',
+    (percent: string, message: string) => {
+      state.qr = null;
+      state.qrDataUrl = null;
+      setEvent(
+        'authenticated',
+        `Cargando WhatsApp: ${percent}% ${message || ''}`.trim()
+      );
+    }
+  );
+
+  client.on(
+    'change_state',
+    (connectionState: string) => {
+      if (!state.isReady) {
+        setEvent(
+          'authenticated',
+          `Estado de WhatsApp: ${connectionState}`
+        );
+      }
     }
   );
 
@@ -594,7 +622,40 @@ export async function startWhatsappWebSession() {
     }
   );
 
-  await client.initialize();
+  try {
+    await client.initialize();
+
+    client?.pupPage?.on(
+      'pageerror',
+      (error: Error) => {
+        console.error('[whatsapp] Error en Chrome:', error);
+        setEvent(
+          'failed',
+          `Error cargando WhatsApp Web: ${error.message}`
+        );
+      }
+    );
+
+    client?.pupBrowser?.on(
+      'disconnected',
+      () => {
+        if (client && !state.isReady) {
+          setEvent(
+            'failed',
+            'Chrome se cerro antes de completar la conexion'
+          );
+        }
+      }
+    );
+  } catch (error: any) {
+    console.error('[whatsapp] Error inicializando:', error);
+    await destroyClient();
+    setEvent(
+      'failed',
+      `No se pudo iniciar WhatsApp Web: ${error?.message || String(error)}`
+    );
+    throw error;
+  }
 
   return getWhatsappWebStatus();
 }

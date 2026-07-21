@@ -1,6 +1,9 @@
 {
   "name": "hospital-punta-lara",
   "private": true,
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
     "dev": "node scripts/dev.js",
     "db:sync:prod": "node scripts/sync-prod-db-to-local.js",
