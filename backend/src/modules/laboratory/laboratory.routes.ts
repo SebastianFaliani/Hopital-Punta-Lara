@@ -3,6 +3,7 @@ import { Router } from 'express';
 import {
   handleCreateLaboratoryRecord,
   handleDeleteLaboratoryRecord,
+  handleExpireOldLaboratoryRecords,
   handleGetLaboratoryTestCatalog,
   handleGetLaboratoryPatient,
   handleGetLaboratoryRecords,
@@ -68,6 +69,13 @@ router.get(
   authenticateToken,
   authorizeRoles(...laboratoryReadRoles),
   handleGetLaboratoryPatient
+);
+
+router.post(
+  '/expire-old',
+  authenticateToken,
+  authorizeRoles(...laboratoryCompletionRoles),
+  handleExpireOldLaboratoryRecords
 );
 
 router.post(

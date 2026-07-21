@@ -42,6 +42,7 @@ type LaboratoryRecord = {
   has_urine_sample: boolean | number;
   is_complete: boolean | number;
   status: string;
+  expired_previous_status: string | null;
   missing_details: string | null;
   completed_at: string | null;
   pickup_date: string | null;
@@ -67,6 +68,7 @@ type LaboratoryStats = {
   complete_records: number;
   sent_records: number;
   partial_records: number;
+  expired_records: number;
 };
 
 type LaboratoryPatient = {
@@ -105,35 +107,9 @@ const initialStats = {
   incomplete_records: 0,
   complete_records: 0,
   sent_records: 0,
-  partial_records: 0
+  partial_records: 0,
+  expired_records: 0
 };
-
-const monthOptions = [
-  { value: 'todos', label: 'Todos los meses' },
-  { value: '1', label: 'Enero' },
-  { value: '2', label: 'Febrero' },
-  { value: '3', label: 'Marzo' },
-  { value: '4', label: 'Abril' },
-  { value: '5', label: 'Mayo' },
-  { value: '6', label: 'Junio' },
-  { value: '7', label: 'Julio' },
-  { value: '8', label: 'Agosto' },
-  { value: '9', label: 'Septiembre' },
-  { value: '10', label: 'Octubre' },
-  { value: '11', label: 'Noviembre' },
-  { value: '12', label: 'Diciembre' }
-];
-
-const currentYear =
-  new Date().getFullYear();
-
-const yearOptions =
-  Array.from(
-    {
-      length: 6
-    },
-    (_, index) => String(currentYear - index)
-  );
 
 function toDateInput(
   value?: string | null
@@ -232,11 +208,22 @@ function getSampleSummary(
 function getStatusLabel(
   status: string,
   isComplete: boolean | number,
-  pickupDate?: string | null
+  pickupDate?: string | null,
+  expiredPreviousStatus?: string | null
 ) {
   if (status === 'expirado') {
+    const previousLabels: Record<string, string> = {
+      enviado: 'enviado',
+      parcial: 'parcial',
+      completo: 'completo'
+    };
+
+    const previousStatus =
+      expiredPreviousStatus ||
+      (yesNo(isComplete) ? 'completo' : 'enviado');
+
     return {
-      text: 'Expirado',
+      text: `Expirado (${previousLabels[previousStatus] || previousStatus})`,
       className: 'badge badge-warning'
     };
   }
@@ -307,8 +294,8 @@ export default function LaboratoryPage() {
   const [filters, setFilters] =
     useState({
       search: '',
-      month: 'todos',
-      year: String(currentYear),
+      date_from: '',
+      date_to: '',
       sample_type: 'todas',
       record_status: 'todos',
       pickup_status: 'todos',
@@ -616,7 +603,8 @@ export default function LaboratoryPage() {
             getStatusLabel(
               record.status,
               record.is_complete,
-              record.pickup_date
+              record.pickup_date,
+              record.expired_previous_status
             ).text;
 
           return `
@@ -625,6 +613,7 @@ export default function LaboratoryPage() {
               <td>${escapePrintHtml(formatDate(record.study_date))}</td>
               <td>${escapePrintHtml(`${record.patient_last_name} ${record.patient_first_name}`)}</td>
               <td>${escapePrintHtml(record.patient_document || '-')}</td>
+              <td>${escapePrintHtml(record.patient_phone || '-')}</td>
               <td>${escapePrintHtml(getSampleSummary(record))}</td>
               <td>${escapePrintHtml(status)}</td>
             </tr>
@@ -671,6 +660,7 @@ export default function LaboratoryPage() {
                   <th>Fecha</th>
                   <th>Paciente</th>
                   <th>DNI</th>
+                  <th>Telefono</th>
                   <th>Muestra</th>
                   <th>Estado</th>
                 </tr>
@@ -943,6 +933,42 @@ export default function LaboratoryPage() {
     await savePickup(false);
   }
 
+  async function expireOldRecords() {
+    const confirmed =
+      window.confirm(
+        'Marcar como expirados los laboratorios completos con mas de 6 meses sin retirar?'
+      );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const response =
+        await apiFetch(
+          '/laboratory/expire-old',
+          {
+            method: 'POST'
+          }
+        );
+
+      showSystemAlert(
+        response.message ||
+          'Estudios expirados actualizados',
+        'Laboratorio',
+        'success'
+      );
+
+      await loadLaboratory();
+    } catch (error: any) {
+      showSystemAlert(error.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   if (!canView) {
     return <h2>No autorizado</h2>;
   }
@@ -962,6 +988,9 @@ export default function LaboratoryPage() {
   const incompleteRecords =
     Number(stats.incomplete_records || 0);
 
+  const expiredRecords =
+    Number(stats.expired_records || 0);
+
   return (
     <div>
       <div className="page-header">
@@ -974,14 +1003,26 @@ export default function LaboratoryPage() {
           </p>
         </div>
 
-        {canEdit && (
-          <button
-            className="btn-primary"
-            onClick={openCreate}
-          >
-            + Nuevo laboratorio
-          </button>
-        )}
+        <div className="table-actions">
+          {canChangeCompletion && (
+            <button
+              className="btn-secondary"
+              disabled={loading}
+              onClick={expireOldRecords}
+            >
+              Marcar expirados
+            </button>
+          )}
+
+          {canEdit && (
+            <button
+              className="btn-primary"
+              onClick={openCreate}
+            >
+              + Nuevo laboratorio
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="dashboard-grid">
@@ -1014,6 +1055,12 @@ export default function LaboratoryPage() {
           <p>{deliveredResults}</p>
           <span>{percentOf(deliveredResults, totalRecords)} entregados</span>
         </div>
+
+        <div className="dashboard-card">
+          <h3>Expirados</h3>
+          <p>{expiredRecords}</p>
+          <span>{percentOf(expiredRecords, totalRecords)} sin retiro mayor a 6 meses</span>
+        </div>
       </div>
 
       <div className="filter-bar laboratory-filter-bar">
@@ -1030,48 +1077,37 @@ export default function LaboratoryPage() {
           }
         />
 
-        <select
-          className="form-input laboratory-compact-filter"
-          value={filters.month}
-          onChange={(e) =>
-            setFilters({
-              ...filters,
-              month: e.target.value,
-              page: 1
-            })
-          }
-        >
-          {monthOptions.map((month) => (
-            <option
-              key={month.value}
-              value={month.value}
-            >
-              {month.label}
-            </option>
-          ))}
-        </select>
+        <label className="form-field laboratory-compact-filter">
+          <span>Desde</span>
+          <input
+            className="form-input"
+            type="date"
+            value={filters.date_from}
+            onChange={(e) =>
+              setFilters({
+                ...filters,
+                date_from: e.target.value,
+                page: 1
+              })
+            }
+          />
+        </label>
 
-        <select
-          className="form-input laboratory-compact-filter"
-          value={filters.year}
-          onChange={(e) =>
-            setFilters({
-              ...filters,
-              year: e.target.value,
-              page: 1
-            })
-          }
-        >
-          <option value="todos">Todos los años</option>
-          {yearOptions.map((year) => (
-            <option
-              key={year}
-              value={year}
-            >
-              {year}
-            </option>
-          ))}
-        </select>
+        <label className="form-field laboratory-compact-filter">
+          <span>Hasta</span>
+          <input
+            className="form-input"
+            type="date"
+            value={filters.date_to}
+            onChange={(e) =>
+              setFilters({
+                ...filters,
+                date_to: e.target.value,
+                page: 1
+              })
+            }
+          />
+        </label>
 
         <select
           className="form-input laboratory-compact-filter"
@@ -1136,8 +1172,8 @@ export default function LaboratoryPage() {
           onClick={() =>
             setFilters({
               search: '',
-              month: 'todos',
-              year: String(currentYear),
+              date_from: '',
+              date_to: '',
               sample_type: 'todas',
               record_status: 'todos',
               pickup_status: 'todos',
@@ -1233,7 +1269,8 @@ export default function LaboratoryPage() {
                 getStatusLabel(
                   record.status,
                   record.is_complete,
-                  record.pickup_date
+                  record.pickup_date,
+                  record.expired_previous_status
                 );
 
               const canModifyRecord =

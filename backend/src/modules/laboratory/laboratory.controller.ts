@@ -9,6 +9,7 @@ import { logAudit } from '../audit/audit.service';
 import {
   createLaboratoryRecord,
   deleteLaboratoryRecord,
+  expireOldLaboratoryRecords,
   getLaboratoryRecordById,
   getLaboratoryRecords,
   getLaboratoryStats,
@@ -390,6 +391,45 @@ export async function handleDeleteLaboratoryRecord(
     return res.status(400).json({
       success: false,
       message: error.message || 'Error al eliminar estudio'
+    });
+  }
+}
+
+export async function handleExpireOldLaboratoryRecords(
+  req: AuthRequest,
+  res: Response
+) {
+  try {
+    const result =
+      await expireOldLaboratoryRecords(
+        req.user?.userId || req.user?.id
+      );
+
+    await logAudit({
+      user: req.user,
+      module: 'laboratorio',
+      action: 'expirar_estudios',
+      entityType: 'laboratory_record',
+      description: `Marco ${result.affected_rows} estudios de laboratorio como expirados`,
+      newData: result,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'] || null
+    });
+
+    return res.json({
+      success: true,
+      message:
+        result.affected_rows > 0
+          ? 'Estudios expirados actualizados'
+          : 'No habia estudios para expirar',
+      data: result
+    });
+  } catch (error: any) {
+    console.error(error);
+
+    return res.status(400).json({
+      success: false,
+      message: error.message || 'Error al expirar estudios'
     });
   }
 }

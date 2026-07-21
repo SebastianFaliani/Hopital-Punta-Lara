@@ -15,6 +15,8 @@ type LaboratoryFilters = {
   per_page?: string | number;
 };
 
+const expirationMonths = 6;
+
 let patientPhoneColumnCache: boolean | null =
   null;
 
@@ -608,12 +610,14 @@ export async function getLaboratoryRecords(
   const [
     hasPatientId,
     hasPickupRegisteredByColumn,
-    hasPickupRegisteredAtColumn
+    hasPickupRegisteredAtColumn,
+    hasExpiredPreviousStatusColumn
   ] =
     await Promise.all([
       hasPatientIdColumn(),
       hasLaboratoryColumn('pickup_registered_by'),
-      hasLaboratoryColumn('pickup_registered_at')
+      hasLaboratoryColumn('pickup_registered_at'),
+      hasLaboratoryColumn('expired_previous_status')
     ]);
 
   const where =
@@ -679,6 +683,11 @@ export async function getLaboratoryRecords(
           laboratory_records.has_urine_sample,
           laboratory_records.is_complete,
           laboratory_records.status,
+          ${
+            hasExpiredPreviousStatusColumn
+              ? 'laboratory_records.expired_previous_status'
+              : 'NULL'
+          } AS expired_previous_status,
           laboratory_records.missing_details,
           laboratory_records.completed_at,
           laboratory_records.pickup_date,
@@ -782,12 +791,13 @@ export async function getLaboratoryStats(
           SUM(CASE WHEN has_blood_extraction = TRUE THEN 1 ELSE 0 END) AS blood_extractions,
           SUM(CASE WHEN has_urine_sample = TRUE THEN 1 ELSE 0 END) AS urine_samples,
           SUM(CASE WHEN has_blood_extraction = TRUE AND has_urine_sample = TRUE THEN 1 ELSE 0 END) AS both_samples,
-          SUM(CASE WHEN pickup_date IS NULL AND is_complete = TRUE THEN 1 ELSE 0 END) AS pending_pickups,
+          SUM(CASE WHEN pickup_date IS NULL AND is_complete = TRUE AND status = 'completo' THEN 1 ELSE 0 END) AS pending_pickups,
           SUM(CASE WHEN pickup_date IS NOT NULL THEN 1 ELSE 0 END) AS delivered_results,
           SUM(CASE WHEN is_complete = FALSE THEN 1 ELSE 0 END) AS incomplete_records,
           SUM(CASE WHEN is_complete = TRUE THEN 1 ELSE 0 END) AS complete_records,
           SUM(CASE WHEN status = 'enviado' THEN 1 ELSE 0 END) AS sent_records,
-          SUM(CASE WHEN status = 'parcial' THEN 1 ELSE 0 END) AS partial_records
+          SUM(CASE WHEN status = 'parcial' THEN 1 ELSE 0 END) AS partial_records,
+          SUM(CASE WHEN status = 'expirado' THEN 1 ELSE 0 END) AS expired_records
         FROM laboratory_records
         ${
           hasPatientId
@@ -827,11 +837,13 @@ export async function getLaboratoryRecordById(
 ) {
   const [
     hasPatientId,
-    hasPhoneColumn
+    hasPhoneColumn,
+    hasExpiredPreviousStatusColumn
   ] =
     await Promise.all([
       hasPatientIdColumn(),
-      hasPatientPhoneColumn()
+      hasPatientPhoneColumn(),
+      hasLaboratoryColumn('expired_previous_status')
     ]);
 
   const [rows]: any =
@@ -865,7 +877,12 @@ export async function getLaboratoryRecordById(
                 ? 'COALESCE(p.phone, laboratory_records.patient_phone)'
                 : 'laboratory_records.patient_phone'
               : 'NULL'
-          } AS patient_phone
+          } AS patient_phone,
+          ${
+            hasExpiredPreviousStatusColumn
+              ? 'laboratory_records.expired_previous_status'
+              : 'NULL'
+          } AS expired_previous_status
         FROM laboratory_records
         ${
           hasPatientId
@@ -873,7 +890,7 @@ export async function getLaboratoryRecordById(
           ON p.id = laboratory_records.patient_id`
             : ''
         }
-        WHERE id = ?
+        WHERE laboratory_records.id = ?
       `,
       [id]
     );
@@ -1065,6 +1082,47 @@ export async function deleteLaboratoryRecord(
   );
 
   return true;
+}
+
+export async function expireOldLaboratoryRecords(
+  userId?: number
+) {
+  const hasExpiredPreviousStatusColumn =
+    await hasLaboratoryColumn('expired_previous_status');
+
+  const [result]: any =
+    await pool.query(
+      `
+        UPDATE laboratory_records
+        SET
+          ${
+            hasExpiredPreviousStatusColumn
+              ? `expired_previous_status =
+            CASE
+              WHEN status IN ('enviado','parcial','completo') THEN status
+              WHEN is_complete = TRUE THEN 'completo'
+              ELSE 'enviado'
+            END,`
+              : ''
+          }
+          status = 'expirado',
+          updated_by = ?
+        WHERE pickup_date IS NULL
+          AND status <> 'expirado'
+          AND study_date < DATE_SUB(CURDATE(), INTERVAL ? MONTH)
+      `,
+      [
+        userId || null,
+        expirationMonths
+      ]
+    );
+
+  return {
+    affected_rows:
+      Number(result.affectedRows || 0),
+    expiration_months:
+      expirationMonths
+  };
 }
 
 export async function updateLaboratoryCompletion(
