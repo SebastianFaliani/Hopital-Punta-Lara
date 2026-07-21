@@ -72,19 +72,25 @@ async function loadWhatsappModules() {
   }
 }
 
+function getBackendRoot() {
+  const cwd = process.cwd();
+
+  return path.basename(cwd).toLowerCase() === 'backend'
+    ? cwd
+    : path.resolve(cwd, 'backend');
+}
+
+function getWhatsappWebCachePath() {
+  return path.resolve(
+    getBackendRoot(),
+    '.wwebjs_cache'
+  );
+}
 function getSessionPath() {
-  const cwd =
-    process.cwd();
-
-  const backendRoot =
-    path.basename(cwd).toLowerCase() === 'backend'
-      ? cwd
-      : path.resolve(cwd, 'backend');
-
   return (
     process.env.WHATSAPP_SESSION_PATH ||
     path.resolve(
-      backendRoot,
+      getBackendRoot(),
       'storage',
       'whatsapp-session'
     )
@@ -555,6 +561,12 @@ export async function startWhatsappWebSession() {
         }),
       deviceName: 'Hospital Punta Lara',
       browserName: 'Chrome',
+      webVersion: '2.3000.1043545460',
+      webVersionCache: {
+        type: 'local',
+        path: getWhatsappWebCachePath(),
+        strict: true
+      },
       takeoverOnConflict: true,
       takeoverTimeoutMs: 10000,
       puppeteer: getPuppeteerOptions()
