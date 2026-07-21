@@ -456,18 +456,101 @@ export async function sendWhatsappTextMessage(
     `Enviando mensaje a ${recipient.replace(/@.+$/, '')}`
   );
 
-  await withTimeout(
-    client.sendMessage(
-      recipient,
-      message,
-      {
-        sendSeen: false,
-        linkPreview: false
+  const page: any = (client as any).pupPage;
+
+  if (!page) {
+    throw new Error(
+      'WhatsApp perdio la pagina de conexion. Reinicia la conexion y volve a intentar.'
+    );
+  }
+
+  const runtimeReady = await withTimeout(
+    page.evaluate(() => {
+      const browserWindow: any = window;
+      let hasSendAction = false;
+
+      try {
+        hasSendAction =
+          typeof browserWindow.require?.('WAWebSendMsgChatAction')
+            ?.addAndSendMsgToChat === 'function';
+      } catch (error) {
+        hasSendAction = false;
       }
-    ),
-    30000,
-    'WhatsApp no confirmo el envio en 30 segundos. Verifica la conexion y volve a intentar.'
+
+      return Boolean(
+        browserWindow.WWebJS &&
+        typeof browserWindow.WWebJS.getChat === 'function' &&
+        typeof browserWindow.WWebJS.sendMessage === 'function' &&
+        hasSendAction
+      );
+    }),
+    5000,
+    'WhatsApp no respondio al revisar el motor de envio.'
   );
+
+  if (!runtimeReady) {
+    throw new Error(
+      'WhatsApp esta conectado, pero el motor de envio no termino de cargar. Reinicia la conexion.'
+    );
+  }
+
+  setEvent(
+    'connected',
+    `Abriendo conversacion con ${recipient.replace(/@.+$/, '')}`
+  );
+
+  const chatReady = await withTimeout(
+    page.evaluate(async (chatId: string) => {
+      const browserWindow: any = window;
+      const chat = await browserWindow.WWebJS.getChat(
+        chatId,
+        { getAsModel: false }
+      );
+      browserWindow.__hospitalWhatsappChat = chat;
+      return Boolean(chat);
+    }, recipient),
+    10000,
+    'WhatsApp no pudo abrir la conversacion en 10 segundos.'
+  );
+
+  if (!chatReady) {
+    throw new Error(
+      'WhatsApp no encontro la conversacion del telefono indicado.'
+    );
+  }
+
+  setEvent(
+    'connected',
+    `Entregando mensaje a WhatsApp para ${recipient.replace(/@.+$/, '')}`
+  );
+
+  await withTimeout(
+    page.evaluate(async (text: string) => {
+      const browserWindow: any = window;
+      const chat = browserWindow.__hospitalWhatsappChat;
+
+      if (!chat) {
+        throw new Error('La conversacion no esta disponible');
+      }
+
+      return Boolean(
+        await browserWindow.WWebJS.sendMessage(
+          chat,
+          text,
+          {
+            sendSeen: false,
+            linkPreview: false
+          }
+        )
+      );
+    }, message),
+    30000,
+    'WhatsApp abrio la conversacion, pero no pudo entregar el mensaje en 30 segundos.'
+  );
+
+  await page.evaluate(() => {
+    delete (window as any).__hospitalWhatsappChat;
+  }).catch(() => undefined);
 
   setEvent(
     'connected',
