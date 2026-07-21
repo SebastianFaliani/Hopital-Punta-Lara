@@ -146,80 +146,41 @@ function isIncomingBotEnabled() {
   return process.env.WHATSAPP_ENABLE_INCOMING_BOT === 'true';
 }
 
-function formatWhatsappRecipient(
+function getArgentinaWhatsappNumber(
   phone: string
 ) {
-  const raw =
-    String(phone || '').trim();
-
-  if (
-    raw.endsWith('@c.us') ||
-    raw.endsWith('@s.whatsapp.net')
-  ) {
-    return raw;
-  }
-
-  const digits =
-    raw.replace(/\D/g, '');
-
-  if (!digits) {
-    throw new Error('Telefono de WhatsApp invalido');
-  }
-
-  const withCountryCode =
-    digits.startsWith('54')
-      ? digits
-      : `54${digits}`;
-
-  return `${withCountryCode}@c.us`;
-}
-
-function getWhatsappPhoneCandidates(
-  phone: string
-) {
-  const digits =
+  let digits =
     String(phone || '')
       .replace(/\D/g, '')
       .replace(/^0+/, '');
 
   if (!digits) {
-    return [];
+    throw new Error('Telefono de WhatsApp invalido');
   }
 
-  const withoutArgentinaPrefix =
-    digits.startsWith('54')
-      ? digits.slice(2)
-      : digits;
+  if (digits.startsWith('54')) {
+    digits = digits.slice(2);
+  }
 
-  const candidates = [
-    digits,
-    digits.startsWith('54')
-      ? digits
-      : `54${digits}`,
-    digits.startsWith('549')
-      ? digits
-      : `549${withoutArgentinaPrefix}`
-  ];
+  if (digits.startsWith('9') && digits.length === 11) {
+    digits = digits.slice(1);
+  }
 
-  if (
-    withoutArgentinaPrefix.length > 8 &&
-    withoutArgentinaPrefix.includes('15')
-  ) {
-    candidates.push(
-      `549${withoutArgentinaPrefix.replace(/^(\d{2,4})15/, '$1')}`
+  digits = digits.replace(/^(\d{2,4})15/, '$1');
+
+  if (digits.length !== 10) {
+    throw new Error(
+      'El telefono debe incluir codigo de area y numero, por ejemplo 2211234567'
     );
   }
 
-  return Array.from(
-    new Set(candidates)
-  );
+  return `549${digits}`;
 }
 
-async function resolveWhatsappRecipient(
+function formatWhatsappRecipient(
   phone: string
 ) {
-  const raw =
-    String(phone || '').trim();
+  const raw = String(phone || '').trim();
 
   if (
     raw.endsWith('@c.us') ||
@@ -228,22 +189,57 @@ async function resolveWhatsappRecipient(
     return raw;
   }
 
-  for (const candidate of getWhatsappPhoneCandidates(phone)) {
-    try {
-      const numberId =
-        await client.getNumberId(candidate);
-
-      if (numberId?._serialized) {
-        return numberId._serialized;
-      }
-    } catch (error) {
-      // Se prueba el siguiente formato posible.
-    }
-  }
-
-  return formatWhatsappRecipient(phone);
+  return `${getArgentinaWhatsappNumber(phone)}@c.us`;
 }
 
+function withTimeout<T>(
+  operation: Promise<T>,
+  milliseconds: number,
+  message: string
+) {
+  let timeout: ReturnType<typeof setTimeout>;
+
+  return Promise.race([
+    operation,
+    new Promise<T>((_, reject) => {
+      timeout = setTimeout(
+        () => reject(new Error(message)),
+        milliseconds
+      );
+    })
+  ]).finally(() => clearTimeout(timeout));
+}
+
+async function resolveWhatsappRecipient(
+  phone: string
+) {
+  const raw = String(phone || '').trim();
+
+  if (
+    raw.endsWith('@c.us') ||
+    raw.endsWith('@s.whatsapp.net')
+  ) {
+    return raw;
+  }
+
+  const candidate = getArgentinaWhatsappNumber(phone);
+
+  try {
+    const numberId: any = await withTimeout(
+      client.getNumberId(candidate),
+      8000,
+      'WhatsApp no respondio al verificar el numero'
+    );
+
+    if (numberId?._serialized) {
+      return numberId._serialized;
+    }
+  } catch (error) {
+    // Se intenta el envio directo al formato movil argentino.
+  }
+
+  return `${candidate}@c.us`;
+}
 function getWhatsappMessageId(
   message: any
 ) {
@@ -449,9 +445,23 @@ export async function sendWhatsappTextMessage(
   const recipient =
     await resolveWhatsappRecipient(phone);
 
-  await client.sendMessage(
-    recipient,
-    message
+  setEvent(
+    'connected',
+    `Enviando mensaje a ${recipient.replace(/@.+$/, '')}`
+  );
+
+  await withTimeout(
+    client.sendMessage(
+      recipient,
+      message
+    ),
+    30000,
+    'WhatsApp no confirmo el envio en 30 segundos. Verifica la conexion y volve a intentar.'
+  );
+
+  setEvent(
+    'connected',
+    `Mensaje enviado a ${recipient.replace(/@.+$/, '')}`
   );
 
   return true;
