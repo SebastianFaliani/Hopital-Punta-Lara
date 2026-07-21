@@ -2,7 +2,9 @@ import { Router } from 'express';
 
 import {
   handleCreateLaboratoryRecord,
+  handleDeleteLaboratoryRecord,
   handleGetLaboratoryTestCatalog,
+  handleGetLaboratoryPatient,
   handleGetLaboratoryRecords,
   handleGetLaboratoryStats,
   handleRegisterLaboratoryPickup,
@@ -61,6 +63,13 @@ router.get(
   handleGetLaboratoryTestCatalog
 );
 
+router.get(
+  '/patients/:document',
+  authenticateToken,
+  authorizeRoles(...laboratoryReadRoles),
+  handleGetLaboratoryPatient
+);
+
 router.post(
   '/',
   authenticateToken,
@@ -73,6 +82,13 @@ router.put(
   authenticateToken,
   authorizeRoles(...laboratoryWriteRoles),
   handleUpdateLaboratoryRecord
+);
+
+router.delete(
+  '/:id',
+  authenticateToken,
+  authorizeRoles(...laboratoryWriteRoles),
+  handleDeleteLaboratoryRecord
 );
 
 router.patch(

@@ -69,6 +69,15 @@ type LaboratoryStats = {
   partial_records: number;
 };
 
+type LaboratoryPatient = {
+  id: number;
+  document_number: string;
+  last_name: string;
+  first_name: string;
+  phone: string | null;
+  birth_date: string | null;
+};
+
 const emptyForm = {
   study_date: todayInputValue(),
   patient_last_name: '',
@@ -134,6 +143,14 @@ function toDateInput(
   }
 
   return String(value).slice(0, 10);
+}
+
+function normalizeDocument(
+  value?: string | null
+) {
+  return String(value || '')
+    .trim()
+    .replace(/[.\s-]/g, '');
 }
 
 function formatDate(
@@ -217,6 +234,13 @@ function getStatusLabel(
   isComplete: boolean | number,
   pickupDate?: string | null
 ) {
+  if (status === 'expirado') {
+    return {
+      text: 'Expirado',
+      className: 'badge badge-warning'
+    };
+  }
+
   if (pickupDate || status === 'retirado') {
     if (!yesNo(isComplete)) {
       return {
@@ -267,7 +291,8 @@ const laboratoryStatusLabels: Record<string, string> = {
   enviado: 'Enviados',
   parcial: 'Parciales',
   completo: 'Completos',
-  retirado: 'Retirados'
+  retirado: 'Retirados',
+  expirado: 'Expirados'
 };
 export default function LaboratoryPage() {
 
@@ -302,6 +327,9 @@ export default function LaboratoryPage() {
 
   const [form, setForm] =
     useState(emptyForm);
+
+  const [loadedPatientDocument, setLoadedPatientDocument] =
+    useState('');
 
   const [editing, setEditing] =
     useState<LaboratoryRecord | null>(null);
@@ -425,6 +453,100 @@ export default function LaboratoryPage() {
   useEffect(() => {
     loadLaboratory();
   }, [queryString]);
+
+  useEffect(() => {
+    if (!showForm) {
+      return;
+    }
+
+    const documentNumber =
+      normalizeDocument(form.patient_document);
+
+    if (
+      loadedPatientDocument &&
+      documentNumber !== loadedPatientDocument
+    ) {
+      setLoadedPatientDocument('');
+      setForm((current) => ({
+        ...current,
+        patient_last_name: '',
+        patient_first_name: '',
+        patient_birth_date: '',
+        patient_phone: ''
+      }));
+      return;
+    }
+
+    if (documentNumber.length < 6) {
+      return;
+    }
+
+    if (documentNumber === loadedPatientDocument) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const timeoutId =
+      window.setTimeout(async () => {
+        try {
+          const response =
+            await apiFetch(
+              `/laboratory/patients/${encodeURIComponent(documentNumber)}`
+            );
+
+          if (cancelled) {
+            return;
+          }
+
+          const patient =
+            response.data as LaboratoryPatient | null;
+
+          if (!patient) {
+            return;
+          }
+
+          setForm((current) => {
+            if (
+              normalizeDocument(current.patient_document) !==
+              documentNumber
+            ) {
+              return current;
+            }
+
+            return {
+              ...current,
+              patient_document:
+                patient.document_number || current.patient_document,
+              patient_last_name:
+                patient.last_name || current.patient_last_name,
+              patient_first_name:
+                patient.first_name || current.patient_first_name,
+              patient_phone:
+                patient.phone || current.patient_phone,
+              patient_birth_date:
+                toDateInput(patient.birth_date) ||
+                current.patient_birth_date
+            };
+          });
+
+          setLoadedPatientDocument(documentNumber);
+        } catch (error) {
+          if (cancelled) {
+            return;
+          }
+        }
+      }, 350);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+    };
+  }, [
+    form.patient_document,
+    loadedPatientDocument,
+    showForm
+  ]);
 
   async function printFilteredRecords() {
     const printWindow =
@@ -578,6 +700,7 @@ export default function LaboratoryPage() {
   function openCreate() {
     setEditing(null);
     setForm(emptyForm);
+    setLoadedPatientDocument('');
     setShowForm(true);
   }
 
@@ -600,6 +723,9 @@ export default function LaboratoryPage() {
           .map((test) => Number(test.test_id || test.id)),
       notes: record.notes || ''
     });
+    setLoadedPatientDocument(
+      normalizeDocument(record.patient_document)
+    );
     setShowForm(true);
   }
 
@@ -657,6 +783,11 @@ export default function LaboratoryPage() {
   ) {
     e.preventDefault();
 
+    if (!form.patient_document) {
+      showSystemAlert('Debe cargar el DNI del paciente');
+      return;
+    }
+
     if (!form.patient_last_name || !form.patient_first_name) {
       showSystemAlert('Debe cargar apellido y nombre del paciente');
       return;
@@ -686,6 +817,36 @@ export default function LaboratoryPage() {
       setShowForm(false);
       setEditing(null);
       setForm(emptyForm);
+      await loadLaboratory();
+    } catch (error: any) {
+      showSystemAlert(error.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function deleteRecord(
+    record: LaboratoryRecord
+  ) {
+    const confirmed =
+      window.confirm(
+        `Eliminar laboratorio de ${record.patient_last_name} ${record.patient_first_name}?`
+      );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      await apiFetch(
+        `/laboratory/${record.id}`,
+        {
+          method: 'DELETE'
+        }
+      );
+
       await loadLaboratory();
     } catch (error: any) {
       showSystemAlert(error.message);
@@ -945,6 +1106,7 @@ export default function LaboratoryPage() {
           <option value="parcial">Parciales</option>
           <option value="completo">Completos</option>
           <option value="retirado">Retirados</option>
+          <option value="expirado">Expirados</option>
         </select>
         <select
           className="form-input laboratory-compact-filter"
@@ -1163,6 +1325,18 @@ export default function LaboratoryPage() {
                         />
                       )}
 
+                      {canEdit && canModifyRecord && (
+                        <IconButton
+                          disabled={loading}
+                          icon="trash"
+                          label="Eliminar laboratorio"
+                          onClick={() =>
+                            deleteRecord(record)
+                          }
+                          variant="danger"
+                        />
+                      )}
+
                       {canChangeCompletion && canModifyRecord && (
                         <IconButton
                           icon="check"
@@ -1286,6 +1460,21 @@ export default function LaboratoryPage() {
               onSubmit={handleSubmit}
             >
               <div className="laboratory-patient-grid">
+                <label className="form-field laboratory-field-compact">
+                  <span>DNI</span>
+                  <input
+                    className="form-input"
+                    value={form.patient_document}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        patient_document: e.target.value
+                      })
+                    }
+                    autoFocus={!editing}
+                  />
+                </label>
+
                 <label className="form-field laboratory-field-name">
                   <span>Apellido</span>
                   <input
@@ -1324,20 +1513,6 @@ export default function LaboratoryPage() {
                       setForm({
                         ...form,
                         study_date: e.target.value
-                      })
-                    }
-                  />
-                </label>
-
-                <label className="form-field laboratory-field-compact">
-                  <span>DNI</span>
-                  <input
-                    className="form-input"
-                    value={form.patient_document}
-                    onChange={(e) =>
-                      setForm({
-                        ...form,
-                        patient_document: e.target.value
                       })
                     }
                   />

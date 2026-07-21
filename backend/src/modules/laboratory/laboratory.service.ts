@@ -21,6 +21,43 @@ let patientPhoneColumnCache: boolean | null =
 const laboratoryColumnCache =
   new Map<string, boolean>();
 
+const tableCache =
+  new Map<string, boolean>();
+
+function normalizeDocument(
+  value?: string | null
+) {
+  return String(value || '')
+    .trim()
+    .replace(/[.\s-]/g, '');
+}
+
+async function hasTable(
+  tableName: string
+) {
+  if (tableCache.has(tableName)) {
+    return Boolean(tableCache.get(tableName));
+  }
+
+  const [rows]: any =
+    await pool.query(
+      `
+        SELECT COUNT(*) AS total
+        FROM information_schema.TABLES
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = ?
+      `,
+      [tableName]
+    );
+
+  const exists =
+    Number(rows[0]?.total || 0) > 0;
+
+  tableCache.set(tableName, exists);
+
+  return exists;
+}
+
 async function hasLaboratoryColumn(
   columnName: string
 ) {
@@ -65,6 +102,110 @@ async function hasPatientPhoneColumn() {
   return patientPhoneColumnCache;
 }
 
+async function hasPatientIdColumn() {
+  return hasLaboratoryColumn('patient_id');
+}
+
+async function hasPeopleTable() {
+  return hasTable('people');
+}
+
+export async function getPersonByDocument(
+  documentNumber: string
+) {
+  const normalizedDocument =
+    normalizeDocument(documentNumber);
+
+  if (
+    !normalizedDocument ||
+    !(await hasPeopleTable())
+  ) {
+    return null;
+  }
+
+  const [rows]: any =
+    await pool.query(
+      `
+        SELECT
+          id,
+          document_number,
+          last_name,
+          first_name,
+          phone,
+          birth_date
+        FROM people
+        WHERE document_number = ?
+        LIMIT 1
+      `,
+      [normalizedDocument]
+    );
+
+  return rows[0] || null;
+}
+
+async function upsertPerson(
+  connection: any,
+  data: any
+) {
+  const normalizedDocument =
+    normalizeDocument(data.patient_document);
+
+  if (
+    !normalizedDocument ||
+    !(await hasPeopleTable())
+  ) {
+    return null;
+  }
+
+  const lastName =
+    String(data.patient_last_name || '').trim();
+
+  const firstName =
+    String(data.patient_first_name || '').trim();
+
+  if (!lastName || !firstName) {
+    return null;
+  }
+
+  await connection.query(
+    `
+      INSERT INTO people (
+        document_number,
+        last_name,
+        first_name,
+        phone,
+        birth_date
+      )
+      VALUES (?, ?, ?, ?, ?)
+      ON DUPLICATE KEY UPDATE
+        last_name = VALUES(last_name),
+        first_name = VALUES(first_name),
+        phone = VALUES(phone),
+        birth_date = VALUES(birth_date)
+    `,
+    [
+      normalizedDocument,
+      lastName,
+      firstName,
+      data.patient_phone || null,
+      data.patient_birth_date || null
+    ]
+  );
+
+  const [rows]: any =
+    await connection.query(
+      `
+        SELECT id
+        FROM people
+        WHERE document_number = ?
+        LIMIT 1
+      `,
+      [normalizedDocument]
+    );
+
+  return rows[0]?.id || null;
+}
+
 function getPagination(
   filters: LaboratoryFilters
 ) {
@@ -93,7 +234,8 @@ function getPagination(
 
 function buildWhereClause(
   filters: LaboratoryFilters,
-  hasPhoneColumn = false
+  hasPhoneColumn = false,
+  hasPatientId = false
 ) {
   const where: string[] = [];
   const values: any[] = [];
@@ -102,14 +244,34 @@ function buildWhereClause(
     const search =
       `%${filters.search.trim()}%`;
 
+    const lastNameExpression =
+      hasPatientId
+        ? 'COALESCE(p.last_name, laboratory_records.patient_last_name)'
+        : 'laboratory_records.patient_last_name';
+
+    const firstNameExpression =
+      hasPatientId
+        ? 'COALESCE(p.first_name, laboratory_records.patient_first_name)'
+        : 'laboratory_records.patient_first_name';
+
+    const documentExpression =
+      hasPatientId
+        ? 'COALESCE(p.document_number, laboratory_records.patient_document)'
+        : 'laboratory_records.patient_document';
+
+    const phoneExpression =
+      hasPatientId
+        ? 'COALESCE(p.phone, laboratory_records.patient_phone)'
+        : 'laboratory_records.patient_phone';
+
     where.push(
       `(
-        laboratory_records.patient_last_name LIKE ?
-        OR laboratory_records.patient_first_name LIKE ?
-        OR CONCAT(laboratory_records.patient_last_name, ' ', laboratory_records.patient_first_name) LIKE ?
-        OR CONCAT(laboratory_records.patient_first_name, ' ', laboratory_records.patient_last_name) LIKE ?
-        OR laboratory_records.patient_document LIKE ?
-        ${hasPhoneColumn ? 'OR laboratory_records.patient_phone LIKE ?' : ''}
+        ${lastNameExpression} LIKE ?
+        OR ${firstNameExpression} LIKE ?
+        OR CONCAT(${lastNameExpression}, ' ', ${firstNameExpression}) LIKE ?
+        OR CONCAT(${firstNameExpression}, ' ', ${lastNameExpression}) LIKE ?
+        OR ${documentExpression} LIKE ?
+        ${hasPhoneColumn ? `OR ${phoneExpression} LIKE ?` : ''}
         OR laboratory_records.picked_up_by LIKE ?
       )`
     );
@@ -225,6 +387,12 @@ function buildWhereClause(
   if (filters.record_status === 'retirado') {
     where.push(
       "laboratory_records.status = 'retirado'"
+    );
+  }
+
+  if (filters.record_status === 'expirado') {
+    where.push(
+      "laboratory_records.status = 'expirado'"
     );
   }
 
@@ -438,10 +606,12 @@ export async function getLaboratoryRecords(
     await hasPatientPhoneColumn();
 
   const [
+    hasPatientId,
     hasPickupRegisteredByColumn,
     hasPickupRegisteredAtColumn
   ] =
     await Promise.all([
+      hasPatientIdColumn(),
       hasLaboratoryColumn('pickup_registered_by'),
       hasLaboratoryColumn('pickup_registered_at')
     ]);
@@ -449,7 +619,8 @@ export async function getLaboratoryRecords(
   const where =
     buildWhereClause(
       filters,
-      hasPhoneColumn
+      hasPhoneColumn,
+      hasPatientId
     );
 
   const pagination =
@@ -460,6 +631,12 @@ export async function getLaboratoryRecords(
       `
         SELECT COUNT(*) AS total
         FROM laboratory_records
+        ${
+          hasPatientId
+            ? `LEFT JOIN people p
+          ON p.id = laboratory_records.patient_id`
+            : ''
+        }
         ${where.sql}
       `,
       where.values
@@ -471,13 +648,31 @@ export async function getLaboratoryRecords(
         SELECT
           laboratory_records.id,
           laboratory_records.study_date,
-          laboratory_records.patient_last_name,
-          laboratory_records.patient_first_name,
-          laboratory_records.patient_document,
-          laboratory_records.patient_birth_date,
+          ${
+            hasPatientId
+              ? 'COALESCE(p.last_name, laboratory_records.patient_last_name)'
+              : 'laboratory_records.patient_last_name'
+          } AS patient_last_name,
+          ${
+            hasPatientId
+              ? 'COALESCE(p.first_name, laboratory_records.patient_first_name)'
+              : 'laboratory_records.patient_first_name'
+          } AS patient_first_name,
+          ${
+            hasPatientId
+              ? 'COALESCE(p.document_number, laboratory_records.patient_document)'
+              : 'laboratory_records.patient_document'
+          } AS patient_document,
+          ${
+            hasPatientId
+              ? 'COALESCE(p.birth_date, laboratory_records.patient_birth_date)'
+              : 'laboratory_records.patient_birth_date'
+          } AS patient_birth_date,
           ${
             hasPhoneColumn
-              ? 'laboratory_records.patient_phone'
+              ? hasPatientId
+                ? 'COALESCE(p.phone, laboratory_records.patient_phone)'
+                : 'laboratory_records.patient_phone'
               : 'NULL'
           } AS patient_phone,
           laboratory_records.has_blood_extraction,
@@ -514,6 +709,12 @@ export async function getLaboratoryRecords(
             NULL
           ) AS pickup_registered_by_name
         FROM laboratory_records
+        ${
+          hasPatientId
+            ? `LEFT JOIN people p
+          ON p.id = laboratory_records.patient_id`
+            : ''
+        }
         LEFT JOIN users cu
           ON cu.id = laboratory_records.created_by
         LEFT JOIN users uu
@@ -557,13 +758,20 @@ export async function getLaboratoryRecords(
 export async function getLaboratoryStats(
   filters: LaboratoryFilters
 ) {
-  const hasPhoneColumn =
-    await hasPatientPhoneColumn();
+  const [
+    hasPhoneColumn,
+    hasPatientId
+  ] =
+    await Promise.all([
+      hasPatientPhoneColumn(),
+      hasPatientIdColumn()
+    ]);
 
   const where =
     buildWhereClause(
       filters,
-      hasPhoneColumn
+      hasPhoneColumn,
+      hasPatientId
     );
 
   const [rows]: any =
@@ -581,6 +789,12 @@ export async function getLaboratoryStats(
           SUM(CASE WHEN status = 'enviado' THEN 1 ELSE 0 END) AS sent_records,
           SUM(CASE WHEN status = 'parcial' THEN 1 ELSE 0 END) AS partial_records
         FROM laboratory_records
+        ${
+          hasPatientId
+            ? `LEFT JOIN people p
+          ON p.id = laboratory_records.patient_id`
+            : ''
+        }
         ${where.sql}
       `,
       where.values
@@ -611,11 +825,54 @@ export async function getLaboratoryTestCatalog() {
 export async function getLaboratoryRecordById(
   id: number
 ) {
+  const [
+    hasPatientId,
+    hasPhoneColumn
+  ] =
+    await Promise.all([
+      hasPatientIdColumn(),
+      hasPatientPhoneColumn()
+    ]);
+
   const [rows]: any =
     await pool.query(
       `
-        SELECT *
+        SELECT
+          laboratory_records.*,
+          ${
+            hasPatientId
+              ? 'COALESCE(p.last_name, laboratory_records.patient_last_name)'
+              : 'laboratory_records.patient_last_name'
+          } AS patient_last_name,
+          ${
+            hasPatientId
+              ? 'COALESCE(p.first_name, laboratory_records.patient_first_name)'
+              : 'laboratory_records.patient_first_name'
+          } AS patient_first_name,
+          ${
+            hasPatientId
+              ? 'COALESCE(p.document_number, laboratory_records.patient_document)'
+              : 'laboratory_records.patient_document'
+          } AS patient_document,
+          ${
+            hasPatientId
+              ? 'COALESCE(p.birth_date, laboratory_records.patient_birth_date)'
+              : 'laboratory_records.patient_birth_date'
+          } AS patient_birth_date,
+          ${
+            hasPhoneColumn
+              ? hasPatientId
+                ? 'COALESCE(p.phone, laboratory_records.patient_phone)'
+                : 'laboratory_records.patient_phone'
+              : 'NULL'
+          } AS patient_phone
         FROM laboratory_records
+        ${
+          hasPatientId
+            ? `LEFT JOIN people p
+          ON p.id = laboratory_records.patient_id`
+            : ''
+        }
         WHERE id = ?
       `,
       [id]
@@ -640,11 +897,24 @@ export async function createLaboratoryRecord(
     const hasPhoneColumn =
       await hasPatientPhoneColumn();
 
+    const hasPatientId =
+      await hasPatientIdColumn();
+
+    const patientId =
+      await upsertPerson(
+        connection,
+        data
+      );
+
+    const patientDocument =
+      normalizeDocument(data.patient_document);
+
     const [result]: any =
       await connection.query(
         `
           INSERT INTO laboratory_records (
             study_date,
+            ${hasPatientId ? 'patient_id,' : ''}
             patient_last_name,
             patient_first_name,
             patient_document,
@@ -661,13 +931,16 @@ export async function createLaboratoryRecord(
             created_by,
             updated_by
           )
-          VALUES (?, ?, ?, ?, ?, ${hasPhoneColumn ? '?,' : ''} ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          VALUES (?, ${hasPatientId ? '?,' : ''} ?, ?, ?, ?, ${hasPhoneColumn ? '?,' : ''} ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `,
         [
           data.study_date,
+          ...(hasPatientId
+            ? [patientId]
+            : []),
           data.patient_last_name,
           data.patient_first_name,
-          data.patient_document || null,
+          patientDocument || null,
           data.patient_birth_date || null,
           ...(hasPhoneColumn
             ? [data.patient_phone || null]
@@ -715,11 +988,24 @@ export async function updateLaboratoryRecord(
     const hasPhoneColumn =
       await hasPatientPhoneColumn();
 
+    const hasPatientId =
+      await hasPatientIdColumn();
+
+    const patientId =
+      await upsertPerson(
+        connection,
+        data
+      );
+
+    const patientDocument =
+      normalizeDocument(data.patient_document);
+
     await connection.query(
       `
         UPDATE laboratory_records
         SET
           study_date = ?,
+          ${hasPatientId ? 'patient_id = ?,' : ''}
           patient_last_name = ?,
           patient_first_name = ?,
           patient_document = ?,
@@ -733,9 +1019,12 @@ export async function updateLaboratoryRecord(
       `,
       [
         data.study_date,
+        ...(hasPatientId
+          ? [patientId]
+          : []),
         data.patient_last_name,
         data.patient_first_name,
-        data.patient_document || null,
+        patientDocument || null,
         data.patient_birth_date || null,
         ...(hasPhoneColumn
           ? [data.patient_phone || null]
@@ -762,6 +1051,20 @@ export async function updateLaboratoryRecord(
   } finally {
     connection.release();
   }
+}
+
+export async function deleteLaboratoryRecord(
+  id: number
+) {
+  await pool.query(
+    `
+      DELETE FROM laboratory_records
+      WHERE id = ?
+    `,
+    [id]
+  );
+
+  return true;
 }
 
 export async function updateLaboratoryCompletion(

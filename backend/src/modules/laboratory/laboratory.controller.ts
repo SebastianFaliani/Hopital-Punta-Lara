@@ -8,10 +8,12 @@ import { logAudit } from '../audit/audit.service';
 
 import {
   createLaboratoryRecord,
+  deleteLaboratoryRecord,
   getLaboratoryRecordById,
   getLaboratoryRecords,
   getLaboratoryStats,
   getLaboratoryTestCatalog,
+  getPersonByDocument,
   registerLaboratoryPickup,
   updateLaboratoryCompletion,
   updateLaboratoryRecord
@@ -22,6 +24,10 @@ function validateLaboratoryBody(
 ) {
   if (!body.study_date) {
     return 'La fecha del estudio es obligatoria';
+  }
+
+  if (!body.patient_document) {
+    return 'El DNI del paciente es obligatorio';
   }
 
   if (!body.patient_last_name) {
@@ -93,6 +99,30 @@ export async function handleGetLaboratoryTestCatalog(
     return res.status(500).json({
       success: false,
       message: 'Error al obtener practicas de laboratorio'
+    });
+  }
+}
+
+export async function handleGetLaboratoryPatient(
+  req: Request,
+  res: Response
+) {
+  try {
+    const patient =
+      await getPersonByDocument(
+        String(req.params.document || '')
+      );
+
+    return res.json({
+      success: true,
+      data: patient
+    });
+  } catch (error) {
+    console.error(error);
+
+    return res.status(500).json({
+      success: false,
+      message: 'Error al buscar paciente'
     });
   }
 }
@@ -303,6 +333,63 @@ export async function handleUpdateLaboratoryRecord(
     return res.status(400).json({
       success: false,
       message: error.message || 'Error al actualizar estudio'
+    });
+  }
+}
+
+export async function handleDeleteLaboratoryRecord(
+  req: AuthRequest,
+  res: Response
+) {
+  try {
+    const previous =
+      await getLaboratoryRecordById(
+        Number(req.params.id)
+      );
+
+    if (!previous) {
+      return res.status(404).json({
+        success: false,
+        message: 'Estudio de laboratorio no encontrado'
+      });
+    }
+
+    if (
+      previous.pickup_date &&
+      req.user?.role !== 'admin'
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: 'El estudio ya fue retirado. Solo un administrador puede eliminarlo.'
+      });
+    }
+
+    await deleteLaboratoryRecord(
+      Number(req.params.id)
+    );
+
+    await logAudit({
+      user: req.user,
+      module: 'laboratorio',
+      action: 'eliminar_estudio',
+      entityType: 'laboratory_record',
+      entityId: Number(req.params.id),
+      description: `Elimino estudio de laboratorio ${req.params.id}`,
+      oldData: previous,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'] || null
+    });
+
+    return res.json({
+      success: true,
+      message: 'Estudio eliminado'
+    });
+  } catch (error: any) {
+    console.error(error);
+
+    return res.status(400).json({
+      success: false,
+      message: error.message || 'Error al eliminar estudio'
     });
   }
 }
