@@ -172,12 +172,8 @@ function getArgentinaWhatsappNumber(
     digits = digits.slice(1);
   }
 
-  digits = digits.replace(/^(\d{2,4})15/, '$1');
-
-  if (digits.length !== 10) {
-    throw new Error(
-      'El telefono debe incluir codigo de area y numero, por ejemplo 2211234567'
-    );
+  if (digits.length > 10) {
+    digits = digits.replace(/^(\d{2,4})15/, '$1');
   }
 
   return `549${digits}`;
