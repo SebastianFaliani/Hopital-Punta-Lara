@@ -1077,10 +1077,11 @@ export default function LaboratoryPage() {
           }
         />
 
-        <label className="form-field laboratory-compact-filter">
-          <span>Desde</span>
+        <div className="laboratory-compact-filter">
           <input
             className="form-input"
+            aria-label="Desde"
+            placeholder="Desde"
             type="date"
             value={filters.date_from}
             onChange={(e) =>
@@ -1091,12 +1092,13 @@ export default function LaboratoryPage() {
               })
             }
           />
-        </label>
+        </div>
 
-        <label className="form-field laboratory-compact-filter">
-          <span>Hasta</span>
+        <div className="laboratory-compact-filter">
           <input
             className="form-input"
+            aria-label="Hasta"
+            placeholder="Hasta"
             type="date"
             value={filters.date_to}
             onChange={(e) =>
@@ -1107,7 +1109,7 @@ export default function LaboratoryPage() {
               })
             }
           />
-        </label>
+        </div>
 
         <select
           className="form-input laboratory-compact-filter"
