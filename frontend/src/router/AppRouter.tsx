@@ -30,6 +30,7 @@ import AuditPage from '../pages/AuditPage';
 import LaboratoryPage from '../pages/LaboratoryPage';
 import NutritionPage from '../pages/NutritionPage';
 import HousekeepingPage from '../pages/HousekeepingPage';
+import PatientsPage from '../pages/PatientsPage';
 
 import ProtectedRoute from '../auth/ProtectedRoute';
 import HomeRedirect from '../auth/HomeRedirect';
@@ -181,6 +182,11 @@ export default function AppRouter() {
             <Route
               path="/vaccines/:id/batches"
               element={<VaccineBatchesPage />}
+            />
+
+            <Route
+              path="/patients"
+              element={<PatientsPage />}
             />
 
             <Route

@@ -16,6 +16,7 @@ const navigationIconByPath: Record<string, string> = {
   '/medications': 'medicamentos',
   '/transfers': 'traslados',
   '/laboratory': 'laboratorio',
+  '/patients': 'pacientes',
   '/nutrition': 'nutricion',
   '/housekeeping': 'mayordomia',
   '/whatsapp': 'whatsapp',

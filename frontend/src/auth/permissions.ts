@@ -189,6 +189,19 @@ export function getAvailableNavigation(
     )
   ) {
     items.push({
+      path: '/patients',
+      label: 'Pacientes'
+    });
+  }
+  if (
+    hospitalModules &&
+    hasPermission(
+      user,
+      'laboratory.view',
+      ['admin', 'lab', 'user', 'dir']
+    )
+  ) {
+    items.push({
       path: '/laboratory',
       label: 'Laboratorio'
     });
