@@ -468,15 +468,23 @@ export async function sendWhatsappTextMessage(
   const chatReady = await withTimeout(
     page.evaluate(async (chatId: string) => {
       const browserWindow: any = window;
-      const chat = await browserWindow.WWebJS.getChat(
-        chatId,
-        { getAsModel: false }
-      );
-      browserWindow.__hospitalWhatsappChat = chat;
+      browserWindow.__hospitalWhatsappChats ||= {};
+
+      let chat =
+        browserWindow.__hospitalWhatsappChats[chatId];
+
+      if (!chat) {
+        chat = await browserWindow.WWebJS.getChat(
+          chatId,
+          { getAsModel: false }
+        );
+        browserWindow.__hospitalWhatsappChats[chatId] = chat;
+      }
+
       return Boolean(chat);
     }, recipient),
-    10000,
-    'WhatsApp no pudo abrir la conversacion en 10 segundos.'
+    30000,
+    'WhatsApp no pudo abrir la conversacion en 30 segundos.'
   );
 
   if (!chatReady) {
@@ -491,9 +499,10 @@ export async function sendWhatsappTextMessage(
   );
 
   await withTimeout(
-    page.evaluate(async (text: string) => {
+    page.evaluate(async (text: string, chatId: string) => {
       const browserWindow: any = window;
-      const chat = browserWindow.__hospitalWhatsappChat;
+      const chat =
+        browserWindow.__hospitalWhatsappChats?.[chatId];
 
       if (!chat) {
         throw new Error('La conversacion no esta disponible');
@@ -509,14 +518,11 @@ export async function sendWhatsappTextMessage(
           }
         )
       );
-    }, message),
+    }, message, recipient),
     30000,
     'WhatsApp abrio la conversacion, pero no pudo entregar el mensaje en 30 segundos.'
   );
 
-  await page.evaluate(() => {
-    delete (window as any).__hospitalWhatsappChat;
-  }).catch(() => undefined);
 
   setEvent(
     'connected',
