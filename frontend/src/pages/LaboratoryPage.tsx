@@ -51,6 +51,8 @@ type LaboratoryRecord = {
   pickup_registered_by: number | null;
   pickup_registered_by_name?: string | null;
   pickup_registered_at?: string | null;
+  whatsapp_notified_at?: string | null;
+  whatsapp_notified_by?: number | null;
   notes: string | null;
   requested_tests_count: number;
   received_tests_count: number;
@@ -78,6 +80,11 @@ type LaboratoryPatient = {
   first_name: string;
   phone: string | null;
   birth_date: string | null;
+};
+
+type WhatsappWebStatus = {
+  status: string;
+  isReady: boolean;
 };
 
 const emptyForm = {
@@ -330,6 +337,9 @@ export default function LaboratoryPage() {
   const [completionRecord, setCompletionRecord] =
     useState<LaboratoryRecord | null>(null);
 
+  const [whatsappRecord, setWhatsappRecord] =
+    useState<LaboratoryRecord | null>(null);
+
   const [completionIncomplete, setCompletionIncomplete] =
     useState(false);
 
@@ -352,6 +362,9 @@ export default function LaboratoryPage() {
 
   const [loading, setLoading] =
     useState(false);
+
+  const [whatsappStatus, setWhatsappStatus] =
+    useState<WhatsappWebStatus | null>(null);
 
   const canEdit =
     hasPermission(
@@ -437,9 +450,37 @@ export default function LaboratoryPage() {
     }
   }
 
+  async function loadWhatsappStatus() {
+    try {
+      const response =
+        await apiFetch('/whatsapp/web/status');
+
+      setWhatsappStatus(response.data);
+    } catch (error) {
+      setWhatsappStatus(null);
+    }
+  }
+
   useEffect(() => {
     loadLaboratory();
   }, [queryString]);
+
+  useEffect(() => {
+    if (!canChangeCompletion) {
+      return;
+    }
+
+    loadWhatsappStatus();
+
+    const interval =
+      window.setInterval(
+        loadWhatsappStatus,
+        5000
+      );
+
+    return () =>
+      window.clearInterval(interval);
+  }, [canChangeCompletion]);
 
   useEffect(() => {
     if (!showForm) {
@@ -837,6 +878,39 @@ export default function LaboratoryPage() {
         }
       );
 
+      await loadLaboratory();
+    } catch (error: any) {
+      showSystemAlert(error.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function notifyLaboratoryResult(
+    record = whatsappRecord
+  ) {
+    if (!record) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const response =
+        await apiFetch(
+          `/laboratory/${record.id}/notify-whatsapp`,
+          {
+            method: 'POST'
+          }
+        );
+
+      showSystemAlert(
+        response.message || 'Aviso enviado por WhatsApp',
+        'WhatsApp',
+        'success'
+      );
+
+      setWhatsappRecord(null);
       await loadLaboratory();
     } catch (error: any) {
       showSystemAlert(error.message);
@@ -1387,6 +1461,43 @@ export default function LaboratoryPage() {
                         />
                       )}
 
+                      {canChangeCompletion &&
+                        yesNo(record.is_complete) &&
+                        !record.pickup_date &&
+                        record.patient_phone && (
+                          <IconButton
+                            disabled={
+                              loading ||
+                              !whatsappStatus?.isReady
+                            }
+                            icon={
+                              record.whatsapp_notified_at
+                                ? 'message-check'
+                                : 'whatsapp'
+                            }
+                            label={
+                              whatsappStatus?.isReady
+                                ? record.whatsapp_notified_at
+                                  ? 'Aviso de WhatsApp enviado'
+                                  : 'Avisar por WhatsApp'
+                                : 'WhatsApp no esta conectado'
+                            }
+                            onClick={() =>
+                              setWhatsappRecord(record)
+                            }
+                            className={
+                              record.whatsapp_notified_at
+                                ? 'laboratory-whatsapp-sent'
+                                : ''
+                            }
+                            variant={
+                              record.whatsapp_notified_at
+                                ? 'secondary'
+                                : 'success'
+                            }
+                          />
+                        )}
+
                       {canPickup && (
                         <IconButton
                           disabled={
@@ -1650,6 +1761,64 @@ export default function LaboratoryPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {whatsappRecord && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <button
+              className="modal-close-button"
+              type="button"
+              onClick={() =>
+                setWhatsappRecord(null)
+              }
+              aria-label="Cerrar"
+            >
+              x
+            </button>
+
+            <h2 className="modal-title">
+              Enviar WhatsApp
+            </h2>
+
+            <p className="page-subtitle">
+              {whatsappRecord.patient_last_name} {whatsappRecord.patient_first_name}
+            </p>
+
+            <p>
+              Se enviara un aviso al telefono {whatsappRecord.patient_phone}.
+            </p>
+
+            {whatsappRecord.whatsapp_notified_at && (
+              <p className="form-note">
+                Ya se envio un aviso el {formatDisplayDateTime(whatsappRecord.whatsapp_notified_at)}.
+              </p>
+            )}
+
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() =>
+                  setWhatsappRecord(null)
+                }
+              >
+                Cancelar
+              </button>
+
+              <button
+                type="button"
+                className="btn-success"
+                disabled={loading}
+                onClick={() =>
+                  notifyLaboratoryResult()
+                }
+              >
+                {loading ? 'Enviando...' : 'Enviar aviso'}
+              </button>
+            </div>
           </div>
         </div>
       )}

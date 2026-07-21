@@ -1121,6 +1121,10 @@
   min-width: 130px;
 }
 
+.laboratory-whatsapp-sent {
+  color: #0ea5e9;
+}
+
 .filters-grid {
   display: grid;
   grid-template-columns:

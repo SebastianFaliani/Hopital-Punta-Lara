@@ -61,8 +61,13 @@ async function hasTable(
 }
 
 async function hasLaboratoryColumn(
-  columnName: string
+  columnName: string,
+  refresh = false
 ) {
+  if (refresh) {
+    laboratoryColumnCache.delete(columnName);
+  }
+
   if (laboratoryColumnCache.has(columnName)) {
     return Boolean(
       laboratoryColumnCache.get(columnName)
@@ -611,13 +616,17 @@ export async function getLaboratoryRecords(
     hasPatientId,
     hasPickupRegisteredByColumn,
     hasPickupRegisteredAtColumn,
-    hasExpiredPreviousStatusColumn
+    hasExpiredPreviousStatusColumn,
+    hasWhatsappNotifiedAtColumn,
+    hasWhatsappNotifiedByColumn
   ] =
     await Promise.all([
       hasPatientIdColumn(),
       hasLaboratoryColumn('pickup_registered_by'),
       hasLaboratoryColumn('pickup_registered_at'),
-      hasLaboratoryColumn('expired_previous_status')
+      hasLaboratoryColumn('expired_previous_status'),
+      hasLaboratoryColumn('whatsapp_notified_at', true),
+      hasLaboratoryColumn('whatsapp_notified_by', true)
     ]);
 
   const where =
@@ -703,6 +712,16 @@ export async function getLaboratoryRecords(
               ? 'laboratory_records.pickup_registered_at'
               : 'NULL'
           } AS pickup_registered_at,
+          ${
+            hasWhatsappNotifiedAtColumn
+              ? 'laboratory_records.whatsapp_notified_at'
+              : 'NULL'
+          } AS whatsapp_notified_at,
+          ${
+            hasWhatsappNotifiedByColumn
+              ? 'laboratory_records.whatsapp_notified_by'
+              : 'NULL'
+          } AS whatsapp_notified_by,
           laboratory_records.notes,
           laboratory_records.created_at,
           laboratory_records.updated_at,
@@ -838,12 +857,16 @@ export async function getLaboratoryRecordById(
   const [
     hasPatientId,
     hasPhoneColumn,
-    hasExpiredPreviousStatusColumn
+    hasExpiredPreviousStatusColumn,
+    hasWhatsappNotifiedAtColumn,
+    hasWhatsappNotifiedByColumn
   ] =
     await Promise.all([
       hasPatientIdColumn(),
       hasPatientPhoneColumn(),
-      hasLaboratoryColumn('expired_previous_status')
+      hasLaboratoryColumn('expired_previous_status'),
+      hasLaboratoryColumn('whatsapp_notified_at', true),
+      hasLaboratoryColumn('whatsapp_notified_by', true)
     ]);
 
   const [rows]: any =
@@ -882,7 +905,17 @@ export async function getLaboratoryRecordById(
             hasExpiredPreviousStatusColumn
               ? 'laboratory_records.expired_previous_status'
               : 'NULL'
-          } AS expired_previous_status
+          } AS expired_previous_status,
+          ${
+            hasWhatsappNotifiedAtColumn
+              ? 'laboratory_records.whatsapp_notified_at'
+              : 'NULL'
+          } AS whatsapp_notified_at,
+          ${
+            hasWhatsappNotifiedByColumn
+              ? 'laboratory_records.whatsapp_notified_by'
+              : 'NULL'
+          } AS whatsapp_notified_by
         FROM laboratory_records
         ${
           hasPatientId
@@ -1079,6 +1112,50 @@ export async function deleteLaboratoryRecord(
       WHERE id = ?
     `,
     [id]
+  );
+
+  return true;
+}
+
+export async function markLaboratoryWhatsappNotified(
+  id: number,
+  userId?: number
+) {
+  const [
+    hasWhatsappNotifiedAtColumn,
+    hasWhatsappNotifiedByColumn
+  ] =
+    await Promise.all([
+      hasLaboratoryColumn('whatsapp_notified_at', true),
+      hasLaboratoryColumn('whatsapp_notified_by', true)
+    ]);
+
+  if (!hasWhatsappNotifiedAtColumn) {
+    return true;
+  }
+
+  await pool.query(
+    `
+      UPDATE laboratory_records
+      SET
+        whatsapp_notified_at = CURRENT_TIMESTAMP,
+        ${
+          hasWhatsappNotifiedByColumn
+            ? 'whatsapp_notified_by = ?,'
+            : ''
+        }
+        updated_by = ?
+      WHERE id = ?
+    `,
+    [
+      ...(
+        hasWhatsappNotifiedByColumn
+          ? [userId || null]
+          : []
+      ),
+      userId || null,
+      id
+    ]
   );
 
   return true;

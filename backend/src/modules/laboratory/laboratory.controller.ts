@@ -7,6 +7,10 @@ import { AuthRequest } from '../auth/auth.middleware';
 import { logAudit } from '../audit/audit.service';
 
 import {
+  sendWhatsappTextMessage
+} from '../whatsapp/whatsapp-web.service';
+
+import {
   createLaboratoryRecord,
   deleteLaboratoryRecord,
   expireOldLaboratoryRecords,
@@ -15,6 +19,7 @@ import {
   getLaboratoryStats,
   getLaboratoryTestCatalog,
   getPersonByDocument,
+  markLaboratoryWhatsappNotified,
   registerLaboratoryPickup,
   updateLaboratoryCompletion,
   updateLaboratoryRecord
@@ -57,6 +62,36 @@ function validatePickupBody(
   }
 
   return null;
+}
+
+function formatLaboratoryWhatsappMessage(
+  record: any
+) {
+  const patientName =
+    [
+      record.patient_first_name,
+      record.patient_last_name
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .trim() ||
+    'paciente';
+
+  const studyDate =
+    record.study_date
+      ? new Date(record.study_date)
+        .toLocaleDateString('es-AR')
+      : '';
+
+  return [
+    `Hola ${patientName}.`,
+    '',
+    studyDate
+      ? `Tus resultados de laboratorio del ${studyDate} ya estan disponibles para retirar.`
+      : 'Tus resultados de laboratorio ya estan disponibles para retirar.',
+    '',
+    'Por favor acercate al Hospital Municipal de Punta Lara de Lunes a Viernes de 8:00 hs a 18:00 hs.'
+  ].join('\n');
 }
 
 export async function handleGetLaboratoryRecords(
@@ -497,6 +532,87 @@ export async function handleUpdateLaboratoryCompletion(
     return res.status(400).json({
       success: false,
       message: error.message || 'Error al actualizar estado del estudio'
+    });
+  }
+}
+
+export async function handleSendLaboratoryWhatsappNotification(
+  req: AuthRequest,
+  res: Response
+) {
+  try {
+    const record =
+      await getLaboratoryRecordById(
+        Number(req.params.id)
+      );
+
+    if (!record) {
+      return res.status(404).json({
+        success: false,
+        message: 'Estudio de laboratorio no encontrado'
+      });
+    }
+
+    if (!record.patient_phone) {
+      return res.status(400).json({
+        success: false,
+        message: 'El paciente no tiene telefono cargado'
+      });
+    }
+
+    if (!record.is_complete) {
+      return res.status(400).json({
+        success: false,
+        message: 'Solo se puede avisar cuando el estudio esta completo'
+      });
+    }
+
+    if (record.pickup_date) {
+      return res.status(400).json({
+        success: false,
+        message: 'El estudio ya fue retirado'
+      });
+    }
+
+    const message =
+      String(req.body.message || '').trim() ||
+      formatLaboratoryWhatsappMessage(record);
+
+    await sendWhatsappTextMessage(
+      record.patient_phone,
+      message
+    );
+
+    await markLaboratoryWhatsappNotified(
+      Number(req.params.id),
+      req.user?.userId || req.user?.id
+    );
+
+    await logAudit({
+      user: req.user,
+      module: 'laboratorio',
+      action: 'avisar_resultado_whatsapp',
+      entityType: 'laboratory_record',
+      entityId: Number(req.params.id),
+      description: `Envio aviso por WhatsApp del estudio ${req.params.id}`,
+      newData: {
+        phone: record.patient_phone,
+        message
+      },
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'] || null
+    });
+
+    return res.json({
+      success: true,
+      message: 'Aviso enviado por WhatsApp'
+    });
+  } catch (error: any) {
+    console.error(error);
+
+    return res.status(400).json({
+      success: false,
+      message: error.message || 'Error al enviar WhatsApp'
     });
   }
 }

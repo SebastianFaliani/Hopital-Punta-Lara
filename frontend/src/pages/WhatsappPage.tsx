@@ -240,7 +240,7 @@ export default function WhatsappPage() {
     });
 
   const [activeTab, setActiveTab] =
-    useState<'chat' | 'turnera' | 'solicitudes' | 'conexion'>('chat');
+    useState<'chat' | 'turnera' | 'solicitudes' | 'conexion'>('conexion');
 
   async function loadWebStatus() {
 
@@ -477,7 +477,6 @@ export default function WhatsappPage() {
       );
 
       setWebStatus(res.data);
-      await loadConversations();
 
     } catch (error: any) {
 
@@ -893,14 +892,10 @@ export default function WhatsappPage() {
   useEffect(() => {
 
     loadWebStatus();
-    loadConversations();
-    loadDoctors();
-    loadAppointmentRequests();
 
     const interval =
       window.setInterval(() => {
         loadWebStatus();
-        loadConversations();
       }, 5000);
 
     return () =>
@@ -909,6 +904,33 @@ export default function WhatsappPage() {
   }, []);
 
   useEffect(() => {
+    if (activeTab !== 'chat') {
+      return;
+    }
+
+    loadConversations();
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (activeTab !== 'turnera') {
+      return;
+    }
+
+    loadDoctors();
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (activeTab !== 'solicitudes') {
+      return;
+    }
+
+    loadDoctors();
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (activeTab !== 'chat') {
+      return;
+    }
 
     loadChatMessages(selectedPhone);
 
@@ -926,7 +948,10 @@ export default function WhatsappPage() {
     return () =>
       window.clearInterval(interval);
 
-  }, [selectedPhone]);
+  }, [
+    activeTab,
+    selectedPhone
+  ]);
 
   useEffect(() => {
 
@@ -939,10 +964,14 @@ export default function WhatsappPage() {
   }, [conversations, profilePictures]);
 
   useEffect(() => {
+    if (activeTab !== 'solicitudes') {
+      return;
+    }
 
     loadAppointmentRequests();
 
   }, [
+    activeTab,
     requestFilters.doctor_id,
     requestFilters.status,
     requestFilters.search

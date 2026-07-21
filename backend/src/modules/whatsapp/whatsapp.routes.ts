@@ -3,6 +3,7 @@ import { Router }
 
 import {
   authenticateToken,
+  authorizePermission,
   authorizeRoles
 } from '../auth/auth.middleware';
 
@@ -44,7 +45,11 @@ router.post(
 router.get(
   '/web/status',
   authenticateToken,
-  authorizeRoles('admin', 'user'),
+  authorizePermission(
+    'laboratory.view',
+    'admin',
+    'user'
+  ),
   getWhatsappConnectionStatus
 );
 

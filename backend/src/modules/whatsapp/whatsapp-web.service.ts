@@ -1,10 +1,6 @@
 import path from 'path';
 import fs from 'fs/promises';
 
-import {
-  buildWhatsappResponse
-} from './whatsapp.service';
-
 type WhatsappWebStatus =
   | 'not_configured'
   | 'disconnected'
@@ -94,9 +90,16 @@ function getSessionPath() {
 }
 
 function getPuppeteerOptions() {
+  const executablePath =
+    process.env.WHATSAPP_CHROME_PATH ||
+    process.env.PUPPETEER_EXECUTABLE_PATH;
+
   return {
     headless:
       process.env.WHATSAPP_HEADLESS !== 'false',
+    ...(executablePath
+      ? { executablePath }
+      : {}),
     args: [
       '--no-sandbox',
       '--disable-setuid-sandbox',
@@ -128,6 +131,108 @@ export function getWhatsappWebStatus() {
     hasClient: Boolean(client),
     initializing
   };
+}
+
+function isIncomingBotEnabled() {
+  return process.env.WHATSAPP_ENABLE_INCOMING_BOT === 'true';
+}
+
+function formatWhatsappRecipient(
+  phone: string
+) {
+  const raw =
+    String(phone || '').trim();
+
+  if (
+    raw.endsWith('@c.us') ||
+    raw.endsWith('@s.whatsapp.net')
+  ) {
+    return raw;
+  }
+
+  const digits =
+    raw.replace(/\D/g, '');
+
+  if (!digits) {
+    throw new Error('Telefono de WhatsApp invalido');
+  }
+
+  const withCountryCode =
+    digits.startsWith('54')
+      ? digits
+      : `54${digits}`;
+
+  return `${withCountryCode}@c.us`;
+}
+
+function getWhatsappPhoneCandidates(
+  phone: string
+) {
+  const digits =
+    String(phone || '')
+      .replace(/\D/g, '')
+      .replace(/^0+/, '');
+
+  if (!digits) {
+    return [];
+  }
+
+  const withoutArgentinaPrefix =
+    digits.startsWith('54')
+      ? digits.slice(2)
+      : digits;
+
+  const candidates = [
+    digits,
+    digits.startsWith('54')
+      ? digits
+      : `54${digits}`,
+    digits.startsWith('549')
+      ? digits
+      : `549${withoutArgentinaPrefix}`
+  ];
+
+  if (
+    withoutArgentinaPrefix.length > 8 &&
+    withoutArgentinaPrefix.includes('15')
+  ) {
+    candidates.push(
+      `549${withoutArgentinaPrefix.replace(/^(\d{2,4})15/, '$1')}`
+    );
+  }
+
+  return Array.from(
+    new Set(candidates)
+  );
+}
+
+async function resolveWhatsappRecipient(
+  phone: string
+) {
+  const raw =
+    String(phone || '').trim();
+
+  if (
+    raw.endsWith('@c.us') ||
+    raw.endsWith('@s.whatsapp.net')
+  ) {
+    return raw;
+  }
+
+  for (const candidate of getWhatsappPhoneCandidates(phone)) {
+    try {
+      const numberId =
+        await client.getNumberId(candidate);
+
+      if (numberId?._serialized) {
+        return numberId._serialized;
+      }
+    } catch (error) {
+      // Se prueba el siguiente formato posible.
+    }
+  }
+
+  return formatWhatsappRecipient(phone);
 }
 
 function getWhatsappMessageId(
@@ -185,6 +290,10 @@ async function replyToWhatsappMessage(
 async function handleIncomingWhatsappMessage(
   message: any
 ) {
+  if (!isIncomingBotEnabled()) {
+    return;
+  }
+
   if (shouldIgnoreWhatsappMessage(message)) {
     return;
   }
@@ -230,6 +339,11 @@ async function handleIncomingWhatsappMessage(
   console.info(
     `[whatsapp] Mensaje recibido de ${message.from}: ${text}`
   );
+
+  const {
+    buildWhatsappResponse
+  } =
+    await import('./whatsapp.service');
 
   const result =
     await buildWhatsappResponse(
@@ -296,12 +410,38 @@ export async function sendWhatsappTextMessage(
   phone: string,
   message: string
 ) {
-  if (!client || !state.isReady) {
+  if (!client) {
     throw new Error('WhatsApp no esta conectado');
   }
 
+  if (!state.isReady) {
+    try {
+      const clientState =
+        await client.getState();
+
+      if (clientState === 'CONNECTED') {
+        state.isReady = true;
+        setEvent(
+          'connected',
+          'WhatsApp conectado'
+        );
+      }
+    } catch (error) {
+      // Si no se puede consultar el estado, se informa abajo.
+    }
+  }
+
+  if (!state.isReady) {
+    throw new Error(
+      'WhatsApp esta autenticado pero todavia no esta listo. Espera unos segundos y volve a intentar.'
+    );
+  }
+
+  const recipient =
+    await resolveWhatsappRecipient(phone);
+
   await client.sendMessage(
-    phone,
+    recipient,
     message
   );
 

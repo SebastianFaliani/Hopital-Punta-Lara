@@ -9,6 +9,7 @@ import {
   handleGetLaboratoryRecords,
   handleGetLaboratoryStats,
   handleRegisterLaboratoryPickup,
+  handleSendLaboratoryWhatsappNotification,
   handleUpdateLaboratoryCompletion,
   handleUpdateLaboratoryRecord
 } from './laboratory.controller';
@@ -104,6 +105,13 @@ router.patch(
   authenticateToken,
   authorizeRoles(...laboratoryCompletionRoles),
   handleUpdateLaboratoryCompletion
+);
+
+router.post(
+  '/:id/notify-whatsapp',
+  authenticateToken,
+  authorizeRoles(...laboratoryCompletionRoles),
+  handleSendLaboratoryWhatsappNotification
 );
 
 router.patch(
