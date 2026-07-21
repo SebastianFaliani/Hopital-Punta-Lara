@@ -460,36 +460,6 @@ export async function sendWhatsappTextMessage(
     );
   }
 
-  const runtimeReady = await withTimeout(
-    page.evaluate(() => {
-      const browserWindow: any = window;
-      let hasSendAction = false;
-
-      try {
-        hasSendAction =
-          typeof browserWindow.require?.('WAWebSendMsgChatAction')
-            ?.addAndSendMsgToChat === 'function';
-      } catch (error) {
-        hasSendAction = false;
-      }
-
-      return Boolean(
-        browserWindow.WWebJS &&
-        typeof browserWindow.WWebJS.getChat === 'function' &&
-        typeof browserWindow.WWebJS.sendMessage === 'function' &&
-        hasSendAction
-      );
-    }),
-    5000,
-    'WhatsApp no respondio al revisar el motor de envio.'
-  );
-
-  if (!runtimeReady) {
-    throw new Error(
-      'WhatsApp esta conectado, pero el motor de envio no termino de cargar. Reinicia la conexion.'
-    );
-  }
-
   setEvent(
     'connected',
     `Abriendo conversacion con ${recipient.replace(/@.+$/, '')}`
