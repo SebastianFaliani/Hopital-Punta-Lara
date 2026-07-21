@@ -385,6 +385,9 @@ export default function LaboratoryPage() {
       ['admin', 'lab', 'user']
     );
 
+  const canRevertPickup =
+    ['admin', 'dir', 'lab'].includes(user?.role || '');
+
   const canView =
     canEdit ||
     canPickup ||
@@ -965,6 +968,38 @@ export default function LaboratoryPage() {
     }
   }
 
+  async function revertPickup(
+    record: LaboratoryRecord
+  ) {
+    const confirmed = window.confirm(
+      `Deshacer el retiro del laboratorio de ${record.patient_last_name} ${record.patient_first_name}? Volvera a su estado anterior.`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const response = await apiFetch(
+        `/laboratory/${record.id}/pickup/revert`,
+        { method: 'PATCH' }
+      );
+
+      showSystemAlert(
+        response.message || 'El retiro fue deshecho correctamente',
+        'Laboratorio',
+        'success'
+      );
+
+      await loadLaboratory();
+    } catch (error: any) {
+      showSystemAlert(error.message);
+    } finally {
+      setLoading(false);
+    }
+  }
   async function handleCompletionSubmit(
     e: FormEvent
   ) {
@@ -1498,7 +1533,20 @@ export default function LaboratoryPage() {
                           />
                         )}
 
-                      {canPickup && (
+                      {canRevertPickup &&
+                        (record.status === 'retirado' || record.pickup_date) && (
+                          <IconButton
+                            disabled={loading}
+                            icon="unlock"
+                            label="Deshacer retiro"
+                            onClick={() =>
+                              revertPickup(record)
+                            }
+                            variant="danger"
+                          />
+                        )}
+
+                      {canPickup && !record.pickup_date && record.status !== 'retirado' && (
                         <IconButton
                           disabled={
                             record.status === 'enviado' &&

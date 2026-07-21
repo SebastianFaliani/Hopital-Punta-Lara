@@ -9,6 +9,7 @@ import {
   handleGetLaboratoryRecords,
   handleGetLaboratoryStats,
   handleRegisterLaboratoryPickup,
+  handleRevertLaboratoryPickup,
   handleSendLaboratoryWhatsappNotification,
   handleUpdateLaboratoryCompletion,
   handleUpdateLaboratoryRecord
@@ -112,6 +113,12 @@ router.post(
   authenticateToken,
   authorizeRoles(...laboratoryCompletionRoles),
   handleSendLaboratoryWhatsappNotification
+);
+
+router.patch(
+  '/:id/pickup/revert',
+  authenticateToken,
+  handleRevertLaboratoryPickup
 );
 
 router.patch(

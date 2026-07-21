@@ -273,13 +273,13 @@ function buildWhereClause(
 
     where.push(
       `(
-        ${lastNameExpression} LIKE ?
-        OR ${firstNameExpression} LIKE ?
-        OR CONCAT(${lastNameExpression}, ' ', ${firstNameExpression}) LIKE ?
-        OR CONCAT(${firstNameExpression}, ' ', ${lastNameExpression}) LIKE ?
-        OR ${documentExpression} LIKE ?
-        ${hasPhoneColumn ? `OR ${phoneExpression} LIKE ?` : ''}
-        OR laboratory_records.picked_up_by LIKE ?
+        (${lastNameExpression}) COLLATE utf8mb4_unicode_ci LIKE ?
+        OR (${firstNameExpression}) COLLATE utf8mb4_unicode_ci LIKE ?
+        OR CONCAT(${lastNameExpression}, ' ', ${firstNameExpression}) COLLATE utf8mb4_unicode_ci LIKE ?
+        OR CONCAT(${firstNameExpression}, ' ', ${lastNameExpression}) COLLATE utf8mb4_unicode_ci LIKE ?
+        OR (${documentExpression}) COLLATE utf8mb4_unicode_ci LIKE ?
+        ${hasPhoneColumn ? `OR (${phoneExpression}) COLLATE utf8mb4_unicode_ci LIKE ?` : ''}
+        OR laboratory_records.picked_up_by COLLATE utf8mb4_unicode_ci LIKE ?
       )`
     );
 
@@ -1306,11 +1306,13 @@ export async function registerLaboratoryPickup(
 ) {
   const [
     hasPickupRegisteredByColumn,
-    hasPickupRegisteredAtColumn
+    hasPickupRegisteredAtColumn,
+    hasPickupPreviousStatusColumn
   ] =
     await Promise.all([
       hasLaboratoryColumn('pickup_registered_by'),
-      hasLaboratoryColumn('pickup_registered_at')
+      hasLaboratoryColumn('pickup_registered_at'),
+      hasLaboratoryColumn('pickup_previous_status', true)
     ]);
 
   await pool.query(
@@ -1320,6 +1322,14 @@ export async function registerLaboratoryPickup(
         pickup_date = ?,
         picked_up_by = ?,
         pickup_document = ?,
+        ${
+          hasPickupPreviousStatusColumn
+            ? `pickup_previous_status = CASE
+                WHEN status = 'retirado' THEN pickup_previous_status
+                ELSE status
+              END,`
+            : ''
+        }
         ${
           hasPickupRegisteredByColumn
             ? 'pickup_registered_by = ?,'
@@ -1349,6 +1359,48 @@ export async function registerLaboratoryPickup(
       id
     ]
   );
+
+  return true;
+}
+export async function revertLaboratoryPickup(
+  id: number,
+  userId?: number
+) {
+  const hasPickupPreviousStatusColumn =
+    await hasLaboratoryColumn('pickup_previous_status', true);
+
+  const [result]: any = await pool.query(
+    `
+      UPDATE laboratory_records
+      SET
+        status = ${
+          hasPickupPreviousStatusColumn
+            ? `COALESCE(
+                pickup_previous_status,
+                CASE WHEN is_complete = TRUE THEN 'completo' ELSE 'parcial' END
+              )`
+            : `CASE WHEN is_complete = TRUE THEN 'completo' ELSE 'parcial' END`
+        },
+        ${
+          hasPickupPreviousStatusColumn
+            ? 'pickup_previous_status = NULL,'
+            : ''
+        }
+        pickup_date = NULL,
+        picked_up_by = NULL,
+        pickup_document = NULL,
+        pickup_registered_by = NULL,
+        pickup_registered_at = NULL,
+        updated_by = ?
+      WHERE id = ?
+        AND (status = 'retirado' OR pickup_date IS NOT NULL)
+    `,
+    [userId || null, id]
+  );
+
+  if (!result.affectedRows) {
+    throw new Error('El laboratorio no figura como retirado');
+  }
 
   return true;
 }

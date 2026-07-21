@@ -21,6 +21,7 @@ import {
   getPersonByDocument,
   markLaboratoryWhatsappNotified,
   registerLaboratoryPickup,
+  revertLaboratoryPickup,
   updateLaboratoryCompletion,
   updateLaboratoryRecord
 } from './laboratory.service';
@@ -233,6 +234,61 @@ export async function handleRegisterLaboratoryPickup(
   }
 }
 
+export async function handleRevertLaboratoryPickup(
+  req: AuthRequest,
+  res: Response
+) {
+  try {
+    if (!['admin', 'dir', 'lab'].includes(req.user?.role)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Solo Administracion, Direccion o Laboratorio pueden deshacer un retiro'
+      });
+    }
+
+    const id = Number(req.params.id);
+    const previous = await getLaboratoryRecordById(id);
+
+    if (!previous) {
+      return res.status(404).json({
+        success: false,
+        message: 'Estudio de laboratorio no encontrado'
+      });
+    }
+
+    await revertLaboratoryPickup(
+      id,
+      req.user?.userId || req.user?.id
+    );
+
+    const updated = await getLaboratoryRecordById(id);
+
+    await logAudit({
+      user: req.user,
+      module: 'laboratorio',
+      action: 'deshacer_retiro',
+      entityType: 'laboratory_record',
+      entityId: id,
+      description: `Deshizo retiro de estudio ${id}`,
+      oldData: previous,
+      newData: updated,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'] || null
+    });
+
+    return res.json({
+      success: true,
+      message: 'El retiro fue deshecho correctamente'
+    });
+  } catch (error: any) {
+    console.error(error);
+
+    return res.status(400).json({
+      success: false,
+      message: error.message || 'Error al deshacer el retiro'
+    });
+  }
+}
 export async function handleGetLaboratoryStats(
   req: Request,
   res: Response
