@@ -34,13 +34,64 @@ export function ensureWhatsappOutboxSchema() {
         INDEX idx_whatsapp_outbox_claim (status, next_attempt_at, id),
         INDEX idx_whatsapp_outbox_lock (status, locked_at)
       )
-    `).then(() => undefined).catch((error) => {
+    `).then(() => pool.query(`
+      CREATE TABLE IF NOT EXISTS whatsapp_agent_status (
+        agent_id VARCHAR(120) NOT NULL,
+        is_ready BOOLEAN NOT NULL DEFAULT FALSE,
+        status VARCHAR(40) NOT NULL DEFAULT 'disconnected',
+        phone VARCHAR(40) NULL,
+        last_event VARCHAR(500) NULL,
+        last_seen DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (agent_id),
+        INDEX idx_whatsapp_agent_seen (last_seen)
+      )
+    `)).then(() => undefined).catch((error) => {
       schemaPromise = null;
       throw error;
     });
   }
 
   return schemaPromise;
+}
+
+export async function updateWhatsappAgentStatus(
+  agentId: string,
+  agentStatus: { isReady?: boolean; status?: string; phone?: string | null; lastEvent?: string | null }
+) {
+  await ensureWhatsappOutboxSchema();
+  await pool.execute(
+    `INSERT INTO whatsapp_agent_status (agent_id, is_ready, status, phone, last_event, last_seen)
+     VALUES (?, ?, ?, ?, ?, NOW())
+     ON DUPLICATE KEY UPDATE is_ready = VALUES(is_ready), status = VALUES(status),
+       phone = VALUES(phone), last_event = VALUES(last_event), last_seen = NOW()`,
+    [agentId, Boolean(agentStatus.isReady), String(agentStatus.status || 'disconnected').slice(0, 40),
+      agentStatus.phone || null, String(agentStatus.lastEvent || '').slice(0, 500) || null]
+  );
+}
+
+export async function getWhatsappDeliveryStatus() {
+  if ((process.env.WHATSAPP_DELIVERY_MODE || 'direct').toLowerCase() !== 'queue') return null;
+  await ensureWhatsappOutboxSchema();
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `SELECT agent_id, is_ready, status, phone, last_event, last_seen,
+       last_seen >= DATE_SUB(NOW(), INTERVAL 20 SECOND) AS is_online
+     FROM whatsapp_agent_status ORDER BY last_seen DESC LIMIT 1`
+  );
+  const agent = rows[0];
+  const online = Boolean(agent?.is_online);
+  return {
+    status: online ? String(agent.status) : 'disconnected',
+    qr: null,
+    qrDataUrl: null,
+    phone: agent?.phone || null,
+    lastEvent: online ? agent?.last_event || 'Agente local conectado' : 'Agente local sin conexion',
+    lastEventAt: agent?.last_seen || null,
+    isReady: online && Boolean(agent?.is_ready),
+    hasClient: online,
+    initializing: online && !Boolean(agent?.is_ready),
+    agentId: agent?.agent_id || null,
+    deliveryMode: 'queue'
+  };
 }
 
 export async function queueWhatsappTextMessage(

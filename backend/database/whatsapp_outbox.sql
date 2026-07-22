@@ -17,3 +17,14 @@ CREATE TABLE IF NOT EXISTS whatsapp_outbox (
   INDEX idx_whatsapp_outbox_claim (status, next_attempt_at, id),
   INDEX idx_whatsapp_outbox_lock (status, locked_at)
 );
+
+CREATE TABLE IF NOT EXISTS whatsapp_agent_status (
+  agent_id VARCHAR(120) NOT NULL,
+  is_ready BOOLEAN NOT NULL DEFAULT FALSE,
+  status VARCHAR(40) NOT NULL DEFAULT 'disconnected',
+  phone VARCHAR(40) NULL,
+  last_event VARCHAR(500) NULL,
+  last_seen DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (agent_id),
+  INDEX idx_whatsapp_agent_seen (last_seen)
+);

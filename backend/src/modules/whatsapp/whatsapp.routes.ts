@@ -37,6 +37,7 @@ import {
 import {
   authenticateWhatsappAgent,
   claimAgentJobs,
+  heartbeatWhatsappAgent,
   reportAgentJob
 } from './whatsapp-agent.controller';
 
@@ -44,6 +45,7 @@ const router = Router();
 
 router.post('/agent/jobs/claim', authenticateWhatsappAgent, claimAgentJobs);
 router.post('/agent/jobs/:id/result', authenticateWhatsappAgent, reportAgentJob);
+router.post('/agent/heartbeat', authenticateWhatsappAgent, heartbeatWhatsappAgent);
 
 router.post(
   '/incoming',

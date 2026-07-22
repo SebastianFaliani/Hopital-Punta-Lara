@@ -34,6 +34,7 @@ import {
   stopWhatsappWebSession
 } from './whatsapp-web.service';
 import { deliverWhatsappTextMessage } from './whatsapp-delivery.service';
+import { getWhatsappDeliveryStatus } from './whatsapp-delivery.service';
 
 function validateReply(
   body: any
@@ -276,9 +277,11 @@ export async function getWhatsappConnectionStatus(
   res: Response
 ) {
 
+  const deliveryStatus = await getWhatsappDeliveryStatus();
+
   return res.json({
     success: true,
-    data: getWhatsappWebStatus()
+    data: deliveryStatus || getWhatsappWebStatus()
   });
 }
 

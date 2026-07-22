@@ -2,7 +2,8 @@ import crypto from 'crypto';
 import { NextFunction, Request, Response } from 'express';
 import {
   claimWhatsappOutboxJobs,
-  completeWhatsappOutboxJob
+  completeWhatsappOutboxJob,
+  updateWhatsappAgentStatus
 } from './whatsapp-delivery.service';
 
 export function authenticateWhatsappAgent(req: Request, res: Response, next: NextFunction) {
@@ -16,6 +17,17 @@ export function authenticateWhatsappAgent(req: Request, res: Response, next: Nex
     return res.status(401).json({ success: false, message: 'Agente no autorizado' });
   }
   next();
+}
+
+export async function heartbeatWhatsappAgent(req: Request, res: Response) {
+  try {
+    const agentId = String(req.body.agent_id || '').trim().slice(0, 120);
+    if (!agentId) return res.status(400).json({ success: false, message: 'agent_id es obligatorio' });
+    await updateWhatsappAgentStatus(agentId, req.body.status || {});
+    return res.json({ success: true });
+  } catch (error: any) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
 }
 
 export async function claimAgentJobs(req: Request, res: Response) {

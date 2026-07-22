@@ -16,6 +16,7 @@ const agentId = String(process.env.WHATSAPP_AGENT_ID || `${os.hostname()}-${proc
 const pollMs = Math.max(1000, Number(process.env.WHATSAPP_AGENT_POLL_MS || 5000));
 let stopping = false;
 let lastQr = '';
+let starting: Promise<unknown> | null = null;
 
 async function api(path: string, body: unknown) {
   const response = await fetch(`${baseUrl}${path}`, {
@@ -34,9 +35,12 @@ async function ensureConnected() {
     status = getWhatsappWebStatus();
   }
   if (!status.hasClient && !status.initializing) {
-    try { await startWhatsappWebSession(); } catch (error: any) {
-      console.error(`[agente] No se pudo iniciar WhatsApp: ${error.message}`);
+    if (!starting) {
+      starting = startWhatsappWebSession()
+        .catch((error: any) => console.error(`[agente] No se pudo iniciar WhatsApp: ${error.message}`))
+        .finally(() => { starting = null; });
     }
+    await new Promise((resolve) => setTimeout(resolve, 250));
     status = getWhatsappWebStatus();
   }
   if (status.qr && status.qr !== lastQr) {
@@ -44,7 +48,7 @@ async function ensureConnected() {
     console.log(await qrcode.toString(status.qr, { type: 'terminal', small: true }));
     console.log('[agente] Escanea el QR desde WhatsApp > Dispositivos vinculados.');
   }
-  return status.isReady;
+  return status;
 }
 
 async function reportWithRetry(id: number, body: unknown) {
@@ -62,7 +66,12 @@ async function reportWithRetry(id: number, body: unknown) {
 }
 
 async function cycle() {
-  if (!await ensureConnected()) return;
+  const status = await ensureConnected();
+  await api('/whatsapp/agent/heartbeat', {
+    agent_id: agentId,
+    status: { isReady: status.isReady, status: status.status, phone: status.phone, lastEvent: status.lastEvent }
+  });
+  if (!status.isReady) return;
   const payload = await api('/whatsapp/agent/jobs/claim', { agent_id: agentId, limit: 5 });
   for (const job of payload.data || []) {
     let sent = false;
