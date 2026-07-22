@@ -11,6 +11,7 @@
     "build:backend": "npm --prefix backend run build",
     "build:frontend": "npm --prefix frontend run build",
     "start:backend": "npm --prefix backend run start",
+    "whatsapp:agent": "npm --prefix backend run whatsapp:agent",
     "install:all": "npm --prefix backend install && npm --prefix frontend install",
     "backup:production": "node scripts/backup-production-db.js",
     "android:sync": "npm --prefix frontend run android:sync",

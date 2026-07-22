@@ -34,8 +34,16 @@ import {
   updateAppointmentDoctorSchedules,
   updateReply
 } from './whatsapp.controller';
+import {
+  authenticateWhatsappAgent,
+  claimAgentJobs,
+  reportAgentJob
+} from './whatsapp-agent.controller';
 
 const router = Router();
+
+router.post('/agent/jobs/claim', authenticateWhatsappAgent, claimAgentJobs);
+router.post('/agent/jobs/:id/result', authenticateWhatsappAgent, reportAgentJob);
 
 router.post(
   '/incoming',

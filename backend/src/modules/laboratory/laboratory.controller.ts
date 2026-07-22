@@ -6,9 +6,7 @@ import {
 import { AuthRequest } from '../auth/auth.middleware';
 import { logAudit } from '../audit/audit.service';
 
-import {
-  sendWhatsappTextMessage
-} from '../whatsapp/whatsapp-web.service';
+import { deliverWhatsappTextMessage } from '../whatsapp/whatsapp-delivery.service';
 
 import {
   createLaboratoryRecord,
@@ -634,9 +632,10 @@ export async function handleSendLaboratoryWhatsappNotification(
       String(req.body.message || '').trim() ||
       formatLaboratoryWhatsappMessage(record);
 
-    await sendWhatsappTextMessage(
+    const delivery = await deliverWhatsappTextMessage(
       record.patient_phone,
-      message
+      message,
+      'laboratory_notification'
     );
 
     await markLaboratoryWhatsappNotified(
@@ -661,7 +660,9 @@ export async function handleSendLaboratoryWhatsappNotification(
 
     return res.json({
       success: true,
-      message: 'Aviso enviado por WhatsApp'
+      message: delivery.queued
+        ? 'Aviso pendiente de envio por WhatsApp'
+        : 'Aviso enviado por WhatsApp'
     });
   } catch (error: any) {
     console.error(error);

@@ -30,10 +30,10 @@ import {
   getWhatsappWebStatus,
   getWhatsappProfilePictureUrl,
   logoutWhatsappWebSession,
-  sendWhatsappTextMessage,
   startWhatsappWebSession,
   stopWhatsappWebSession
 } from './whatsapp-web.service';
+import { deliverWhatsappTextMessage } from './whatsapp-delivery.service';
 
 function validateReply(
   body: any
@@ -541,9 +541,10 @@ export async function sendChatMessage(
       });
     }
 
-    await sendWhatsappTextMessage(
+    await deliverWhatsappTextMessage(
       phone,
-      message
+      message,
+      'manual'
     );
 
     await saveWhatsappChatMessage({
@@ -743,13 +744,16 @@ export async function confirmAppointmentRequest(
     ].join('\n');
 
     let sent = false;
+    let queued = false;
 
     try {
-      await sendWhatsappTextMessage(
+      const delivery = await deliverWhatsappTextMessage(
         request.phone,
-        message
+        message,
+        'appointment_confirmation'
       );
-      sent = true;
+      sent = !delivery.queued;
+      queued = delivery.queued;
     } catch (error) {
       sent = false;
     }
@@ -758,6 +762,7 @@ export async function confirmAppointmentRequest(
       success: true,
       data: {
         sent,
+        queued,
         message
       }
     });
@@ -812,13 +817,16 @@ export async function rejectAppointmentRequest(
       ].join('\n');
 
     let sent = false;
+    let queued = false;
 
     try {
-      await sendWhatsappTextMessage(
+      const delivery = await deliverWhatsappTextMessage(
         request.phone,
-        message
+        message,
+        'appointment_no_availability'
       );
-      sent = true;
+      sent = !delivery.queued;
+      queued = delivery.queued;
     } catch (error) {
       sent = false;
     }
@@ -827,6 +835,7 @@ export async function rejectAppointmentRequest(
       success: true,
       data: {
         sent,
+        queued,
         message
       }
     });
