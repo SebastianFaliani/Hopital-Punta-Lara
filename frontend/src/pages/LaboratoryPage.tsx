@@ -1518,15 +1518,9 @@ export default function LaboratoryPage() {
                   )}
                   <td>
                     {record.whatsapp_notified_at ? (
-                      <>
-                        <span className="badge badge-success">
-                          Avisado
-                        </span>
-                        <br />
-                        <span className="muted">
-                          {formatDisplayDateTime(record.whatsapp_notified_at)}
-                        </span>
-                      </>
+                      <span className="badge badge-success">
+                        {formatDisplayDateTime(record.whatsapp_notified_at)}
+                      </span>
                     ) : yesNo(record.is_complete) &&
                       !record.pickup_date &&
                       record.patient_phone ? (
