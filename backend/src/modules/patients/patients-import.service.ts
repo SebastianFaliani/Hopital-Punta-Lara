@@ -1130,7 +1130,8 @@ export async function applyPatientImport(
         existingByDocument.get(patient.document_number);
 
       if (!existing) {
-        await connection.query(
+        const [result]: any =
+          await connection.query(
           `
             INSERT INTO people (
               document_number,
@@ -1145,6 +1146,14 @@ export async function applyPatientImport(
               address
             )
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE
+              document_type = COALESCE(NULLIF(document_type, ''), VALUES(document_type)),
+              phone = COALESCE(NULLIF(phone, ''), VALUES(phone)),
+              email = COALESCE(NULLIF(email, ''), VALUES(email)),
+              health_insurance = COALESCE(NULLIF(health_insurance, ''), VALUES(health_insurance)),
+              affiliate_number = COALESCE(NULLIF(affiliate_number, ''), VALUES(affiliate_number)),
+              birth_date = COALESCE(birth_date, VALUES(birth_date)),
+              address = COALESCE(NULLIF(address, ''), VALUES(address))
           `,
           [
             patient.document_number,
@@ -1160,7 +1169,12 @@ export async function applyPatientImport(
           ]
         );
 
-        created += 1;
+        if (result.affectedRows === 1) {
+          created += 1;
+        } else if (result.changedRows > 0) {
+          updated += 1;
+        }
+
         continue;
       }
 
