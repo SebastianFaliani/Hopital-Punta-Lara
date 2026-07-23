@@ -661,6 +661,11 @@ export default function LaboratoryPage() {
               <td>${escapePrintHtml(record.patient_phone || '-')}</td>
               <td>${escapePrintHtml(getSampleSummary(record))}</td>
               <td>${escapePrintHtml(status)}</td>
+              <td>${escapePrintHtml(
+                record.whatsapp_notified_at
+                  ? formatDisplayDateTime(record.whatsapp_notified_at)
+                  : 'Sin aviso'
+              )}</td>
             </tr>
           `;
         }).join('');
@@ -708,6 +713,7 @@ export default function LaboratoryPage() {
                   <th>Telefono</th>
                   <th>Muestra</th>
                   <th>Estado</th>
+                  <th>Aviso WhatsApp</th>
                 </tr>
               </thead>
               <tbody>${rows}</tbody>
@@ -1419,6 +1425,7 @@ export default function LaboratoryPage() {
               {canSeePickupAudit && (
                 <th>Entregado por</th>
               )}
+              <th>Aviso WhatsApp</th>
               <th>Acciones</th>
             </tr>
           </thead>
@@ -1509,6 +1516,27 @@ export default function LaboratoryPage() {
                       )}
                     </td>
                   )}
+                  <td>
+                    {record.whatsapp_notified_at ? (
+                      <>
+                        <span className="badge badge-success">
+                          Avisado
+                        </span>
+                        <br />
+                        <span className="muted">
+                          {formatDisplayDateTime(record.whatsapp_notified_at)}
+                        </span>
+                      </>
+                    ) : yesNo(record.is_complete) &&
+                      !record.pickup_date &&
+                      record.patient_phone ? (
+                      <span className="badge badge-warning">
+                        Sin avisar
+                      </span>
+                    ) : (
+                      '-'
+                    )}
+                  </td>
                   <td>
                     <div className="table-actions">
                       {canEdit && canModifyRecord && (
@@ -1622,7 +1650,7 @@ export default function LaboratoryPage() {
 
             {records.length === 0 && (
               <tr>
-                <td colSpan={canSeePickupAudit ? 10 : 9}>
+                <td colSpan={canSeePickupAudit ? 11 : 10}>
                   No hay estudios para esos filtros.
                 </td>
               </tr>
