@@ -1161,6 +1161,52 @@ export async function markLaboratoryWhatsappNotified(
   return true;
 }
 
+export async function getPendingLaboratoryWhatsappNotifications() {
+  const [
+    hasPhoneColumn,
+    hasPatientId,
+    hasPeople,
+    hasNotifiedColumn
+  ] = await Promise.all([
+    hasPatientPhoneColumn(),
+    hasPatientIdColumn(),
+    hasPeopleTable(),
+    hasLaboratoryColumn('whatsapp_notified_at', true)
+  ]);
+
+  if (!hasNotifiedColumn) {
+    throw new Error('Falta aplicar la actualizacion de avisos de WhatsApp en laboratorio');
+  }
+
+  const canJoinPeople = hasPatientId && hasPeople;
+  const phoneExpression = canJoinPeople
+    ? hasPhoneColumn
+      ? 'COALESCE(p.phone, lr.patient_phone)'
+      : 'p.phone'
+    : hasPhoneColumn
+      ? 'lr.patient_phone'
+      : 'NULL';
+
+  const [rows]: any = await pool.query(
+    `SELECT
+       lr.id,
+       lr.study_date,
+       lr.patient_first_name,
+       lr.patient_last_name,
+       ${phoneExpression} AS patient_phone
+     FROM laboratory_records lr
+     ${canJoinPeople ? 'LEFT JOIN people p ON p.id = lr.patient_id' : ''}
+     WHERE lr.is_complete = TRUE
+       AND lr.pickup_date IS NULL
+       AND lr.whatsapp_notified_at IS NULL
+       AND lr.status <> 'expirado'
+       AND NULLIF(TRIM(${phoneExpression}), '') IS NOT NULL
+     ORDER BY lr.study_date ASC, lr.id ASC`
+  );
+
+  return rows;
+}
+
 export async function expireOldLaboratoryRecords(
   userId?: number
 ) {

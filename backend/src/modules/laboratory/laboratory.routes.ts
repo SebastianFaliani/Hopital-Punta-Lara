@@ -11,6 +11,7 @@ import {
   handleRegisterLaboratoryPickup,
   handleRevertLaboratoryPickup,
   handleSendLaboratoryWhatsappNotification,
+  handleSendPendingLaboratoryWhatsappNotifications,
   handleUpdateLaboratoryCompletion,
   handleUpdateLaboratoryRecord
 } from './laboratory.controller';
@@ -106,6 +107,13 @@ router.patch(
   authenticateToken,
   authorizeRoles(...laboratoryCompletionRoles),
   handleUpdateLaboratoryCompletion
+);
+
+router.post(
+  '/notify-whatsapp/pending',
+  authenticateToken,
+  authorizeRoles(...laboratoryCompletionRoles),
+  handleSendPendingLaboratoryWhatsappNotifications
 );
 
 router.post(

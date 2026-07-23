@@ -16,6 +16,7 @@ import {
   getLaboratoryRecords,
   getLaboratoryStats,
   getLaboratoryTestCatalog,
+  getPendingLaboratoryWhatsappNotifications,
   getPersonByDocument,
   markLaboratoryWhatsappNotified,
   registerLaboratoryPickup,
@@ -670,6 +671,63 @@ export async function handleSendLaboratoryWhatsappNotification(
     return res.status(400).json({
       success: false,
       message: error.message || 'Error al enviar WhatsApp'
+    });
+  }
+}
+
+export async function handleSendPendingLaboratoryWhatsappNotifications(
+  req: AuthRequest,
+  res: Response
+) {
+  try {
+    const records = await getPendingLaboratoryWhatsappNotifications();
+    let queued = 0;
+    const errors: Array<{ id: number; patient: string; error: string }> = [];
+
+    for (const record of records) {
+      try {
+        await deliverWhatsappTextMessage(
+          record.patient_phone,
+          formatLaboratoryWhatsappMessage(record),
+          'laboratory_notification_bulk'
+        );
+        await markLaboratoryWhatsappNotified(
+          Number(record.id),
+          req.user?.userId || req.user?.id
+        );
+        queued += 1;
+      } catch (error: any) {
+        errors.push({
+          id: Number(record.id),
+          patient: `${record.patient_last_name || ''} ${record.patient_first_name || ''}`.trim(),
+          error: error.message || 'No se pudo preparar el aviso'
+        });
+      }
+    }
+
+    await logAudit({
+      user: req.user,
+      module: 'laboratorio',
+      action: 'avisar_resultados_whatsapp_pendientes',
+      entityType: 'laboratory_record',
+      description: `Avisos masivos de laboratorio: ${queued} preparados, ${errors.length} con error`,
+      newData: { queued, failed: errors.length, record_ids: records.map((record: any) => record.id) },
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'] || null
+    });
+
+    return res.json({
+      success: true,
+      message: queued
+        ? `${queued} aviso${queued === 1 ? '' : 's'} pendiente${queued === 1 ? '' : 's'} de envio por WhatsApp`
+        : 'No hay estudios pendientes en condiciones de recibir el aviso',
+      data: { queued, failed: errors.length, errors }
+    });
+  } catch (error: any) {
+    console.error(error);
+    return res.status(400).json({
+      success: false,
+      message: error.message || 'No se pudieron preparar los avisos de WhatsApp'
     });
   }
 }

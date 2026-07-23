@@ -922,6 +922,37 @@ export default function LaboratoryPage() {
     }
   }
 
+  async function notifyAllPendingLaboratoryResults() {
+    const confirmed = window.confirm(
+      'Se enviara un aviso a todos los estudios completos, sin retiro, con telefono y que todavia no fueron avisados. ¿Continuar?'
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const response = await apiFetch(
+        '/laboratory/notify-whatsapp/pending',
+        { method: 'POST' }
+      );
+      const failed = Number(response.data?.failed || 0);
+      showSystemAlert(
+        failed
+          ? `${response.message}. ${failed} no pudieron prepararse.`
+          : response.message,
+        'Avisos de WhatsApp',
+        failed ? 'warning' : 'success'
+      );
+      await loadLaboratory();
+    } catch (error: any) {
+      showSystemAlert(error.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function savePickup(
     allowIncompleteDelivery = false
   ) {
@@ -1113,6 +1144,21 @@ export default function LaboratoryPage() {
         </div>
 
         <div className="table-actions">
+          {canChangeCompletion && (
+            <button
+              className="btn-secondary"
+              disabled={loading || !whatsappStatus?.isReady}
+              onClick={notifyAllPendingLaboratoryResults}
+              title={
+                whatsappStatus?.isReady
+                  ? 'Avisar todos los resultados pendientes'
+                  : 'WhatsApp no esta conectado'
+              }
+            >
+              Avisar pendientes por WhatsApp
+            </button>
+          )}
+
           {canChangeCompletion && (
             <button
               className="btn-secondary"
