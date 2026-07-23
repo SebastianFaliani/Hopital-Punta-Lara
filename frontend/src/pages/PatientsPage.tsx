@@ -913,7 +913,7 @@ export default function PatientsPage() {
                         <th>DNI</th>
                         <th>Telefono</th>
                         <th>Mail</th>
-                        <th>Datos a completar</th>
+                        <th>Datos a modificar</th>
                       </tr>
                     </thead>
                     <tbody>

@@ -966,7 +966,23 @@ function isMissing(value: unknown) {
     String(value).trim() === '';
 }
 
-function getCompletedFields(
+function normalizedComparable(value: unknown) {
+  return String(value || '')
+    .trim()
+    .toLocaleUpperCase('es-AR');
+}
+
+function shouldReplaceFromImport(
+  existing: ExistingPatient,
+  incoming: ImportPatient,
+  field: 'health_insurance' | 'affiliate_number'
+) {
+  return !isMissing(incoming[field]) &&
+    normalizedComparable(existing[field]) !==
+      normalizedComparable(incoming[field]);
+}
+
+function getChangedFields(
   existing: ExistingPatient,
   incoming: ImportPatient
 ) {
@@ -985,16 +1001,33 @@ function getCompletedFields(
     'document_type',
     'phone',
     'email',
-    'health_insurance',
-    'affiliate_number',
     'birth_date',
     'address'
   ];
 
-  return fields.filter((field) =>
+  const completedFields =
+    fields.filter((field) =>
     isMissing(existing[field]) &&
     !isMissing(incoming[field])
   );
+
+  const replaceableFields: Array<
+    'health_insurance' | 'affiliate_number'
+  > = [
+    'health_insurance',
+    'affiliate_number'
+  ];
+
+  return [
+    ...completedFields,
+    ...replaceableFields.filter((field) =>
+      shouldReplaceFromImport(
+        existing,
+        incoming,
+        field
+      )
+    )
+  ];
 }
 
 async function getExistingPatients(
@@ -1069,7 +1102,7 @@ export async function previewPatientImport(
       }
 
       const completedFields =
-        getCompletedFields(existing, patient);
+        getChangedFields(existing, patient);
 
       return {
         ...patient,
@@ -1150,8 +1183,8 @@ export async function applyPatientImport(
               document_type = COALESCE(NULLIF(document_type, ''), VALUES(document_type)),
               phone = COALESCE(NULLIF(phone, ''), VALUES(phone)),
               email = COALESCE(NULLIF(email, ''), VALUES(email)),
-              health_insurance = COALESCE(NULLIF(health_insurance, ''), VALUES(health_insurance)),
-              affiliate_number = COALESCE(NULLIF(affiliate_number, ''), VALUES(affiliate_number)),
+              health_insurance = COALESCE(VALUES(health_insurance), health_insurance),
+              affiliate_number = COALESCE(VALUES(affiliate_number), affiliate_number),
               birth_date = COALESCE(birth_date, VALUES(birth_date)),
               address = COALESCE(NULLIF(address, ''), VALUES(address))
           `,
@@ -1179,7 +1212,7 @@ export async function applyPatientImport(
       }
 
       const completedFields =
-        getCompletedFields(existing, patient);
+        getChangedFields(existing, patient);
 
       if (!completedFields.length) {
         continue;
@@ -1192,8 +1225,8 @@ export async function applyPatientImport(
             document_type = COALESCE(NULLIF(document_type, ''), ?),
             phone = COALESCE(NULLIF(phone, ''), ?),
             email = COALESCE(NULLIF(email, ''), ?),
-            health_insurance = COALESCE(NULLIF(health_insurance, ''), ?),
-            affiliate_number = COALESCE(NULLIF(affiliate_number, ''), ?),
+            health_insurance = COALESCE(?, health_insurance),
+            affiliate_number = COALESCE(?, affiliate_number),
             birth_date = COALESCE(birth_date, ?),
             address = COALESCE(NULLIF(address, ''), ?)
           WHERE id = ?
