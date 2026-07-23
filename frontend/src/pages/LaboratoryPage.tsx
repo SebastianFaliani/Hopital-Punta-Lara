@@ -13,6 +13,7 @@ import { useAuth } from '../auth/useAuth';
 import { hasPermission } from '../auth/permissions';
 import { IconButton } from '../components/IconButton';
 import PageTitle from '../components/PageTitle';
+import { showSystemConfirm } from '../components/SystemConfirmModal';
 import {
   formatDisplayDate,
   formatDisplayDateTime,
@@ -862,10 +863,10 @@ export default function LaboratoryPage() {
   async function deleteRecord(
     record: LaboratoryRecord
   ) {
-    const confirmed =
-      window.confirm(
-        `Eliminar laboratorio de ${record.patient_last_name} ${record.patient_first_name}?`
-      );
+    const confirmed = await showSystemConfirm(
+      `Eliminar laboratorio de ${record.patient_last_name} ${record.patient_first_name}?`,
+      { title: 'Eliminar laboratorio', confirmLabel: 'Eliminar' }
+    );
 
     if (!confirmed) {
       return;
@@ -923,8 +924,9 @@ export default function LaboratoryPage() {
   }
 
   async function notifyAllPendingLaboratoryResults() {
-    const confirmed = window.confirm(
-      'Se enviara un aviso a todos los estudios completos, sin retiro, con telefono y que todavia no fueron avisados. ¿Continuar?'
+    const confirmed = await showSystemConfirm(
+      'Se enviara un aviso a todos los estudios completos, sin retiro, con telefono y que todavia no fueron avisados.',
+      { title: 'Avisar pendientes por WhatsApp', confirmLabel: 'Preparar avisos' }
     );
 
     if (!confirmed) {
@@ -1002,8 +1004,9 @@ export default function LaboratoryPage() {
   async function revertPickup(
     record: LaboratoryRecord
   ) {
-    const confirmed = window.confirm(
-      `Deshacer el retiro del laboratorio de ${record.patient_last_name} ${record.patient_first_name}? Volvera a su estado anterior.`
+    const confirmed = await showSystemConfirm(
+      `Deshacer el retiro del laboratorio de ${record.patient_last_name} ${record.patient_first_name}? Volvera a su estado anterior.`,
+      { title: 'Deshacer retiro', confirmLabel: 'Deshacer retiro' }
     );
 
     if (!confirmed) {
@@ -1074,10 +1077,10 @@ export default function LaboratoryPage() {
   }
 
   async function expireOldRecords() {
-    const confirmed =
-      window.confirm(
-        'Marcar como expirados los laboratorios completos con mas de 6 meses sin retirar?'
-      );
+    const confirmed = await showSystemConfirm(
+      'Marcar como expirados los laboratorios completos con mas de 6 meses sin retirar?',
+      { title: 'Marcar estudios expirados', confirmLabel: 'Marcar expirados' }
+    );
 
     if (!confirmed) {
       return;

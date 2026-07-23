@@ -7,6 +7,7 @@ import {
 import {
   SystemAlertModal
 } from './components/SystemAlertModal';
+import { SystemConfirmModal } from './components/SystemConfirmModal';
 import UppercaseInputNormalizer
   from './components/UppercaseInputNormalizer';
 import AppUpdateModal
@@ -25,6 +26,8 @@ function App() {
       <AppUpdateModal />
 
       <SystemAlertModal />
+
+      <SystemConfirmModal />
 
     </AuthProvider>
   );
