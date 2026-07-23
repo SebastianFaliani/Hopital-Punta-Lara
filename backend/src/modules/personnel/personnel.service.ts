@@ -3364,6 +3364,7 @@ export async function getEmployeeDirectiveSummary(
           ac.category,
           ar.source,
           ar.created_at,
+          ar.updated_at,
           COALESCE(
             NULLIF(
               TRIM(CONCAT_WS(' ', creator.first_name, creator.last_name)),

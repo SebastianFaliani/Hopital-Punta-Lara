@@ -304,7 +304,20 @@ type AttendanceRecordSummary = {
   category: string;
   source?: string | null;
   created_at?: string | null;
+  updated_at?: string | null;
   created_by_name?: string | null;
+};
+
+type AttendanceConsecutivePeriod = {
+  startDate: string;
+  endDate: string;
+  totalDays: number;
+  category: string;
+  source?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+  createdByName?: string | null;
+  recordIds: number[];
 };
 
 type AttendanceRecordGroup = {
@@ -9627,10 +9640,66 @@ function formatAttendanceSource(
   return source || '-';
 }
 
+function attendanceDateNumber(value: string) {
+  const [year, month, day] = String(value).slice(0, 10).split('-').map(Number);
+  return Date.UTC(year, month - 1, day);
+}
+
+function groupConsecutiveAttendanceRecords(
+  records: AttendanceRecordSummary[]
+): AttendanceConsecutivePeriod[] {
+  const sorted = [...records].sort(
+    (a, b) => attendanceDateNumber(a.attendance_date) - attendanceDateNumber(b.attendance_date)
+  );
+  const periods: AttendanceConsecutivePeriod[] = [];
+
+  sorted.forEach((record) => {
+    const previous = periods[periods.length - 1];
+    const isNextDay = previous &&
+      attendanceDateNumber(record.attendance_date) - attendanceDateNumber(previous.endDate) === 86400000;
+    const sameOrigin = previous &&
+      previous.category === record.category &&
+      previous.source === record.source &&
+      previous.createdByName === record.created_by_name;
+
+    if (isNextDay && sameOrigin) {
+      previous.endDate = record.attendance_date;
+      previous.totalDays += 1;
+      previous.recordIds.push(record.id);
+      if (record.updated_at && (!previous.updatedAt || record.updated_at > previous.updatedAt)) {
+        previous.updatedAt = record.updated_at;
+      }
+      return;
+    }
+
+    periods.push({
+      startDate: record.attendance_date,
+      endDate: record.attendance_date,
+      totalDays: 1,
+      category: record.category,
+      source: record.source,
+      createdAt: record.created_at,
+      updatedAt: record.updated_at,
+      createdByName: record.created_by_name,
+      recordIds: [record.id]
+    });
+  });
+
+  return periods.reverse();
+}
+
+function formatAttendancePeriod(period: AttendanceConsecutivePeriod) {
+  const start = formatDisplayDate(period.startDate);
+  const end = formatDisplayDate(period.endDate);
+  return start === end ? start : `${start} al ${end}`;
+}
+
 function GroupedAttendanceHistory({
-  groups
+  groups,
+  collapseConsecutive = false
 }: {
   groups: AttendanceRecordGroup[];
+  collapseConsecutive?: boolean;
 }) {
   return (
     <div className="leave-history-groups">
@@ -9643,6 +9712,38 @@ function GroupedAttendanceHistory({
             Clave {group.code} - {group.description}
           </h3>
           <div className="table-responsive">
+            {collapseConsecutive ? (
+              <table className="data-table leave-history-table">
+                <thead>
+                  <tr>
+                    <th>Fecha</th>
+                    <th>Cantidad</th>
+                    <th>Estado</th>
+                    <th>Cargada</th>
+                    <th>Editada</th>
+                    <th>Resuelta</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {groupConsecutiveAttendanceRecords(group.records).map((period) => (
+                    <tr key={period.recordIds.join('-')}>
+                      <td>{formatAttendancePeriod(period)}</td>
+                      <td>{period.totalDays.toFixed(2)} dia(s)</td>
+                      <td><span className="badge badge-success">Registrada</span></td>
+                      <td>
+                        <PersonDateCell name={period.createdByName} date={period.createdAt} />
+                      </td>
+                      <td>
+                        {period.updatedAt && period.updatedAt !== period.createdAt
+                          ? formatDisplayDateTime(period.updatedAt)
+                          : '-'}
+                      </td>
+                      <td>-</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
             <table className="data-table leave-history-table">
               <thead>
                 <tr>
@@ -9663,6 +9764,7 @@ function GroupedAttendanceHistory({
                 ))}
               </tbody>
             </table>
+            )}
           </div>
         </section>
       ))}
@@ -10097,6 +10199,7 @@ function DirectiveSummaryPrintModal({
                 <h3>Presentismo</h3>
                 <GroupedAttendanceHistory
                   groups={groupAttendanceRecordsByCode(attendance)}
+                  collapseConsecutive={mode === 'all'}
                 />
               </section>
             )}
