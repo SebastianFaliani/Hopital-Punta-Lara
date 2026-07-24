@@ -11,6 +11,7 @@ import {
 import {
   handleApplyPatientImport,
   handleCreatePatient,
+  handleGetPatientByDocument,
   handleGetPatient,
   handleGetPatients,
   handlePreviewPatientImport,
@@ -58,6 +59,13 @@ router.post(
   authenticateToken,
   authorizeImportRoles,
   handleApplyPatientImport
+);
+
+router.get(
+  '/by-document/:document',
+  authenticateToken,
+  authorizeRoles('admin', 'dir', 'lab', 'user', 'nutri'),
+  handleGetPatientByDocument
 );
 
 router.get(

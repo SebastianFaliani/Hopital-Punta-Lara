@@ -19,6 +19,7 @@ import {
 
 type Patient = {
   id: number;
+  patient_id?: number | string | null;
   first_name: string;
   last_name: string;
   document: string | null;
@@ -69,6 +70,7 @@ type Stats = {
 };
 
 const emptyPatientForm = {
+  patient_id: '',
   first_name: '',
   last_name: '',
   document: '',
@@ -499,6 +501,9 @@ export default function NutritionPage() {
   const [patientForm, setPatientForm] =
     useState(emptyPatientForm);
 
+  const [loadedPatientDocument, setLoadedPatientDocument] =
+    useState('');
+
   const [controlForm, setControlForm] =
     useState(emptyControlForm);
 
@@ -599,6 +604,7 @@ export default function NutritionPage() {
   function openCreatePatient() {
     setEditingPatient(null);
     setPatientForm(emptyPatientForm);
+    setLoadedPatientDocument('');
     setShowPatientForm(true);
   }
 
@@ -607,6 +613,10 @@ export default function NutritionPage() {
   ) {
     setEditingPatient(patient);
     setPatientForm({
+      patient_id:
+        patient.patient_id
+          ? String(patient.patient_id)
+          : '',
       first_name: patient.first_name || '',
       last_name: patient.last_name || '',
       document: patient.document || '',
@@ -632,8 +642,69 @@ export default function NutritionPage() {
       notes: patient.notes || '',
       is_active: Boolean(patient.is_active)
     });
+    setLoadedPatientDocument(patient.document || '');
     setShowPatientForm(true);
   }
+
+  useEffect(() => {
+    if (
+      !showPatientForm ||
+      editingPatient
+    ) {
+      return;
+    }
+
+    const documentNumber =
+      patientForm.document.replace(/\D/g, '');
+
+    if (documentNumber.length < 6) {
+      return;
+    }
+
+    const timeout =
+      window.setTimeout(async () => {
+        try {
+          const response =
+            await apiFetch(
+              `/patients/by-document/${encodeURIComponent(documentNumber)}`
+            );
+
+          if (!response.data) {
+            return;
+          }
+
+          setPatientForm((current) => {
+            if (
+              current.document.replace(/\D/g, '') !==
+              documentNumber
+            ) {
+              return current;
+            }
+
+            return {
+              ...current,
+              patient_id: String(response.data.id || ''),
+              first_name: response.data.first_name || '',
+              last_name: response.data.last_name || '',
+              birth_date:
+                response.data.birth_date?.slice(0, 10) || '',
+              phone: response.data.phone || ''
+            };
+          });
+
+          setLoadedPatientDocument(documentNumber);
+        } catch (error) {
+          // La busqueda es auxiliar; no interrumpe la carga manual.
+        }
+      }, 350);
+
+    return () =>
+      window.clearTimeout(timeout);
+  }, [
+    patientForm.document,
+    showPatientForm,
+    editingPatient
+  ]);
 
   function openCreateControl() {
     setEditingControl(null);
@@ -667,11 +738,12 @@ export default function NutritionPage() {
     event.preventDefault();
 
     if (
+      !patientForm.document ||
       !patientForm.first_name ||
       !patientForm.last_name
     ) {
       showSystemAlert(
-        'Debe cargar nombre y apellido'
+        'Debe cargar DNI, nombre y apellido'
       );
       return;
     }
@@ -1249,6 +1321,56 @@ export default function NutritionPage() {
               onSubmit={handlePatientSubmit}
             >
               <label className="form-field">
+                <span>DNI</span>
+                <input
+                  className="form-input"
+                  value={patientForm.document}
+                  onChange={(event) => {
+                    const nextDocument =
+                      event.target.value;
+
+                    const nextDocumentDigits =
+                      nextDocument.replace(/\D/g, '');
+
+                    const shouldClearPatientData =
+                      loadedPatientDocument &&
+                      nextDocumentDigits !==
+                        loadedPatientDocument;
+
+                    setPatientForm({
+                      ...patientForm,
+                      document: nextDocument,
+                      patient_id:
+                        shouldClearPatientData
+                          ? ''
+                          : patientForm.patient_id,
+                      first_name:
+                        shouldClearPatientData
+                          ? ''
+                          : patientForm.first_name,
+                      last_name:
+                        shouldClearPatientData
+                          ? ''
+                          : patientForm.last_name,
+                      birth_date:
+                        shouldClearPatientData
+                          ? ''
+                          : patientForm.birth_date,
+                      phone:
+                        shouldClearPatientData
+                          ? ''
+                          : patientForm.phone
+                    });
+
+                    if (shouldClearPatientData) {
+                      setLoadedPatientDocument('');
+                    }
+                  }}
+                  required
+                />
+              </label>
+
+              <label className="form-field">
                 <span>Nombre</span>
                 <input
                   className="form-input"
@@ -1275,20 +1397,6 @@ export default function NutritionPage() {
                     })
                   }
                   required
-                />
-              </label>
-
-              <label className="form-field">
-                <span>DNI</span>
-                <input
-                  className="form-input"
-                  value={patientForm.document}
-                  onChange={(event) =>
-                    setPatientForm({
-                      ...patientForm,
-                      document: event.target.value
-                    })
-                  }
                 />
               </label>
 

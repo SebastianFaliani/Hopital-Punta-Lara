@@ -166,6 +166,43 @@ export async function getPatientDetail(id: number) {
   };
 }
 
+export async function getPatientByDocument(
+  documentNumber: string
+) {
+  const document =
+    String(documentNumber || '').replace(/\D/g, '');
+
+  if (!document) {
+    return null;
+  }
+
+  const [rows]: any =
+    await pool.query(
+      `
+        SELECT
+          p.id,
+          p.document_type,
+          p.document_number,
+          p.last_name,
+          p.first_name,
+          p.phone,
+          p.email,
+          p.health_insurance,
+          p.affiliate_number,
+          DATE_FORMAT(p.birth_date, '%Y-%m-%d') AS birth_date,
+          p.address,
+          p.created_at,
+          p.updated_at
+        FROM people p
+        WHERE p.document_number = ?
+        LIMIT 1
+      `,
+      [document]
+    );
+
+  return rows[0] || null;
+}
+
 export function cleanPatientInput(body: any): PatientInput {
   return {
     document_number:

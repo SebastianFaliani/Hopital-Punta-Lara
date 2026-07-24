@@ -8,6 +8,7 @@ import {
 import {
   cleanPatientInput,
   createPatient,
+  getPatientByDocument,
   getPatientDetail,
   getPatients,
   updatePatient
@@ -78,6 +79,29 @@ export async function handleGetPatient(
     return res.status(500).json({
       success: false,
       message: 'Error al obtener el paciente'
+    });
+  }
+}
+
+export async function handleGetPatientByDocument(
+  req: AuthRequest,
+  res: Response
+) {
+  try {
+    const data =
+      await getPatientByDocument(
+        String(req.params.document || '')
+      );
+
+    return res.json({
+      success: true,
+      data
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error al buscar el paciente'
     });
   }
 }
