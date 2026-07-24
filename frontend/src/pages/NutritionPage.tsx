@@ -24,6 +24,10 @@ type Patient = {
   document: string | null;
   birth_date: string | null;
   phone: string | null;
+  email?: string | null;
+  health_insurance?: string | null;
+  affiliate_number?: string | null;
+  address?: string | null;
   target_weight_kg: number | string | null;
   nutritional_diagnosis: string | null;
   meal_plan: string | null;
@@ -950,7 +954,7 @@ export default function NutritionPage() {
                     {selectedPatient.last_name}, {selectedPatient.first_name}
                   </h2>
                   <p>
-                    DNI {selectedPatient.document || '-'} - Tel {selectedPatient.phone || '-'}
+                    DNI {selectedPatient.document || '-'} - Tel {selectedPatient.phone || '-'} - Nac. {formatDate(selectedPatient.birth_date)}
                   </p>
                 </div>
 
@@ -1017,6 +1021,26 @@ export default function NutritionPage() {
               </div>
 
               <div className="nutrition-profile-grid">
+                <div className="nutrition-profile-item">
+                  <strong>Mail</strong>
+                  <span>{selectedPatient.email || '-'}</span>
+                </div>
+
+                <div className="nutrition-profile-item">
+                  <strong>Obra social</strong>
+                  <span>
+                    {selectedPatient.health_insurance || '-'}
+                    {selectedPatient.affiliate_number
+                      ? ` - ${selectedPatient.affiliate_number}`
+                      : ''}
+                  </span>
+                </div>
+
+                <div className="nutrition-profile-item nutrition-profile-wide">
+                  <strong>Domicilio</strong>
+                  <span>{selectedPatient.address || '-'}</span>
+                </div>
+
                 <div className="nutrition-profile-item">
                   <strong>Objetivo de peso</strong>
                   <span>
