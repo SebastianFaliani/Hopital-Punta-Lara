@@ -3,6 +3,7 @@ import { NextFunction, Request, Response } from 'express';
 import {
   claimWhatsappOutboxJobs,
   completeWhatsappOutboxJob,
+  getWhatsappJobAttachment,
   updateWhatsappAgentStatus
 } from './whatsapp-delivery.service';
 
@@ -17,6 +18,17 @@ export function authenticateWhatsappAgent(req: Request, res: Response, next: Nex
     return res.status(401).json({ success: false, message: 'Agente no autorizado' });
   }
   next();
+}
+
+export async function downloadAgentJobAttachment(req: Request, res: Response) {
+  try {
+    const pdf = await getWhatsappJobAttachment(Number(req.params.id), Number(req.params.pdfId));
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${pdf.name.replace(/"/g, '')}"`);
+    return res.send(pdf.buffer);
+  } catch (error: any) {
+    return res.status(404).json({ success: false, message: error.message || 'Adjunto no encontrado' });
+  }
 }
 
 export async function heartbeatWhatsappAgent(req: Request, res: Response) {

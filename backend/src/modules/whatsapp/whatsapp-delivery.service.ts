@@ -1,6 +1,6 @@
 import { ResultSetHeader, RowDataPacket } from 'mysql2';
 import { pool } from '../../config/database';
-import { sendWhatsappTextMessage } from './whatsapp-web.service';
+import { sendWhatsappDocumentMessage, sendWhatsappTextMessage } from './whatsapp-web.service';
 
 export type WhatsappOutboxJob = {
   id: number;
@@ -8,6 +8,7 @@ export type WhatsappOutboxJob = {
   message: string;
   attempts: number;
   max_attempts: number;
+  attachments_json?: string | null;
 };
 
 let schemaPromise: Promise<void> | null = null;
@@ -34,7 +35,22 @@ export function ensureWhatsappOutboxSchema() {
         INDEX idx_whatsapp_outbox_claim (status, next_attempt_at, id),
         INDEX idx_whatsapp_outbox_lock (status, locked_at)
       )
-    `).then(() => pool.query(`
+    `).then(async () => {
+      const [columns]: any = await pool.query(`
+        SELECT COLUMN_NAME FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'whatsapp_outbox'
+      `);
+      const existing = new Set(columns.map((row: any) => row.COLUMN_NAME));
+      const additions = [
+        ['attachments_json', 'JSON NULL'],
+        ['reference_type', 'VARCHAR(80) NULL'],
+        ['reference_id', 'BIGINT NULL'],
+        ['requested_by', 'BIGINT NULL']
+      ];
+      for (const [name, definition] of additions) {
+        if (!existing.has(name)) await pool.query(`ALTER TABLE whatsapp_outbox ADD COLUMN ${name} ${definition}`);
+      }
+    }).then(() => pool.query(`
       CREATE TABLE IF NOT EXISTS whatsapp_agent_status (
         agent_id VARCHAR(120) NOT NULL,
         is_ready BOOLEAN NOT NULL DEFAULT FALSE,
@@ -97,14 +113,18 @@ export async function getWhatsappDeliveryStatus() {
 export async function queueWhatsappTextMessage(
   phone: string,
   message: string,
-  source = 'application'
+  source = 'application',
+  options?: { attachments?: Array<{ id: number; name: string }>; referenceType?: string; referenceId?: number; requestedBy?: number }
 ) {
   await ensureWhatsappOutboxSchema();
   const maxAttempts = Math.max(1, Number(process.env.WHATSAPP_QUEUE_MAX_ATTEMPTS || 5));
   const [result] = await pool.execute<ResultSetHeader>(
-    `INSERT INTO whatsapp_outbox (phone, message, source, max_attempts)
-     VALUES (?, ?, ?, ?)`,
-    [phone, message, source, maxAttempts]
+    `INSERT INTO whatsapp_outbox
+       (phone, message, source, max_attempts, attachments_json, reference_type, reference_id, requested_by)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [phone, message, source, maxAttempts,
+      options?.attachments?.length ? JSON.stringify(options.attachments) : null,
+      options?.referenceType || null, options?.referenceId || null, options?.requestedBy || null]
   );
   return result.insertId;
 }
@@ -112,12 +132,20 @@ export async function queueWhatsappTextMessage(
 export async function deliverWhatsappTextMessage(
   phone: string,
   message: string,
-  source = 'application'
+  source = 'application',
+  options?: { attachments?: Array<{ id: number; name: string }>; referenceType?: string; referenceId?: number; requestedBy?: number }
 ) {
   if ((process.env.WHATSAPP_DELIVERY_MODE || 'direct').toLowerCase() === 'queue') {
-    return { queued: true, id: await queueWhatsappTextMessage(phone, message, source) };
+    return { queued: true, id: await queueWhatsappTextMessage(phone, message, source, options) };
   }
   await sendWhatsappTextMessage(phone, message);
+  if (options?.attachments?.length && options.referenceId) {
+    const { getLaboratoryPdf } = await import('../laboratory/laboratory-pdf.service');
+    for (const attachment of options.attachments) {
+      const pdf = await getLaboratoryPdf(options.referenceId, attachment.id);
+      await sendWhatsappDocumentMessage(phone, pdf.buffer, attachment.name);
+    }
+  }
   return { queued: false };
 }
 
@@ -136,7 +164,7 @@ export async function claimWhatsappOutboxJobs(agentId: string, limit: number) {
       [staleMinutes]
     );
     const [rows] = await connection.query<(RowDataPacket & WhatsappOutboxJob)[]>(
-      `SELECT id, phone, message, attempts, max_attempts
+      `SELECT id, phone, message, attempts, max_attempts, attachments_json
        FROM whatsapp_outbox
        WHERE status = 'pending' AND next_attempt_at <= NOW()
        ORDER BY id
@@ -184,5 +212,30 @@ export async function completeWhatsappOutboxJob(
       ? [id, agentId]
       : [retrySeconds, String(errorMessage || 'Error de envio').slice(0, 2000), id, agentId]
   );
+  if (success && result.affectedRows) {
+    await pool.execute(
+      `UPDATE laboratory_records lr
+       INNER JOIN whatsapp_outbox wo ON wo.reference_type = 'laboratory_record' AND wo.reference_id = lr.id
+       SET lr.whatsapp_notified_at = NOW(), lr.whatsapp_notified_by = wo.requested_by
+       WHERE wo.id = ?`,
+      [id]
+    );
+  }
   return result.affectedRows > 0;
+}
+
+export async function getWhatsappJobAttachment(jobId: number, pdfId: number) {
+  await ensureWhatsappOutboxSchema();
+  const [rows]: any = await pool.query(
+    `SELECT attachments_json FROM whatsapp_outbox WHERE id = ? AND status = 'processing'`,
+    [jobId]
+  );
+  const attachments = typeof rows[0]?.attachments_json === 'string'
+    ? JSON.parse(rows[0].attachments_json) : rows[0]?.attachments_json;
+  if (!Array.isArray(attachments) || !attachments.some((item: any) => Number(item.id) === pdfId)) {
+    throw new Error('Adjunto no autorizado para este trabajo');
+  }
+  const { getLaboratoryPdf } = await import('../laboratory/laboratory-pdf.service');
+  const [reference]: any = await pool.query('SELECT reference_id FROM whatsapp_outbox WHERE id = ?', [jobId]);
+  return getLaboratoryPdf(Number(reference[0].reference_id), pdfId);
 }

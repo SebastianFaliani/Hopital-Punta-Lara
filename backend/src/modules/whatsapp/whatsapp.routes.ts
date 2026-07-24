@@ -37,6 +37,7 @@ import {
 import {
   authenticateWhatsappAgent,
   claimAgentJobs,
+  downloadAgentJobAttachment,
   heartbeatWhatsappAgent,
   reportAgentJob
 } from './whatsapp-agent.controller';
@@ -44,6 +45,7 @@ import {
 const router = Router();
 
 router.post('/agent/jobs/claim', authenticateWhatsappAgent, claimAgentJobs);
+router.get('/agent/jobs/:id/attachments/:pdfId', authenticateWhatsappAgent, downloadAgentJobAttachment);
 router.post('/agent/jobs/:id/result', authenticateWhatsappAgent, reportAgentJob);
 router.post('/agent/heartbeat', authenticateWhatsappAgent, heartbeatWhatsappAgent);
 

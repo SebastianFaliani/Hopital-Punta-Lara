@@ -7,6 +7,7 @@ import { AuthRequest } from '../auth/auth.middleware';
 import { logAudit } from '../audit/audit.service';
 
 import { deliverWhatsappTextMessage } from '../whatsapp/whatsapp-delivery.service';
+import { getLaboratoryPdfMetadata } from './laboratory-pdf.service';
 
 import {
   createLaboratoryRecord,
@@ -633,16 +634,25 @@ export async function handleSendLaboratoryWhatsappNotification(
       String(req.body.message || '').trim() ||
       formatLaboratoryWhatsappMessage(record);
 
+    const pdfs = await getLaboratoryPdfMetadata(Number(req.params.id));
     const delivery = await deliverWhatsappTextMessage(
       record.patient_phone,
       message,
-      'laboratory_notification'
+      'laboratory_notification',
+      {
+        attachments: pdfs.map((pdf: any) => ({ id: Number(pdf.id), name: pdf.file_name })),
+        referenceType: 'laboratory_record',
+        referenceId: Number(req.params.id),
+        requestedBy: req.user?.userId || req.user?.id
+      }
     );
 
-    await markLaboratoryWhatsappNotified(
-      Number(req.params.id),
-      req.user?.userId || req.user?.id
-    );
+    if (!delivery.queued) {
+      await markLaboratoryWhatsappNotified(
+        Number(req.params.id),
+        req.user?.userId || req.user?.id
+      );
+    }
 
     await logAudit({
       user: req.user,
@@ -686,15 +696,24 @@ export async function handleSendPendingLaboratoryWhatsappNotifications(
 
     for (const record of records) {
       try {
-        await deliverWhatsappTextMessage(
+        const pdfs = await getLaboratoryPdfMetadata(Number(record.id));
+        const delivery = await deliverWhatsappTextMessage(
           record.patient_phone,
           formatLaboratoryWhatsappMessage(record),
-          'laboratory_notification_bulk'
+          'laboratory_notification_bulk',
+          {
+            attachments: pdfs.map((pdf: any) => ({ id: Number(pdf.id), name: pdf.file_name })),
+            referenceType: 'laboratory_record',
+            referenceId: Number(record.id),
+            requestedBy: req.user?.userId || req.user?.id
+          }
         );
-        await markLaboratoryWhatsappNotified(
-          Number(record.id),
-          req.user?.userId || req.user?.id
-        );
+        if (!delivery.queued) {
+          await markLaboratoryWhatsappNotified(
+            Number(record.id),
+            req.user?.userId || req.user?.id
+          );
+        }
         queued += 1;
       } catch (error: any) {
         errors.push({

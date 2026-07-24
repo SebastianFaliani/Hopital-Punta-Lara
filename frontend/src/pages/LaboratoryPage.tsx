@@ -2093,6 +2093,12 @@ export default function LaboratoryPage() {
               Se enviara un aviso al telefono {whatsappRecord.patient_phone}.
             </p>
 
+            <p className="form-note">
+              {Number(whatsappRecord.result_pdf_count || 0) > 0
+                ? `Tambien se adjuntaran ${whatsappRecord.result_pdf_count} archivo${Number(whatsappRecord.result_pdf_count) === 1 ? '' : 's'} PDF.`
+                : 'Este laboratorio no tiene archivos PDF cargados; se enviara solamente el aviso.'}
+            </p>
+
             {whatsappRecord.whatsapp_notified_at && (
               <p className="form-note">
                 Ya se envio un aviso el {formatDisplayDateTime(whatsappRecord.whatsapp_notified_at)}.

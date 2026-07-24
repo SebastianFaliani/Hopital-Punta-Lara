@@ -2,6 +2,7 @@ import dotenv from 'dotenv';
 import os from 'os';
 import {
   getWhatsappWebStatus,
+  sendWhatsappDocumentMessage,
   sendWhatsappTextMessage,
   startWhatsappWebSession,
   stopWhatsappWebSession
@@ -26,6 +27,18 @@ async function api(path: string, body: unknown) {
   const payload: any = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(payload.message || `API HTTP ${response.status}`);
   return payload;
+}
+
+async function downloadAttachment(jobId: number, attachment: { id: number; name: string }) {
+  const response = await fetch(
+    `${baseUrl}/whatsapp/agent/jobs/${jobId}/attachments/${attachment.id}`,
+    { headers: { 'x-whatsapp-agent-key': key }, signal: AbortSignal.timeout(60000) }
+  );
+  if (!response.ok) {
+    const payload: any = await response.json().catch(() => ({}));
+    throw new Error(payload.message || `No se pudo descargar ${attachment.name}`);
+  }
+  return Buffer.from(await response.arrayBuffer());
 }
 
 async function ensureConnected() {
@@ -77,6 +90,12 @@ async function cycle() {
     let sent = false;
     try {
       await sendWhatsappTextMessage(job.phone, job.message);
+      const attachments = typeof job.attachments_json === 'string'
+        ? JSON.parse(job.attachments_json) : (job.attachments_json || []);
+      for (const attachment of attachments) {
+        const buffer = await downloadAttachment(job.id, attachment);
+        await sendWhatsappDocumentMessage(job.phone, buffer, attachment.name);
+      }
       sent = true;
       await reportWithRetry(job.id, { agent_id: agentId, success: true });
       console.log(`[agente] Mensaje ${job.id} enviado.`);

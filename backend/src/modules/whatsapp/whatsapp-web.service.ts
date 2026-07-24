@@ -532,6 +532,32 @@ export async function sendWhatsappTextMessage(
   return true;
 }
 
+export async function sendWhatsappDocumentMessage(
+  phone: string,
+  buffer: Buffer,
+  fileName: string,
+  caption = ''
+) {
+  if (!client || !state.isReady) {
+    throw new Error('WhatsApp no esta conectado');
+  }
+  const recipient = await resolveWhatsappRecipient(phone);
+  const { MessageMedia } = require('whatsapp-web.js');
+  const media = new MessageMedia('application/pdf', buffer.toString('base64'), fileName);
+  setEvent('connected', `Enviando ${fileName} a ${recipient.replace(/@.+$/, '')}`);
+  await withTimeout(
+    client.sendMessage(recipient, media, {
+      caption,
+      sendMediaAsDocument: true,
+      sendSeen: false
+    }),
+    60000,
+    `WhatsApp no pudo enviar el archivo ${fileName}.`
+  );
+  setEvent('connected', `Archivo enviado a ${recipient.replace(/@.+$/, '')}`);
+  return true;
+}
+
 export async function getWhatsappProfilePictureUrl(
   phone: string
 ) {
