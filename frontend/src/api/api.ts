@@ -86,13 +86,14 @@ export async function apiFetch(
       'accessToken'
     );
 
-  const headers =
-    new Headers({
-      'Content-Type':
-        'application/json',
+  const headers = new Headers(options.headers || {});
 
-      ...(options.headers || {})
-    });
+  if (
+    !(options.body instanceof FormData) &&
+    !headers.has('Content-Type')
+  ) {
+    headers.set('Content-Type', 'application/json');
+  }
 
   // agregar token
   if (accessToken) {

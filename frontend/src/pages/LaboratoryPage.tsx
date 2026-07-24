@@ -8,7 +8,7 @@ import type {
   FormEvent
 } from 'react';
 
-import { apiFetch } from '../api/api';
+import { apiFetch, getApiUrl } from '../api/api';
 import { useAuth } from '../auth/useAuth';
 import { hasPermission } from '../auth/permissions';
 import { IconButton } from '../components/IconButton';
@@ -54,6 +54,7 @@ type LaboratoryRecord = {
   pickup_registered_at?: string | null;
   whatsapp_notified_at?: string | null;
   whatsapp_notified_by?: number | null;
+  result_pdf_count?: number;
   notes: string | null;
   requested_tests_count: number;
   received_tests_count: number;
@@ -86,6 +87,13 @@ type LaboratoryPatient = {
 type WhatsappWebStatus = {
   status: string;
   isReady: boolean;
+};
+
+type LaboratoryPdf = {
+  id: number;
+  file_name: string;
+  uploaded_at: string;
+  uploaded_by_name?: string | null;
 };
 
 const emptyForm = {
@@ -340,6 +348,8 @@ export default function LaboratoryPage() {
 
   const [whatsappRecord, setWhatsappRecord] =
     useState<LaboratoryRecord | null>(null);
+  const [pdfRecord, setPdfRecord] = useState<LaboratoryRecord | null>(null);
+  const [pdfDocuments, setPdfDocuments] = useState<LaboratoryPdf[]>([]);
 
   const [completionIncomplete, setCompletionIncomplete] =
     useState(false);
@@ -377,6 +387,10 @@ export default function LaboratoryPage() {
   const canChangeCompletion =
     user?.role === 'admin' ||
     user?.role === 'lab';
+
+  const canManagePdfs =
+    user?.role === 'admin' ||
+    user?.role === 'dir';
 
   const canPickup =
     canEdit ||
@@ -961,6 +975,85 @@ export default function LaboratoryPage() {
     }
   }
 
+  async function uploadLaboratoryPdf(record: LaboratoryRecord, file?: File) {
+    if (!file) return;
+    if (file.type !== 'application/pdf') {
+      showSystemAlert('Selecciona un archivo PDF');
+      return;
+    }
+    try {
+      setLoading(true);
+      const body = new FormData();
+      body.append('pdf', file);
+      const response = await apiFetch(`/laboratory/${record.id}/pdf`, {
+        method: 'POST',
+        body
+      });
+      showSystemAlert(response.message, 'Resultado PDF', 'success');
+      await loadLaboratory();
+    } catch (error: any) {
+      showSystemAlert(error.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function openLaboratoryPdf(record: LaboratoryRecord, pdfId: number) {
+    try {
+      setLoading(true);
+      const response = await fetch(`${getApiUrl()}/laboratory/${record.id}/pdf/${pdfId}`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('accessToken') || ''}`
+        }
+      });
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.message || 'No se pudo abrir el PDF');
+      }
+      const url = URL.createObjectURL(await response.blob());
+      window.open(url, '_blank', 'noopener,noreferrer');
+      window.setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (error: any) {
+      showSystemAlert(error.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function openPdfManager(record: LaboratoryRecord) {
+    try {
+      setLoading(true);
+      const response = await apiFetch(`/laboratory/${record.id}/pdf/metadata`);
+      setPdfDocuments(response.data || []);
+      setPdfRecord(record);
+    } catch (error: any) {
+      showSystemAlert(error.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function removeLaboratoryPdf(pdf: LaboratoryPdf) {
+    if (!pdfRecord) return;
+    const confirmed = await showSystemConfirm(
+      `Quitar el archivo ${pdf.file_name}? Esta accion quedara registrada en Auditoria.`,
+      { title: 'Quitar PDF', confirmLabel: 'Quitar' }
+    );
+    if (!confirmed) return;
+    try {
+      setLoading(true);
+      await apiFetch(`/laboratory/${pdfRecord.id}/pdf/${pdf.id}`, { method: 'DELETE' });
+      const response = await apiFetch(`/laboratory/${pdfRecord.id}/pdf/metadata`);
+      setPdfDocuments(response.data || []);
+      await loadLaboratory();
+      showSystemAlert('PDF eliminado', 'Resultado PDF', 'success');
+    } catch (error: any) {
+      showSystemAlert(error.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function savePickup(
     allowIncompleteDelivery = false
   ) {
@@ -1533,6 +1626,37 @@ export default function LaboratoryPage() {
                   </td>
                   <td>
                     <div className="table-actions">
+                      <input
+                        accept="application/pdf"
+                        id={`laboratory-pdf-${record.id}`}
+                        onChange={(event) => {
+                          void uploadLaboratoryPdf(record, event.target.files?.[0]);
+                          event.currentTarget.value = '';
+                        }}
+                        style={{ display: 'none' }}
+                        type="file"
+                      />
+                      {canManagePdfs && !record.pickup_date && record.status !== 'retirado' && (
+                        <IconButton
+                          disabled={loading}
+                          icon="pdf-plus"
+                          label="Agregar PDF"
+                          onClick={() =>
+                            document.getElementById(`laboratory-pdf-${record.id}`)?.click()
+                          }
+                          variant="secondary"
+                        />
+                      )}
+                      {Number(record.result_pdf_count || 0) > 0 && (
+                        <IconButton
+                          className="icon-button-pdf"
+                          disabled={loading}
+                          icon="pdf"
+                          label={`Ver PDF (${record.result_pdf_count})`}
+                          onClick={() => void openPdfManager(record)}
+                          variant="primary"
+                        />
+                      )}
                       {canEdit && canModifyRecord && (
                         <IconButton
                           icon="edit"
@@ -1880,6 +2004,65 @@ export default function LaboratoryPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {pdfRecord && (
+        <div className="modal-overlay">
+          <div className="modal-content modal-content-wide">
+            <button
+              aria-label="Cerrar"
+              className="modal-close-button"
+              onClick={() => setPdfRecord(null)}
+              type="button"
+            >
+              x
+            </button>
+            <h2 className="modal-title">PDF de resultados</h2>
+            <p className="page-subtitle">
+              {pdfRecord.patient_last_name} {pdfRecord.patient_first_name}
+            </p>
+            {pdfDocuments.length ? (
+              <div className="table-responsive">
+                <table>
+                  <thead>
+                    <tr><th>Archivo</th><th>Cargado</th><th>Usuario</th><th>Acciones</th></tr>
+                  </thead>
+                  <tbody>
+                    {pdfDocuments.map((pdf) => (
+                      <tr key={pdf.id}>
+                        <td>{pdf.file_name}</td>
+                        <td>{formatDisplayDateTime(pdf.uploaded_at)}</td>
+                        <td>{pdf.uploaded_by_name || '-'}</td>
+                        <td>
+                          <div className="table-actions">
+                            <IconButton
+                              className="icon-button-pdf"
+                              icon="pdf"
+                              label="Ver e imprimir PDF"
+                              onClick={() => void openLaboratoryPdf(pdfRecord, pdf.id)}
+                              variant="primary"
+                            />
+                            {canManagePdfs && (
+                              <IconButton
+                                disabled={loading}
+                                icon="trash"
+                                label="Quitar PDF"
+                                onClick={() => void removeLaboratoryPdf(pdf)}
+                                variant="danger"
+                              />
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="form-note">No hay archivos PDF cargados.</p>
+            )}
           </div>
         </div>
       )}

@@ -1,4 +1,5 @@
 import { pool } from '../../config/database';
+import { ensureLaboratoryPdfSchema } from './laboratory-pdf.service';
 
 type LaboratoryFilters = {
   search?: string;
@@ -609,6 +610,7 @@ async function replaceRequestedTests(
 export async function getLaboratoryRecords(
   filters: LaboratoryFilters
 ) {
+  await ensureLaboratoryPdfSchema();
   const hasPhoneColumn =
     await hasPatientPhoneColumn();
 
@@ -722,6 +724,8 @@ export async function getLaboratoryRecords(
               ? 'laboratory_records.whatsapp_notified_by'
               : 'NULL'
           } AS whatsapp_notified_by,
+          (SELECT COUNT(*) FROM laboratory_result_pdfs lrp
+           WHERE lrp.laboratory_record_id = laboratory_records.id) AS result_pdf_count,
           laboratory_records.notes,
           laboratory_records.created_at,
           laboratory_records.updated_at,

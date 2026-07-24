@@ -1,4 +1,11 @@
 import { Router } from 'express';
+import multer from 'multer';
+import {
+  handleGetLaboratoryPdf,
+  handleGetLaboratoryPdfMetadata,
+  handleUploadLaboratoryPdf,
+  handleDeleteLaboratoryPdf
+} from './laboratory-pdf.controller';
 
 import {
   handleCreateLaboratoryRecord,
@@ -22,6 +29,7 @@ import {
 } from '../auth/auth.middleware';
 
 const router = Router();
+const pdfUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 15 * 1024 * 1024, files: 1 } });
 
 const laboratoryReadRoles = [
   'admin',
@@ -44,6 +52,11 @@ const laboratoryPickupRoles = [
 const laboratoryCompletionRoles = [
   'admin',
   'lab'
+];
+
+const laboratoryPdfRoles = [
+  'admin',
+  'dir'
 ];
 
 router.get(
@@ -114,6 +127,17 @@ router.post(
   authenticateToken,
   authorizeRoles(...laboratoryCompletionRoles),
   handleSendPendingLaboratoryWhatsappNotifications
+);
+
+router.get('/:id/pdf/metadata', authenticateToken, authorizeRoles(...laboratoryReadRoles), handleGetLaboratoryPdfMetadata);
+router.get('/:id/pdf/:pdfId', authenticateToken, authorizeRoles(...laboratoryReadRoles), handleGetLaboratoryPdf);
+router.delete('/:id/pdf/:pdfId', authenticateToken, authorizeRoles(...laboratoryPdfRoles), handleDeleteLaboratoryPdf);
+router.post(
+  '/:id/pdf',
+  authenticateToken,
+  authorizeRoles(...laboratoryPdfRoles),
+  pdfUpload.single('pdf'),
+  handleUploadLaboratoryPdf
 );
 
 router.post(
