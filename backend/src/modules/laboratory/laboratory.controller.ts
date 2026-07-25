@@ -249,13 +249,6 @@ export async function handleRevertLaboratoryPickup(
   res: Response
 ) {
   try {
-    if (!['admin', 'dir', 'lab'].includes(req.user?.role)) {
-      return res.status(403).json({
-        success: false,
-        message: 'Solo Administracion, Direccion o Laboratorio pueden deshacer un retiro'
-      });
-    }
-
     const id = Number(req.params.id);
     const previous = await getLaboratoryRecordById(id);
 

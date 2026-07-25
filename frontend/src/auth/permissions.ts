@@ -34,6 +34,7 @@ export function hasPermission(
       user.role === 'dir' &&
       permission.endsWith('.manage') &&
       !permission.startsWith('personnel.') &&
+      !permission.startsWith('laboratory.') &&
       user.permissions?.includes(
         permission.replace('.manage', '.view')
       )

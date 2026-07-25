@@ -389,17 +389,30 @@ export default function LaboratoryPage() {
     );
 
   const canChangeCompletion =
-    user?.role === 'admin' ||
-    user?.role === 'dir' ||
-    user?.role === 'lab';
+    canEdit;
 
   const canManagePdfs =
-    user?.role === 'admin' ||
-    user?.role === 'dir';
-  const canDeleteLaboratory = canManagePdfs;
+    hasPermission(
+      user,
+      'laboratory.pdf.manage',
+      ['admin', 'dir']
+    );
+
+  const canDeleteLaboratory =
+    hasPermission(
+      user,
+      'laboratory.records.delete',
+      ['admin', 'dir']
+    );
+
+  const canSendWhatsapp =
+    hasPermission(
+      user,
+      'laboratory.whatsapp.send',
+      ['admin', 'dir', 'lab']
+    );
 
   const canPickup =
-    canEdit ||
     hasPermission(
       user,
       'laboratory.pickup',
@@ -407,11 +420,20 @@ export default function LaboratoryPage() {
     );
 
   const canRevertPickup =
-    ['admin', 'dir'].includes(user?.role || '');
+    hasPermission(
+      user,
+      'laboratory.pickup.revert',
+      ['admin', 'dir']
+    );
+
+  const canReopen =
+    hasPermission(
+      user,
+      'laboratory.reopen',
+      ['admin', 'dir']
+    );
 
   const canView =
-    canEdit ||
-    canPickup ||
     hasPermission(
       user,
       'laboratory.view',
@@ -487,7 +509,7 @@ export default function LaboratoryPage() {
   }, [queryString]);
 
   useEffect(() => {
-    if (!canChangeCompletion) {
+    if (!canSendWhatsapp) {
       return;
     }
 
@@ -501,7 +523,7 @@ export default function LaboratoryPage() {
 
     return () =>
       window.clearInterval(interval);
-  }, [canChangeCompletion]);
+  }, [canSendWhatsapp]);
 
   useEffect(() => {
     if (!showForm) {
@@ -1280,7 +1302,7 @@ export default function LaboratoryPage() {
         </div>
 
         <div className="table-actions">
-          {canChangeCompletion && (
+          {canSendWhatsapp && (
             <button
               className="btn-secondary"
               disabled={loading || !whatsappStatus?.isReady}
@@ -1295,7 +1317,7 @@ export default function LaboratoryPage() {
             </button>
           )}
 
-          {canManagePdfs && (
+          {canDeleteLaboratory && (
             <button
               className="btn-secondary"
               disabled={loading}
@@ -1686,7 +1708,7 @@ export default function LaboratoryPage() {
                         />
                       )}
 
-                      {canManagePdfs && delivered && !record.workflow_reopened_at && (
+                      {canReopen && delivered && !record.workflow_reopened_at && (
                         <IconButton
                           icon="unlock"
                           label="Reabrir por correccion"
@@ -1721,7 +1743,7 @@ export default function LaboratoryPage() {
                         />
                       )}
 
-                      {canChangeCompletion &&
+                      {canSendWhatsapp &&
                         yesNo(record.is_complete) &&
                         !record.pickup_date &&
                         (!record.whatsapp_notified_at || record.workflow_reopened_at) &&

@@ -1,9 +1,72 @@
 import { pool } from '../../config/database';
 
+let laboratoryPermissionsPromise: Promise<void> | null = null;
+
+async function ensureLaboratoryPermissions() {
+  if (!laboratoryPermissionsPromise) {
+    laboratoryPermissionsPromise = (async () => {
+      await pool.query(`
+        INSERT INTO permissions (permission_key, module_name, description, sort_order)
+        VALUES
+          ('laboratory.view', 'Laboratorio', 'Consultar estudios y abrir PDF', 50),
+          ('laboratory.manage', 'Laboratorio', 'Completar y modificar resultados', 51),
+          ('laboratory.pdf.manage', 'Laboratorio', 'Cargar o quitar PDF', 52),
+          ('laboratory.whatsapp.send', 'Laboratorio', 'Avisar resultados por WhatsApp', 53),
+          ('laboratory.pickup', 'Laboratorio', 'Registrar retiro presencial', 54),
+          ('laboratory.records.delete', 'Laboratorio', 'Eliminar o archivar laboratorios', 55),
+          ('laboratory.reopen', 'Laboratorio', 'Reabrir laboratorios por correccion', 56),
+          ('laboratory.pickup.revert', 'Laboratorio', 'Deshacer retiros presenciales', 57)
+        ON DUPLICATE KEY UPDATE
+          module_name = VALUES(module_name),
+          description = VALUES(description),
+          sort_order = VALUES(sort_order)
+      `);
+
+      const roleDefaults: Array<[string, string[]]> = [
+        ['admin', [
+          'laboratory.view', 'laboratory.manage', 'laboratory.pdf.manage',
+          'laboratory.whatsapp.send', 'laboratory.pickup',
+          'laboratory.records.delete', 'laboratory.reopen',
+          'laboratory.pickup.revert'
+        ]],
+        ['dir', [
+          'laboratory.view', 'laboratory.manage', 'laboratory.pdf.manage',
+          'laboratory.whatsapp.send', 'laboratory.pickup',
+          'laboratory.records.delete', 'laboratory.reopen',
+          'laboratory.pickup.revert'
+        ]],
+        ['lab', [
+          'laboratory.view', 'laboratory.manage',
+          'laboratory.whatsapp.send', 'laboratory.pickup'
+        ]],
+        ['user', ['laboratory.view', 'laboratory.pickup']]
+      ];
+
+      for (const [roleName, permissionKeys] of roleDefaults) {
+        await pool.query(
+          `INSERT IGNORE INTO role_permissions (role_id, permission_id, allowed)
+           SELECT r.id, p.id, TRUE
+           FROM roles r
+           INNER JOIN permissions p ON p.permission_key IN (?)
+           WHERE r.name = ?`,
+          [permissionKeys, roleName]
+        );
+      }
+    })().catch((error) => {
+      laboratoryPermissionsPromise = null;
+      throw error;
+    });
+  }
+
+  await laboratoryPermissionsPromise;
+}
+
 export async function getEffectivePermissionKeys(
   userId: number,
   roleId: number
 ) {
+  await ensureLaboratoryPermissions();
+
   const [rows]: any =
     await pool.query(
       `
@@ -57,6 +120,8 @@ export async function getUserFacilityIds(
 export async function getUserAccessConfiguration(
   userId: number
 ) {
+  await ensureLaboratoryPermissions();
+
   const [userRows]: any =
     await pool.query(
       `
