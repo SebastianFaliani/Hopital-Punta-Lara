@@ -216,7 +216,9 @@ export async function completeWhatsappOutboxJob(
     await pool.execute(
       `UPDATE laboratory_records lr
        INNER JOIN whatsapp_outbox wo ON wo.reference_type = 'laboratory_record' AND wo.reference_id = lr.id
-       SET lr.whatsapp_notified_at = NOW(), lr.whatsapp_notified_by = wo.requested_by
+       SET lr.whatsapp_notified_at = NOW(), lr.whatsapp_notified_by = wo.requested_by,
+         lr.workflow_reopened_at = NULL, lr.workflow_reopened_by = NULL,
+         lr.workflow_reopen_reason = NULL
        WHERE wo.id = ?`,
       [id]
     );

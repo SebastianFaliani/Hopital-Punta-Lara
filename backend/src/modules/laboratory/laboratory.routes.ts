@@ -16,6 +16,7 @@ import {
   handleGetLaboratoryRecords,
   handleGetLaboratoryStats,
   handleRegisterLaboratoryPickup,
+  handleReopenLaboratoryWorkflow,
   handleRevertLaboratoryPickup,
   handleSendLaboratoryWhatsappNotification,
   handleSendPendingLaboratoryWhatsappNotifications,
@@ -40,6 +41,7 @@ const laboratoryReadRoles = [
 
 const laboratoryWriteRoles = [
   'admin',
+  'dir',
   'lab'
 ];
 
@@ -51,6 +53,7 @@ const laboratoryPickupRoles = [
 
 const laboratoryCompletionRoles = [
   'admin',
+  'dir',
   'lab'
 ];
 
@@ -90,7 +93,7 @@ router.get(
 router.post(
   '/expire-old',
   authenticateToken,
-  authorizeRoles(...laboratoryCompletionRoles),
+  authorizeRoles('admin', 'dir'),
   handleExpireOldLaboratoryRecords
 );
 
@@ -111,7 +114,7 @@ router.put(
 router.delete(
   '/:id',
   authenticateToken,
-  authorizeRoles(...laboratoryWriteRoles),
+  authorizeRoles('admin', 'dir'),
   handleDeleteLaboratoryRecord
 );
 
@@ -127,6 +130,13 @@ router.post(
   authenticateToken,
   authorizeRoles(...laboratoryCompletionRoles),
   handleSendPendingLaboratoryWhatsappNotifications
+);
+
+router.patch(
+  '/:id/reopen',
+  authenticateToken,
+  authorizeRoles('admin', 'dir'),
+  handleReopenLaboratoryWorkflow
 );
 
 router.get('/:id/pdf/metadata', authenticateToken, authorizeRoles(...laboratoryReadRoles), handleGetLaboratoryPdfMetadata);
@@ -150,6 +160,7 @@ router.post(
 router.patch(
   '/:id/pickup/revert',
   authenticateToken,
+  authorizeRoles('admin', 'dir'),
   handleRevertLaboratoryPickup
 );
 

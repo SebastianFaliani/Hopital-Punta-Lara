@@ -21,10 +21,18 @@ import {
   getPersonByDocument,
   markLaboratoryWhatsappNotified,
   registerLaboratoryPickup,
+  reopenLaboratoryWorkflow,
   revertLaboratoryPickup,
   updateLaboratoryCompletion,
   updateLaboratoryRecord
 } from './laboratory.service';
+
+function isLaboratoryWorkflowLocked(record: any) {
+  return Boolean(
+    (record?.pickup_date || record?.whatsapp_notified_at) &&
+    !record?.workflow_reopened_at
+  );
+}
 
 function validateLaboratoryBody(
   body: any
@@ -88,10 +96,12 @@ function formatLaboratoryWhatsappMessage(
     `Hola ${patientName}.`,
     '',
     studyDate
-      ? `Tus resultados de laboratorio del ${studyDate} ya estan disponibles para retirar.`
-      : 'Tus resultados de laboratorio ya estan disponibles para retirar.',
+      ? `Te enviamos adjuntos tus resultados de laboratorio correspondientes al ${studyDate}.`
+      : 'Te enviamos adjuntos tus resultados de laboratorio.',
     '',
-    'Por favor acercate al Hospital Municipal de Punta Lara de Lunes a Viernes de 8:00 hs a 18:00 hs.'
+    'Si lo preferis, tambien podes retirar una copia personalmente en el Hospital Municipal de Punta Lara, de lunes a viernes de 8:00 a 18:00 hs.',
+    '',
+    'Este es un mensaje automatico enviado por el sistema del Hospital Municipal de Punta Lara.'
   ].join('\n');
 }
 
@@ -387,12 +397,11 @@ export async function handleUpdateLaboratoryRecord(
     }
 
     if (
-      previous.pickup_date &&
-      req.user?.role !== 'admin'
+      isLaboratoryWorkflowLocked(previous)
     ) {
       return res.status(403).json({
         success: false,
-        message: 'El estudio ya fue retirado. Solo un administrador puede modificarlo.'
+        message: 'El laboratorio ya fue entregado. Debe reabrirse por correccion antes de modificarlo.'
       });
     }
 
@@ -447,12 +456,11 @@ export async function handleDeleteLaboratoryRecord(
     }
 
     if (
-      previous.pickup_date &&
-      req.user?.role !== 'admin'
+      previous.pickup_date || previous.whatsapp_notified_at
     ) {
       return res.status(403).json({
         success: false,
-        message: 'El estudio ya fue retirado. Solo un administrador puede eliminarlo.'
+        message: 'Un laboratorio entregado no se elimina: debe conservarse o archivarse.'
       });
     }
 
@@ -499,9 +507,9 @@ export async function handleExpireOldLaboratoryRecords(
     await logAudit({
       user: req.user,
       module: 'laboratorio',
-      action: 'expirar_estudios',
+      action: 'archivar_estudios',
       entityType: 'laboratory_record',
-      description: `Marco ${result.affected_rows} estudios de laboratorio como expirados`,
+      description: `Archivo ${result.affected_rows} estudios sin eliminar sus PDF`,
       newData: result,
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'] || null
@@ -511,8 +519,8 @@ export async function handleExpireOldLaboratoryRecords(
       success: true,
       message:
         result.affected_rows > 0
-          ? 'Estudios expirados actualizados'
-          : 'No habia estudios para expirar',
+          ? 'Estudios archivados correctamente'
+          : 'No habia estudios para archivar',
       data: result
     });
   } catch (error: any) {
@@ -520,7 +528,7 @@ export async function handleExpireOldLaboratoryRecords(
 
     return res.status(400).json({
       success: false,
-      message: error.message || 'Error al expirar estudios'
+      message: error.message || 'Error al archivar estudios'
     });
   }
 }
@@ -543,12 +551,11 @@ export async function handleUpdateLaboratoryCompletion(
     }
 
     if (
-      previous.pickup_date &&
-      req.user?.role !== 'admin'
+      isLaboratoryWorkflowLocked(previous)
     ) {
       return res.status(403).json({
         success: false,
-        message: 'El estudio ya fue retirado. Solo un administrador puede modificar sus resultados.'
+        message: 'El laboratorio ya fue entregado. Debe reabrirse por correccion antes de modificar sus resultados.'
       });
     }
 
@@ -623,7 +630,7 @@ export async function handleSendLaboratoryWhatsappNotification(
       });
     }
 
-    if (record.pickup_date) {
+    if (record.pickup_date && !record.workflow_reopened_at) {
       return res.status(400).json({
         success: false,
         message: 'El estudio ya fue retirado'
@@ -635,6 +642,12 @@ export async function handleSendLaboratoryWhatsappNotification(
       formatLaboratoryWhatsappMessage(record);
 
     const pdfs = await getLaboratoryPdfMetadata(Number(req.params.id));
+    if (!pdfs.length) {
+      return res.status(400).json({
+        success: false,
+        message: 'Debe cargar al menos un PDF antes de enviar el laboratorio por WhatsApp'
+      });
+    }
     const delivery = await deliverWhatsappTextMessage(
       record.patient_phone,
       message,
@@ -682,6 +695,38 @@ export async function handleSendLaboratoryWhatsappNotification(
       success: false,
       message: error.message || 'Error al enviar WhatsApp'
     });
+  }
+}
+
+export async function handleReopenLaboratoryWorkflow(
+  req: AuthRequest,
+  res: Response
+) {
+  try {
+    const reason = String(req.body.reason || '').trim();
+    if (reason.length < 5) {
+      return res.status(400).json({ success: false, message: 'Debe indicar el motivo de la correccion' });
+    }
+    const previous = await getLaboratoryRecordById(Number(req.params.id));
+    if (!previous) {
+      return res.status(404).json({ success: false, message: 'Estudio de laboratorio no encontrado' });
+    }
+    const reopened = await reopenLaboratoryWorkflow(
+      Number(req.params.id), reason, req.user?.userId || req.user?.id
+    );
+    if (!reopened) {
+      return res.status(400).json({ success: false, message: 'El laboratorio no tiene una entrega para reabrir' });
+    }
+    await logAudit({
+      user: req.user, module: 'laboratorio', action: 'reabrir_por_correccion',
+      entityType: 'laboratory_record', entityId: Number(req.params.id),
+      description: `Reabrio laboratorio por correccion: ${reason}`,
+      oldData: previous, newData: { reason }, ipAddress: req.ip,
+      userAgent: req.headers['user-agent'] || null
+    });
+    return res.json({ success: true, message: 'Laboratorio reabierto para correccion' });
+  } catch (error: any) {
+    return res.status(400).json({ success: false, message: error.message || 'No se pudo reabrir' });
   }
 }
 

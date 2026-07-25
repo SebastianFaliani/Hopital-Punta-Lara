@@ -89,13 +89,13 @@ async function cycle() {
   for (const job of payload.data || []) {
     let sent = false;
     try {
-      await sendWhatsappTextMessage(job.phone, job.message);
       const attachments = typeof job.attachments_json === 'string'
         ? JSON.parse(job.attachments_json) : (job.attachments_json || []);
       for (const attachment of attachments) {
         const buffer = await downloadAttachment(job.id, attachment);
         await sendWhatsappDocumentMessage(job.phone, buffer, attachment.name);
       }
+      await sendWhatsappTextMessage(job.phone, job.message);
       sent = true;
       await reportWithRetry(job.id, { agent_id: agentId, success: true });
       console.log(`[agente] Mensaje ${job.id} enviado.`);
@@ -113,7 +113,10 @@ async function cycle() {
 }
 
 async function main() {
-  if (!baseUrl || !/^https:\/\//i.test(baseUrl)) throw new Error('WHATSAPP_AGENT_API_URL debe ser una URL HTTPS');
+  const localDevelopmentUrl = /^http:\/\/(?:127\.0\.0\.1|localhost)(?::\d+)?$/i.test(baseUrl);
+  if (!baseUrl || (!/^https:\/\//i.test(baseUrl) && !localDevelopmentUrl)) {
+    throw new Error('WHATSAPP_AGENT_API_URL debe usar HTTPS, salvo localhost en desarrollo');
+  }
   if (key.length < 32) throw new Error('WHATSAPP_AGENT_KEY debe tener al menos 32 caracteres');
   console.log(`[agente] Iniciado como ${agentId}. No abre puertos locales.`);
   while (!stopping) {

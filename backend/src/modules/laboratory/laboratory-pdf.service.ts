@@ -12,6 +12,9 @@ export function ensureLaboratoryPdfSchema() {
         ['result_pdf_name', 'VARCHAR(255) NULL'],
         ['result_pdf_uploaded_at', 'DATETIME NULL'],
         ['result_pdf_uploaded_by', 'BIGINT NULL'],
+        ['workflow_reopened_at', 'DATETIME NULL'],
+        ['workflow_reopened_by', 'BIGINT NULL'],
+        ['workflow_reopen_reason', 'VARCHAR(500) NULL'],
       ];
       const [columns]: any = await pool.query(`
         SELECT COLUMN_NAME FROM information_schema.COLUMNS
@@ -43,6 +46,12 @@ export function ensureLaboratoryPdfSchema() {
           result_pdf_uploaded_by, COALESCE(result_pdf_uploaded_at, NOW())
         FROM laboratory_records WHERE result_pdf_drive_id IS NOT NULL
       `);
+      await pool.query(`
+        UPDATE laboratory_records
+        SET result_pdf_drive_id = NULL, result_pdf_name = NULL,
+          result_pdf_uploaded_at = NULL, result_pdf_uploaded_by = NULL
+        WHERE result_pdf_drive_id IS NOT NULL
+      `);
     })().catch((error) => {
       schemaReady = null;
       throw error;
@@ -70,11 +79,12 @@ export async function uploadLaboratoryPdf(
 ) {
   await ensureLaboratoryPdfSchema();
   const [rows]: any = await pool.query(
-    'SELECT id, status, pickup_date FROM laboratory_records WHERE id = ?',
+    `SELECT id, status, pickup_date, whatsapp_notified_at, workflow_reopened_at
+     FROM laboratory_records WHERE id = ?`,
     [recordId],
   );
   if (!rows[0]) throw new Error('Estudio de laboratorio no encontrado');
-  if (rows[0].pickup_date || rows[0].status === 'retirado') {
+  if ((rows[0].pickup_date || rows[0].whatsapp_notified_at) && !rows[0].workflow_reopened_at) {
     throw new Error('No se pueden agregar PDF porque el laboratorio ya fue entregado');
   }
 
@@ -132,11 +142,19 @@ export async function getLaboratoryPdfMetadata(recordId: number) {
 export async function deleteLaboratoryPdf(recordId: number, pdfId: number) {
   await ensureLaboratoryPdfSchema();
   const [rows]: any = await pool.query(
-    `SELECT drive_file_id, file_name FROM laboratory_result_pdfs
-     WHERE id = ? AND laboratory_record_id = ?`, [pdfId, recordId],
+    `SELECT p.drive_file_id, p.file_name, lr.pickup_date, lr.whatsapp_notified_at,
+       lr.workflow_reopened_at
+     FROM laboratory_result_pdfs p
+     INNER JOIN laboratory_records lr ON lr.id = p.laboratory_record_id
+     WHERE p.id = ? AND p.laboratory_record_id = ?`, [pdfId, recordId],
   );
   if (!rows[0]) throw new Error('PDF no encontrado');
-  await driveClient().files.delete({ fileId: rows[0].drive_file_id });
+  if ((rows[0].pickup_date || rows[0].whatsapp_notified_at) && !rows[0].workflow_reopened_at) {
+    throw new Error('No se pueden quitar PDF porque el laboratorio ya fue entregado');
+  }
+  await driveClient().files.delete({ fileId: rows[0].drive_file_id }).catch((error: any) => {
+    if (Number(error?.code || error?.response?.status) !== 404) throw error;
+  });
   await pool.execute('DELETE FROM laboratory_result_pdfs WHERE id = ? AND laboratory_record_id = ?', [pdfId, recordId]);
   return { id: pdfId, name: rows[0].file_name };
 }
