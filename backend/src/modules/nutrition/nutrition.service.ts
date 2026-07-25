@@ -5,6 +5,207 @@ type PatientFilters = {
   status?: string;
 };
 
+type Queryable = {
+  query: typeof pool.query;
+};
+
+function normalizeDocument(
+  value: unknown
+) {
+  return String(value || '')
+    .replace(/\D/g, '');
+}
+
+function normalizeText(
+  value: unknown
+) {
+  const text =
+    String(value || '')
+      .trim()
+      .replace(/\s+/g, ' ');
+
+  return text
+    ? text.toLocaleUpperCase('es-AR')
+    : '';
+}
+
+function normalizePhone(
+  value: unknown
+) {
+  let digits =
+    String(value || '')
+      .replace(/\D/g, '');
+
+  if (!digits) {
+    return null;
+  }
+
+  if (digits.startsWith('549')) {
+    digits = digits.slice(3);
+  } else if (digits.startsWith('54')) {
+    digits = digits.slice(2);
+  }
+
+  digits = digits.replace(/^0+/, '');
+
+  if (digits.length > 10 && digits.slice(3, 5) === '15') {
+    digits = `${digits.slice(0, 3)}${digits.slice(5)}`;
+  }
+
+  if (digits.length > 10 && digits.slice(2, 4) === '15') {
+    digits = `${digits.slice(0, 2)}${digits.slice(4)}`;
+  }
+
+  return digits || null;
+}
+
+async function upsertPeoplePatient(
+  data: any,
+  connection: Queryable = pool
+) {
+  const document =
+    normalizeDocument(data.document);
+
+  const firstName =
+    normalizeText(data.first_name);
+
+  const lastName =
+    normalizeText(data.last_name);
+
+  const phone =
+    normalizePhone(data.phone);
+
+  const birthDate =
+    data.birth_date || null;
+
+  if (!firstName || !lastName) {
+    throw new Error('Debe cargar nombre y apellido');
+  }
+
+  if (data.patient_id) {
+    await connection.query(
+      `
+        UPDATE people
+        SET
+          document_number = ?,
+          document_type = ?,
+          first_name = ?,
+          last_name = ?,
+          phone = ?,
+          birth_date = ?
+        WHERE id = ?
+      `,
+      [
+        document || null,
+        document ? 'DNI' : null,
+        firstName,
+        lastName,
+        phone,
+        birthDate,
+        data.patient_id
+      ]
+    );
+
+    return Number(data.patient_id);
+  }
+
+  if (document) {
+    const [existingRows]: any =
+      await connection.query(
+        `
+          SELECT id
+          FROM people
+          WHERE document_number = ?
+          LIMIT 1
+        `,
+        [document]
+      );
+
+    if (existingRows[0]) {
+      await connection.query(
+        `
+          UPDATE people
+          SET
+            document_type = COALESCE(NULLIF(document_type, ''), 'DNI'),
+            first_name = ?,
+            last_name = ?,
+            phone = COALESCE(?, phone),
+            birth_date = COALESCE(?, birth_date)
+          WHERE id = ?
+        `,
+        [
+          firstName,
+          lastName,
+          phone,
+          birthDate,
+          existingRows[0].id
+        ]
+      );
+
+      return Number(existingRows[0].id);
+    }
+  }
+
+  const [result]: any =
+    await connection.query(
+      `
+        INSERT INTO people (
+          document_number,
+          document_type,
+          first_name,
+          last_name,
+          phone,
+          birth_date
+        )
+        VALUES (?, ?, ?, ?, ?, ?)
+      `,
+      [
+        document || null,
+        document ? 'DNI' : null,
+        firstName,
+        lastName,
+        phone,
+        birthDate
+      ]
+    );
+
+  return Number(result.insertId);
+}
+
+async function ensureNutritionPatientIsUnique(
+  patientId: number,
+  currentNutritionId: number | null,
+  connection: Queryable = pool
+) {
+  const params: any[] =
+    [patientId];
+
+  let excludeSql = '';
+
+  if (currentNutritionId) {
+    excludeSql = 'AND id <> ?';
+    params.push(currentNutritionId);
+  }
+
+  const [rows]: any =
+    await connection.query(
+      `
+        SELECT id
+        FROM nutrition_patients
+        WHERE patient_id = ?
+          ${excludeSql}
+        LIMIT 1
+      `,
+      params
+    );
+
+  if (rows[0]) {
+    throw new Error(
+      'Este paciente ya tiene una ficha de nutricion'
+    );
+  }
+}
+
 function calculateBmi(
   weightKg: number,
   heightM: number
@@ -53,11 +254,11 @@ function buildPatientWhere(
 
     where.push(
       `(
-        np.first_name LIKE ?
-        OR np.last_name LIKE ?
-        OR CONCAT(np.first_name, ' ', np.last_name) LIKE ?
-        OR CONCAT(np.last_name, ' ', np.first_name) LIKE ?
-        OR np.document LIKE ?
+        COALESCE(p.first_name, np.first_name) LIKE ?
+        OR COALESCE(p.last_name, np.last_name) LIKE ?
+        OR CONCAT(COALESCE(p.first_name, np.first_name), ' ', COALESCE(p.last_name, np.last_name)) LIKE ?
+        OR CONCAT(COALESCE(p.last_name, np.last_name), ' ', COALESCE(p.first_name, np.first_name)) LIKE ?
+        OR COALESCE(p.document_number, np.document) LIKE ?
       )`
     );
 
@@ -98,7 +299,15 @@ export async function getNutritionPatients(
       `
         SELECT
           np.*,
-          DATE_FORMAT(np.birth_date, '%Y-%m-%d') AS birth_date,
+          COALESCE(p.first_name, np.first_name) AS first_name,
+          COALESCE(p.last_name, np.last_name) AS last_name,
+          COALESCE(p.document_number, np.document) AS document,
+          DATE_FORMAT(COALESCE(p.birth_date, np.birth_date), '%Y-%m-%d') AS birth_date,
+          COALESCE(p.phone, np.phone) AS phone,
+          p.email,
+          p.health_insurance,
+          p.affiliate_number,
+          p.address,
           lc.control_date AS last_control_date,
           lc.weight_kg AS last_weight_kg,
           lc.height_m AS last_height_m,
@@ -111,6 +320,8 @@ export async function getNutritionPatients(
             WHERE nc_count.patient_id = np.id
           ) AS controls_count
         FROM nutrition_patients np
+        LEFT JOIN people p
+          ON p.id = np.patient_id
         LEFT JOIN nutrition_controls lc
           ON lc.id = (
             SELECT nc_last.id
@@ -207,10 +418,20 @@ export async function getNutritionPatientById(
     await pool.query(
       `
         SELECT
-          *,
-          DATE_FORMAT(birth_date, '%Y-%m-%d') AS birth_date
-        FROM nutrition_patients
-        WHERE id = ?
+          np.*,
+          COALESCE(p.first_name, np.first_name) AS first_name,
+          COALESCE(p.last_name, np.last_name) AS last_name,
+          COALESCE(p.document_number, np.document) AS document,
+          DATE_FORMAT(COALESCE(p.birth_date, np.birth_date), '%Y-%m-%d') AS birth_date,
+          COALESCE(p.phone, np.phone) AS phone,
+          p.email,
+          p.health_insurance,
+          p.affiliate_number,
+          p.address
+        FROM nutrition_patients np
+        LEFT JOIN people p
+          ON p.id = np.patient_id
+        WHERE np.id = ?
         LIMIT 1
       `,
       [id]
@@ -223,10 +444,32 @@ export async function createNutritionPatient(
   data: any,
   userId?: number
 ) {
-  const [result]: any =
-    await pool.query(
+  const connection =
+    await pool.getConnection();
+
+  try {
+    await connection.beginTransaction();
+
+    const patientId =
+      await upsertPeoplePatient(
+        data,
+        connection
+      );
+
+    await ensureNutritionPatientIsUnique(
+      patientId,
+      null,
+      connection
+    );
+
+    const document =
+      normalizeDocument(data.document);
+
+    const [result]: any =
+      await connection.query(
       `
         INSERT INTO nutrition_patients (
+          patient_id,
           first_name,
           last_name,
           document,
@@ -245,14 +488,15 @@ export async function createNutritionPatient(
           created_by,
           updated_by
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
       [
-        data.first_name,
-        data.last_name,
-        data.document || null,
+        patientId,
+        normalizeText(data.first_name),
+        normalizeText(data.last_name),
+        document || null,
         data.birth_date || null,
-        data.phone || null,
+        normalizePhone(data.phone),
         data.target_weight_kg || null,
         data.nutritional_diagnosis || null,
         data.meal_plan || null,
@@ -268,7 +512,15 @@ export async function createNutritionPatient(
       ]
     );
 
-  return result.insertId;
+    await connection.commit();
+
+    return result.insertId;
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
 }
 
 export async function updateNutritionPatient(
@@ -276,10 +528,39 @@ export async function updateNutritionPatient(
   data: any,
   userId?: number
 ) {
-  await pool.query(
+  const connection =
+    await pool.getConnection();
+
+  try {
+    await connection.beginTransaction();
+
+    const current =
+      await getNutritionPatientById(id);
+
+    const patientId =
+      await upsertPeoplePatient(
+        {
+          ...data,
+          patient_id:
+            current?.patient_id || data.patient_id
+        },
+        connection
+      );
+
+    await ensureNutritionPatientIsUnique(
+      patientId,
+      id,
+      connection
+    );
+
+    const document =
+      normalizeDocument(data.document);
+
+    await connection.query(
     `
       UPDATE nutrition_patients
       SET
+        patient_id = ?,
         first_name = ?,
         last_name = ?,
         document = ?,
@@ -299,11 +580,12 @@ export async function updateNutritionPatient(
       WHERE id = ?
     `,
     [
-      data.first_name,
-      data.last_name,
-      data.document || null,
+      patientId,
+      normalizeText(data.first_name),
+      normalizeText(data.last_name),
+      document || null,
       data.birth_date || null,
-      data.phone || null,
+      normalizePhone(data.phone),
       data.target_weight_kg || null,
       data.nutritional_diagnosis || null,
       data.meal_plan || null,
@@ -319,7 +601,15 @@ export async function updateNutritionPatient(
     ]
   );
 
-  return true;
+    await connection.commit();
+
+    return true;
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
 }
 
 export async function getNutritionControls(

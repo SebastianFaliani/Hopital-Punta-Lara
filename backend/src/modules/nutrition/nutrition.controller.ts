@@ -18,6 +18,10 @@ import {
 function validatePatient(
   body: any
 ) {
+  if (!body.document) {
+    return 'El DNI es obligatorio';
+  }
+
   if (!body.first_name) {
     return 'El nombre es obligatorio';
   }
