@@ -519,14 +519,12 @@
     padding: 10px 8px;
   }
 
-  .access-permission-table td:first-child {
+  .access-permission-table .access-module-column {
     width: 105px;
   }
 
-  .access-permission-table th:nth-child(3),
-  .access-permission-table td:nth-child(3),
-  .access-permission-table th:nth-child(4),
-  .access-permission-table td:nth-child(4) {
+  .access-permission-table .access-enabled-column,
+  .access-permission-table .access-source-column {
     width: 82px;
   }
 
@@ -567,6 +565,15 @@
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
+  }
+
+  .table-actions.laboratory-row-actions {
+    flex-wrap: nowrap;
+  }
+
+  table td > .table-actions {
+    min-width: max-content;
+    flex-wrap: nowrap;
   }
 
   .btn-primary,

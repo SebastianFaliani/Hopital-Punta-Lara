@@ -1,4 +1,11 @@
 import { Router } from 'express';
+import multer from 'multer';
+import {
+  handleGetLaboratoryPdf,
+  handleGetLaboratoryPdfMetadata,
+  handleUploadLaboratoryPdf,
+  handleDeleteLaboratoryPdf
+} from './laboratory-pdf.controller';
 
 import {
   handleCreateLaboratoryRecord,
@@ -9,6 +16,7 @@ import {
   handleGetLaboratoryRecords,
   handleGetLaboratoryStats,
   handleRegisterLaboratoryPickup,
+  handleReopenLaboratoryWorkflow,
   handleRevertLaboratoryPickup,
   handleSendLaboratoryWhatsappNotification,
   handleSendPendingLaboratoryWhatsappNotifications,
@@ -18,10 +26,11 @@ import {
 
 import {
   authenticateToken,
-  authorizeRoles
+  authorizePermission
 } from '../auth/auth.middleware';
 
 const router = Router();
+const pdfUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 15 * 1024 * 1024, files: 1 } });
 
 const laboratoryReadRoles = [
   'admin',
@@ -32,6 +41,7 @@ const laboratoryReadRoles = [
 
 const laboratoryWriteRoles = [
   'admin',
+  'dir',
   'lab'
 ];
 
@@ -43,96 +53,121 @@ const laboratoryPickupRoles = [
 
 const laboratoryCompletionRoles = [
   'admin',
+  'dir',
   'lab'
+];
+
+const laboratoryPdfRoles = [
+  'admin',
+  'dir'
 ];
 
 router.get(
   '/',
   authenticateToken,
-  authorizeRoles(...laboratoryReadRoles),
+  authorizePermission('laboratory.view', ...laboratoryReadRoles),
   handleGetLaboratoryRecords
 );
 
 router.get(
   '/stats',
   authenticateToken,
-  authorizeRoles(...laboratoryReadRoles),
+  authorizePermission('laboratory.view', ...laboratoryReadRoles),
   handleGetLaboratoryStats
 );
 
 router.get(
   '/catalog',
   authenticateToken,
-  authorizeRoles(...laboratoryReadRoles),
+  authorizePermission('laboratory.view', ...laboratoryReadRoles),
   handleGetLaboratoryTestCatalog
 );
 
 router.get(
   '/patients/:document',
   authenticateToken,
-  authorizeRoles(...laboratoryReadRoles),
+  authorizePermission('laboratory.view', ...laboratoryReadRoles),
   handleGetLaboratoryPatient
 );
 
 router.post(
   '/expire-old',
   authenticateToken,
-  authorizeRoles(...laboratoryCompletionRoles),
+  authorizePermission('laboratory.records.delete', 'admin', 'dir'),
   handleExpireOldLaboratoryRecords
 );
 
 router.post(
   '/',
   authenticateToken,
-  authorizeRoles(...laboratoryWriteRoles),
+  authorizePermission('laboratory.manage', ...laboratoryWriteRoles),
   handleCreateLaboratoryRecord
 );
 
 router.put(
   '/:id',
   authenticateToken,
-  authorizeRoles(...laboratoryWriteRoles),
+  authorizePermission('laboratory.manage', ...laboratoryWriteRoles),
   handleUpdateLaboratoryRecord
 );
 
 router.delete(
   '/:id',
   authenticateToken,
-  authorizeRoles(...laboratoryWriteRoles),
+  authorizePermission('laboratory.records.delete', 'admin', 'dir'),
   handleDeleteLaboratoryRecord
 );
 
 router.patch(
   '/:id/completion',
   authenticateToken,
-  authorizeRoles(...laboratoryCompletionRoles),
+  authorizePermission('laboratory.manage', ...laboratoryCompletionRoles),
   handleUpdateLaboratoryCompletion
 );
 
 router.post(
   '/notify-whatsapp/pending',
   authenticateToken,
-  authorizeRoles(...laboratoryCompletionRoles),
+  authorizePermission('laboratory.whatsapp.send', ...laboratoryCompletionRoles),
   handleSendPendingLaboratoryWhatsappNotifications
+);
+
+router.patch(
+  '/:id/reopen',
+  authenticateToken,
+  authorizePermission('laboratory.reopen', 'admin', 'dir'),
+  handleReopenLaboratoryWorkflow
+);
+
+router.get('/:id/pdf/metadata', authenticateToken, authorizePermission('laboratory.view', ...laboratoryReadRoles), handleGetLaboratoryPdfMetadata);
+router.get('/:id/pdf/:pdfId', authenticateToken, authorizePermission('laboratory.view', ...laboratoryReadRoles), handleGetLaboratoryPdf);
+router.delete('/:id/pdf/:pdfId', authenticateToken, authorizePermission('laboratory.pdf.manage', ...laboratoryPdfRoles), handleDeleteLaboratoryPdf);
+router.post(
+  '/:id/pdf',
+  authenticateToken,
+  authorizePermission('laboratory.pdf.manage', ...laboratoryPdfRoles),
+  pdfUpload.single('pdf'),
+  handleUploadLaboratoryPdf
 );
 
 router.post(
   '/:id/notify-whatsapp',
   authenticateToken,
-  authorizeRoles(...laboratoryCompletionRoles),
+  authorizePermission('laboratory.whatsapp.send', ...laboratoryCompletionRoles),
   handleSendLaboratoryWhatsappNotification
 );
 
 router.patch(
   '/:id/pickup/revert',
   authenticateToken,
+  authorizePermission('laboratory.pickup.revert', 'admin', 'dir'),
   handleRevertLaboratoryPickup
 );
 
 router.patch(
   '/:id/pickup',
   authenticateToken,
-  authorizeRoles(...laboratoryPickupRoles),
+  authorizePermission('laboratory.pickup', ...laboratoryPickupRoles),
   handleRegisterLaboratoryPickup
 );
 

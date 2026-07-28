@@ -411,6 +411,13 @@
   align-items: center;
 }
 
+table td > .table-actions {
+
+  min-width: max-content;
+
+  flex-wrap: nowrap;
+}
+
 .table-link-button {
 
   display: inline-block;

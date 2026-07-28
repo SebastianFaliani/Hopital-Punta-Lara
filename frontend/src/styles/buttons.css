@@ -137,6 +137,16 @@ button {
   color: white;
 }
 
+.icon-button-pdf {
+  background: #d71920;
+  color: #fff;
+}
+
+.icon-button-pdf:hover:not(:disabled) {
+  background: #b20f16;
+  color: #fff;
+}
+
 .text-link-button {
   padding: 0;
   border: none;

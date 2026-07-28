@@ -8,7 +8,7 @@ import type {
   FormEvent
 } from 'react';
 
-import { apiFetch } from '../api/api';
+import { apiFetch, getApiUrl } from '../api/api';
 import { useAuth } from '../auth/useAuth';
 import { hasPermission } from '../auth/permissions';
 import { IconButton } from '../components/IconButton';
@@ -54,6 +54,9 @@ type LaboratoryRecord = {
   pickup_registered_at?: string | null;
   whatsapp_notified_at?: string | null;
   whatsapp_notified_by?: number | null;
+  result_pdf_count?: number;
+  workflow_reopened_at?: string | null;
+  workflow_reopen_reason?: string | null;
   notes: string | null;
   requested_tests_count: number;
   received_tests_count: number;
@@ -86,6 +89,13 @@ type LaboratoryPatient = {
 type WhatsappWebStatus = {
   status: string;
   isReady: boolean;
+};
+
+type LaboratoryPdf = {
+  id: number;
+  file_name: string;
+  uploaded_at: string;
+  uploaded_by_name?: string | null;
 };
 
 const emptyForm = {
@@ -231,7 +241,7 @@ function getStatusLabel(
       (yesNo(isComplete) ? 'completo' : 'enviado');
 
     return {
-      text: `Expirado (${previousLabels[previousStatus] || previousStatus})`,
+      text: `Archivado (${previousLabels[previousStatus] || previousStatus})`,
       className: 'badge badge-warning'
     };
   }
@@ -246,7 +256,7 @@ function getStatusLabel(
 
     return {
       text: 'Retirado',
-      className: 'badge badge-info'
+      className: 'badge badge-success'
     };
   }
 
@@ -287,7 +297,7 @@ const laboratoryStatusLabels: Record<string, string> = {
   parcial: 'Parciales',
   completo: 'Completos',
   retirado: 'Retirados',
-  expirado: 'Expirados'
+  expirado: 'Archivados'
 };
 export default function LaboratoryPage() {
 
@@ -340,6 +350,10 @@ export default function LaboratoryPage() {
 
   const [whatsappRecord, setWhatsappRecord] =
     useState<LaboratoryRecord | null>(null);
+  const [pdfRecord, setPdfRecord] = useState<LaboratoryRecord | null>(null);
+  const [pdfDocuments, setPdfDocuments] = useState<LaboratoryPdf[]>([]);
+  const [reopenRecord, setReopenRecord] = useState<LaboratoryRecord | null>(null);
+  const [reopenReason, setReopenReason] = useState('');
 
   const [completionIncomplete, setCompletionIncomplete] =
     useState(false);
@@ -371,15 +385,34 @@ export default function LaboratoryPage() {
     hasPermission(
       user,
       'laboratory.manage',
-      ['admin', 'lab']
+      ['admin', 'dir', 'lab']
     );
 
   const canChangeCompletion =
-    user?.role === 'admin' ||
-    user?.role === 'lab';
+    canEdit;
+
+  const canManagePdfs =
+    hasPermission(
+      user,
+      'laboratory.pdf.manage',
+      ['admin', 'dir']
+    );
+
+  const canDeleteLaboratory =
+    hasPermission(
+      user,
+      'laboratory.records.delete',
+      ['admin', 'dir']
+    );
+
+  const canSendWhatsapp =
+    hasPermission(
+      user,
+      'laboratory.whatsapp.send',
+      ['admin', 'dir', 'lab']
+    );
 
   const canPickup =
-    canEdit ||
     hasPermission(
       user,
       'laboratory.pickup',
@@ -387,19 +420,25 @@ export default function LaboratoryPage() {
     );
 
   const canRevertPickup =
-    ['admin', 'dir', 'lab'].includes(user?.role || '');
+    hasPermission(
+      user,
+      'laboratory.pickup.revert',
+      ['admin', 'dir']
+    );
+
+  const canReopen =
+    hasPermission(
+      user,
+      'laboratory.reopen',
+      ['admin', 'dir']
+    );
 
   const canView =
-    canEdit ||
-    canPickup ||
     hasPermission(
       user,
       'laboratory.view',
       ['admin', 'lab', 'user', 'dir']
     );
-
-  const canSeePickupAudit =
-    user?.role === 'admin';
 
   const queryString =
     useMemo(() => {
@@ -470,7 +509,7 @@ export default function LaboratoryPage() {
   }, [queryString]);
 
   useEffect(() => {
-    if (!canChangeCompletion) {
+    if (!canSendWhatsapp) {
       return;
     }
 
@@ -484,7 +523,7 @@ export default function LaboratoryPage() {
 
     return () =>
       window.clearInterval(interval);
-  }, [canChangeCompletion]);
+  }, [canSendWhatsapp]);
 
   useEffect(() => {
     if (!showForm) {
@@ -931,7 +970,7 @@ export default function LaboratoryPage() {
 
   async function notifyAllPendingLaboratoryResults() {
     const confirmed = await showSystemConfirm(
-      'Se enviara un aviso a todos los estudios completos, sin retiro, con telefono y que todavia no fueron avisados.',
+      'Se enviara el aviso y todos sus PDF a los estudios completos, sin entrega, con telefono y que todavia no fueron avisados. Los estudios sin PDF no se incluiran.',
       { title: 'Avisar pendientes por WhatsApp', confirmLabel: 'Preparar avisos' }
     );
 
@@ -953,6 +992,107 @@ export default function LaboratoryPage() {
         'Avisos de WhatsApp',
         failed ? 'warning' : 'success'
       );
+      await loadLaboratory();
+    } catch (error: any) {
+      showSystemAlert(error.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function uploadLaboratoryPdf(record: LaboratoryRecord, file?: File) {
+    if (!file) return;
+    if (file.type !== 'application/pdf') {
+      showSystemAlert('Selecciona un archivo PDF');
+      return;
+    }
+    try {
+      setLoading(true);
+      const body = new FormData();
+      body.append('pdf', file);
+      const response = await apiFetch(`/laboratory/${record.id}/pdf`, {
+        method: 'POST',
+        body
+      });
+      showSystemAlert(response.message, 'Resultado PDF', 'success');
+      await loadLaboratory();
+    } catch (error: any) {
+      showSystemAlert(error.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function openLaboratoryPdf(record: LaboratoryRecord, pdfId: number) {
+    try {
+      setLoading(true);
+      const response = await fetch(`${getApiUrl()}/laboratory/${record.id}/pdf/${pdfId}`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('accessToken') || ''}`
+        }
+      });
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.message || 'No se pudo abrir el PDF');
+      }
+      const url = URL.createObjectURL(await response.blob());
+      window.open(url, '_blank', 'noopener,noreferrer');
+      window.setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (error: any) {
+      showSystemAlert(error.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function openPdfManager(record: LaboratoryRecord) {
+    try {
+      setLoading(true);
+      const response = await apiFetch(`/laboratory/${record.id}/pdf/metadata`);
+      setPdfDocuments(response.data || []);
+      setPdfRecord(record);
+    } catch (error: any) {
+      showSystemAlert(error.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function removeLaboratoryPdf(pdf: LaboratoryPdf) {
+    if (!pdfRecord) return;
+    const confirmed = await showSystemConfirm(
+      `Quitar el archivo ${pdf.file_name}? Esta accion quedara registrada en Auditoria.`,
+      { title: 'Quitar PDF', confirmLabel: 'Quitar' }
+    );
+    if (!confirmed) return;
+    try {
+      setLoading(true);
+      await apiFetch(`/laboratory/${pdfRecord.id}/pdf/${pdf.id}`, { method: 'DELETE' });
+      const response = await apiFetch(`/laboratory/${pdfRecord.id}/pdf/metadata`);
+      setPdfDocuments(response.data || []);
+      await loadLaboratory();
+      showSystemAlert('PDF eliminado', 'Resultado PDF', 'success');
+    } catch (error: any) {
+      showSystemAlert(error.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function reopenLaboratory() {
+    if (!reopenRecord || reopenReason.trim().length < 5) {
+      showSystemAlert('Debe indicar el motivo de la correccion');
+      return;
+    }
+    try {
+      setLoading(true);
+      const response = await apiFetch(`/laboratory/${reopenRecord.id}/reopen`, {
+        method: 'PATCH',
+        body: JSON.stringify({ reason: reopenReason })
+      });
+      showSystemAlert(response.message, 'Laboratorio', 'success');
+      setReopenRecord(null);
+      setReopenReason('');
       await loadLaboratory();
     } catch (error: any) {
       showSystemAlert(error.message);
@@ -1085,7 +1225,7 @@ export default function LaboratoryPage() {
   async function expireOldRecords() {
     const confirmed = await showSystemConfirm(
       'Marcar como expirados los laboratorios completos con mas de 6 meses sin retirar?',
-      { title: 'Marcar estudios expirados', confirmLabel: 'Marcar expirados' }
+      { title: 'Archivar estudios antiguos', confirmLabel: 'Archivar' }
     );
 
     if (!confirmed) {
@@ -1142,6 +1282,15 @@ export default function LaboratoryPage() {
 
   return (
     <div>
+      {loading && (
+        <div className="process-spinner-overlay" aria-live="polite" aria-busy="true">
+          <div className="process-spinner-card">
+            <span className="process-spinner" aria-hidden="true" />
+            <strong>Procesando</strong>
+            <span>Espera un momento…</span>
+          </div>
+        </div>
+      )}
       <div className="page-header">
         <div>
           <PageTitle icon="laboratorio">
@@ -1153,7 +1302,7 @@ export default function LaboratoryPage() {
         </div>
 
         <div className="table-actions">
-          {canChangeCompletion && (
+          {canSendWhatsapp && (
             <button
               className="btn-secondary"
               disabled={loading || !whatsappStatus?.isReady}
@@ -1168,13 +1317,13 @@ export default function LaboratoryPage() {
             </button>
           )}
 
-          {canChangeCompletion && (
+          {canDeleteLaboratory && (
             <button
               className="btn-secondary"
               disabled={loading}
               onClick={expireOldRecords}
             >
-              Marcar expirados
+              Archivar antiguos
             </button>
           )}
 
@@ -1223,7 +1372,7 @@ export default function LaboratoryPage() {
         <div className="dashboard-card">
           <h3>Expirados</h3>
           <p>{expiredRecords}</p>
-          <span>{percentOf(expiredRecords, totalRecords)} sin retiro mayor a 6 meses</span>
+          <span>{percentOf(expiredRecords, totalRecords)} archivados, PDF conservados</span>
         </div>
       </div>
 
@@ -1419,13 +1568,8 @@ export default function LaboratoryPage() {
               <th>DNI</th>
               <th>Teléfono</th>
               <th>Prácticas</th>
-              <th>Estado</th>
-              <th>Retiro</th>
-              <th>Retiro por</th>
-              {canSeePickupAudit && (
-                <th>Entregado por</th>
-              )}
-              <th>Aviso WhatsApp</th>
+              <th>Resultado</th>
+              <th>Entrega</th>
               <th>Acciones</th>
             </tr>
           </thead>
@@ -1440,9 +1584,9 @@ export default function LaboratoryPage() {
                   record.expired_previous_status
                 );
 
+              const delivered = Boolean(record.pickup_date || record.whatsapp_notified_at);
               const canModifyRecord =
-                !record.pickup_date ||
-                user?.role === 'admin';
+                !delivered || Boolean(record.workflow_reopened_at);
 
               return (
                 <tr key={record.id}>
@@ -1484,55 +1628,75 @@ export default function LaboratoryPage() {
                     </span>
                   </td>
                   <td>
-                    {record.pickup_date ? (
-                      <span
-                        className={
-                          yesNo(record.is_complete)
-                            ? 'badge badge-info'
-                            : 'badge badge-danger'
-                        }
-                      >
-                        {formatDate(record.pickup_date)}
-                      </span>
-                    ) : (
-                      <span className="badge badge-warning">
-                        Pendiente
-                      </span>
-                    )}
-                  </td>
-                  <td>{record.picked_up_by || '-'}</td>
-                  {canSeePickupAudit && (
-                    <td>
-                      {record.pickup_registered_by_name || '-'}
-                      {record.pickup_registered_at && (
-                        <>
-                          <br />
-                          <span className="muted">
-                            {formatDisplayDateTime(
-                              record.pickup_registered_at
+                    <div className="laboratory-delivery-state">
+                      {!delivered && <span className="badge badge-warning">Pendiente</span>}
+                      {delivered && (
+                        <span className="laboratory-delivery-badge" tabIndex={0}>
+                          <span className="badge badge-success">
+                            {record.whatsapp_notified_at && record.pickup_date
+                              ? 'WhatsApp y Retirado'
+                              : record.whatsapp_notified_at
+                                ? 'WhatsApp'
+                                : 'Retirado'}
+                          </span>
+                          <span className="laboratory-delivery-tooltip" role="tooltip">
+                            <strong>Detalle de entrega</strong>
+                            {record.whatsapp_notified_at && (
+                              <span>
+                                <b>WhatsApp:</b> {formatDisplayDateTime(record.whatsapp_notified_at)}
+                              </span>
+                            )}
+                            {record.pickup_date && (
+                              <>
+                                <span>
+                                  <b>Retirado:</b> {formatDate(record.pickup_date)}
+                                </span>
+                                <span>
+                                  <b>Quien retiro:</b> {record.picked_up_by || 'Titular'}
+                                </span>
+                              </>
                             )}
                           </span>
-                        </>
+                        </span>
                       )}
-                    </td>
-                  )}
-                  <td>
-                    {record.whatsapp_notified_at ? (
-                      <span className="badge badge-success">
-                        {formatDisplayDateTime(record.whatsapp_notified_at)}
-                      </span>
-                    ) : yesNo(record.is_complete) &&
-                      !record.pickup_date &&
-                      record.patient_phone ? (
-                      <span className="badge badge-warning">
-                        Sin avisar
-                      </span>
-                    ) : (
-                      '-'
-                    )}
+                      {record.workflow_reopened_at && (
+                        <span className="badge badge-warning">Reabierto por correccion</span>
+                      )}
+                    </div>
                   </td>
-                  <td>
-                    <div className="table-actions">
+                  <td className="laboratory-actions-cell">
+                    <div className="table-actions laboratory-row-actions">
+                      <input
+                        accept="application/pdf"
+                        id={`laboratory-pdf-${record.id}`}
+                        onChange={(event) => {
+                          void uploadLaboratoryPdf(record, event.target.files?.[0]);
+                          event.currentTarget.value = '';
+                        }}
+                        style={{ display: 'none' }}
+                        type="file"
+                      />
+                      {canManagePdfs && canModifyRecord && record.status !== 'expirado' && (
+                        <IconButton
+                          disabled={loading}
+                          icon="pdf-plus"
+                          label="Agregar PDF"
+                          onClick={() =>
+                            document.getElementById(`laboratory-pdf-${record.id}`)?.click()
+                          }
+                          variant="secondary"
+                        />
+                      )}
+                      {Number(record.result_pdf_count || 0) > 0 && (
+                        <IconButton
+                          className="icon-button-pdf"
+                          disabled={loading}
+                          icon="pdf"
+                          label={`Ver PDF (${record.result_pdf_count})`}
+                          onClick={() => void openPdfManager(record)}
+                          variant="primary"
+                        />
+                      )}
                       {canEdit && canModifyRecord && (
                         <IconButton
                           icon="edit"
@@ -1544,7 +1708,19 @@ export default function LaboratoryPage() {
                         />
                       )}
 
-                      {canEdit && canModifyRecord && (
+                      {canReopen && delivered && !record.workflow_reopened_at && (
+                        <IconButton
+                          icon="unlock"
+                          label="Reabrir por correccion"
+                          onClick={() => {
+                            setReopenReason('');
+                            setReopenRecord(record);
+                          }}
+                          variant="secondary"
+                        />
+                      )}
+
+                      {canDeleteLaboratory && !delivered && (
                         <IconButton
                           disabled={loading}
                           icon="trash"
@@ -1567,9 +1743,11 @@ export default function LaboratoryPage() {
                         />
                       )}
 
-                      {canChangeCompletion &&
+                      {canSendWhatsapp &&
                         yesNo(record.is_complete) &&
                         !record.pickup_date &&
+                        (!record.whatsapp_notified_at || record.workflow_reopened_at) &&
+                        Number(record.result_pdf_count || 0) > 0 &&
                         record.patient_phone && (
                           <IconButton
                             disabled={
@@ -1644,7 +1822,7 @@ export default function LaboratoryPage() {
 
             {records.length === 0 && (
               <tr>
-                <td colSpan={canSeePickupAudit ? 11 : 10}>
+                <td colSpan={8}>
                   No hay estudios para esos filtros.
                 </td>
               </tr>
@@ -1884,6 +2062,93 @@ export default function LaboratoryPage() {
         </div>
       )}
 
+      {reopenRecord && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <button className="modal-close-button" onClick={() => setReopenRecord(null)} type="button">x</button>
+            <h2 className="modal-title">Reabrir por correccion</h2>
+            <p className="page-subtitle">
+              {reopenRecord.patient_last_name} {reopenRecord.patient_first_name}
+            </p>
+            <label className="form-field">
+              <span>Motivo obligatorio</span>
+              <textarea
+                className="form-input"
+                onChange={(event) => setReopenReason(event.target.value)}
+                placeholder="Explica que debe corregirse"
+                rows={4}
+                value={reopenReason}
+              />
+            </label>
+            <div className="modal-actions">
+              <button className="btn-secondary" onClick={() => setReopenRecord(null)} type="button">Cancelar</button>
+              <button className="btn-primary" disabled={loading} onClick={() => void reopenLaboratory()} type="button">
+                Reabrir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {pdfRecord && (
+        <div className="modal-overlay">
+          <div className="modal-content modal-content-wide">
+            <button
+              aria-label="Cerrar"
+              className="modal-close-button"
+              onClick={() => setPdfRecord(null)}
+              type="button"
+            >
+              x
+            </button>
+            <h2 className="modal-title">PDF de resultados</h2>
+            <p className="page-subtitle">
+              {pdfRecord.patient_last_name} {pdfRecord.patient_first_name}
+            </p>
+            {pdfDocuments.length ? (
+              <div className="table-responsive">
+                <table>
+                  <thead>
+                    <tr><th>Archivo</th><th>Cargado</th><th>Usuario</th><th>Acciones</th></tr>
+                  </thead>
+                  <tbody>
+                    {pdfDocuments.map((pdf) => (
+                      <tr key={pdf.id}>
+                        <td>{pdf.file_name}</td>
+                        <td>{formatDisplayDateTime(pdf.uploaded_at)}</td>
+                        <td>{pdf.uploaded_by_name || '-'}</td>
+                        <td>
+                          <div className="table-actions">
+                            <IconButton
+                              className="icon-button-pdf"
+                              icon="pdf"
+                              label="Ver e imprimir PDF"
+                              onClick={() => void openLaboratoryPdf(pdfRecord, pdf.id)}
+                              variant="primary"
+                            />
+                            {canManagePdfs && (
+                              <IconButton
+                                disabled={loading}
+                                icon="trash"
+                                label="Quitar PDF"
+                                onClick={() => void removeLaboratoryPdf(pdf)}
+                                variant="danger"
+                              />
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="form-note">No hay archivos PDF cargados.</p>
+            )}
+          </div>
+        </div>
+      )}
+
       {whatsappRecord && (
         <div className="modal-overlay">
           <div className="modal-content">
@@ -1908,6 +2173,12 @@ export default function LaboratoryPage() {
 
             <p>
               Se enviara un aviso al telefono {whatsappRecord.patient_phone}.
+            </p>
+
+            <p className="form-note">
+              {Number(whatsappRecord.result_pdf_count || 0) > 0
+                ? `Tambien se adjuntaran ${whatsappRecord.result_pdf_count} archivo${Number(whatsappRecord.result_pdf_count) === 1 ? '' : 's'} PDF.`
+                : 'Este laboratorio no tiene archivos PDF cargados; se enviara solamente el aviso.'}
             </p>
 
             {whatsappRecord.whatsapp_notified_at && (

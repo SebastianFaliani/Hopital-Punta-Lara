@@ -214,10 +214,10 @@ export default function UserAccessModal({
                 <table className="access-permission-table">
                   <thead>
                     <tr>
-                      <th>Modulo</th>
-                      <th>Permiso</th>
-                      <th>Habilitado</th>
-                      <th>Origen</th>
+                      <th className="access-module-column">Modulo</th>
+                      <th className="access-permission-column">Permiso</th>
+                      <th className="access-enabled-column">Habilitado</th>
+                      <th className="access-source-column">Origen</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -249,20 +249,22 @@ export default function UserAccessModal({
                         return sortedItems.map(
                           (permission, index) => (
                             <tr key={permission.permission_key}>
-                              {index === 0 && (
-                                <td rowSpan={sortedItems.length}>
+                              <td className="access-module-column">
+                                {index === 0 && (
                                   <strong>{moduleName}</strong>
-                                </td>
-                              )}
-                              <td>
-                                <strong>
-                                  {permission.description}
-                                </strong>
-                                <span>
-                                  {permission.permission_key}
-                                </span>
+                                )}
                               </td>
-                              <td>
+                              <td className="access-permission-column">
+                                <div className="access-permission-description">
+                                  <strong>
+                                    {permission.description}
+                                  </strong>
+                                  <span>
+                                    {permission.permission_key}
+                                  </span>
+                                </div>
+                              </td>
+                              <td className="access-enabled-column">
                                 <input
                                   type="checkbox"
                                   aria-label={
@@ -280,7 +282,7 @@ export default function UserAccessModal({
                                   }
                                 />
                               </td>
-                              <td>
+                              <td className="access-source-column">
                                 <span className="permission-source">
                                   {
                                     permission.source ===

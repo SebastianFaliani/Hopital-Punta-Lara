@@ -6,7 +6,8 @@
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
-    "whatsapp:agent": "node dist/whatsapp-agent.js"
+    "whatsapp:agent": "node dist/whatsapp-agent.js",
+    "drive:authorize": "node dist/drive-authorize.js"
   },
   "keywords": [],
   "author": "",
@@ -18,7 +19,9 @@
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
+    "googleapis": "^173.0.0",
     "jsonwebtoken": "^9.0.3",
+    "multer": "^2.2.0",
     "mysql2": "^3.22.3",
     "nodemailer": "^8.0.7",
     "qrcode": "^1.5.4",
@@ -30,6 +33,7 @@
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/jsonwebtoken": "^9.0.10",
+    "@types/multer": "^2.2.0",
     "@types/node": "^25.7.0",
     "@types/nodemailer": "^8.0.0",
     "ts-node-dev": "^2.0.0"

@@ -1,4 +1,5 @@
 import { pool } from '../../config/database';
+import { ensureLaboratoryPdfSchema } from './laboratory-pdf.service';
 
 type LaboratoryFilters = {
   search?: string;
@@ -558,6 +559,9 @@ async function syncLaboratoryRecordStatus(
         completed_at = ?,
         completed_by = ?,
         updated_by = ?
+        , workflow_reopened_at = NULL
+        , workflow_reopened_by = NULL
+        , workflow_reopen_reason = NULL
       WHERE id = ?
     `,
     [
@@ -609,6 +613,7 @@ async function replaceRequestedTests(
 export async function getLaboratoryRecords(
   filters: LaboratoryFilters
 ) {
+  await ensureLaboratoryPdfSchema();
   const hasPhoneColumn =
     await hasPatientPhoneColumn();
 
@@ -722,6 +727,11 @@ export async function getLaboratoryRecords(
               ? 'laboratory_records.whatsapp_notified_by'
               : 'NULL'
           } AS whatsapp_notified_by,
+          (SELECT COUNT(*) FROM laboratory_result_pdfs lrp
+           WHERE lrp.laboratory_record_id = laboratory_records.id) AS result_pdf_count,
+          laboratory_records.workflow_reopened_at,
+          laboratory_records.workflow_reopened_by,
+          laboratory_records.workflow_reopen_reason,
           laboratory_records.notes,
           laboratory_records.created_at,
           laboratory_records.updated_at,
@@ -854,6 +864,7 @@ export async function getLaboratoryTestCatalog() {
 export async function getLaboratoryRecordById(
   id: number
 ) {
+  await ensureLaboratoryPdfSchema();
   const [
     hasPatientId,
     hasPhoneColumn,
@@ -1200,11 +1211,31 @@ export async function getPendingLaboratoryWhatsappNotifications() {
        AND lr.pickup_date IS NULL
        AND lr.whatsapp_notified_at IS NULL
        AND lr.status <> 'expirado'
+       AND EXISTS (
+         SELECT 1 FROM laboratory_result_pdfs lrp
+         WHERE lrp.laboratory_record_id = lr.id
+       )
        AND NULLIF(TRIM(${phoneExpression}), '') IS NOT NULL
      ORDER BY lr.study_date ASC, lr.id ASC`
   );
 
   return rows;
+}
+
+export async function reopenLaboratoryWorkflow(
+  id: number,
+  reason: string,
+  userId?: number
+) {
+  await ensureLaboratoryPdfSchema();
+  const [result]: any = await pool.execute(
+    `UPDATE laboratory_records
+     SET workflow_reopened_at = NOW(), workflow_reopened_by = ?,
+       workflow_reopen_reason = ?, updated_by = ?
+     WHERE id = ? AND (pickup_date IS NOT NULL OR whatsapp_notified_at IS NOT NULL)`,
+    [userId || null, reason.slice(0, 500), userId || null, id]
+  );
+  return Number(result.affectedRows || 0) > 0;
 }
 
 export async function expireOldLaboratoryRecords(
@@ -1388,7 +1419,10 @@ export async function registerLaboratoryPickup(
         }
         status = 'retirado',
         notes = ?,
-        updated_by = ?
+        updated_by = ?,
+        workflow_reopened_at = NULL,
+        workflow_reopened_by = NULL,
+        workflow_reopen_reason = NULL
       WHERE id = ?
     `,
     [

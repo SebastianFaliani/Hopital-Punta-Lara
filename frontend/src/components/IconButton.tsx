@@ -16,6 +16,8 @@ type IconButtonIcon =
   | 'message'
   | 'whatsapp'
   | 'message-check'
+  | 'pdf'
+  | 'pdf-plus'
   | 'lock'
   | 'unlock';
 
@@ -41,6 +43,8 @@ const iconPaths: Record<IconButtonIcon, string> = {
   message: 'M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4Z',
   whatsapp: 'M20 11.5a8 8 0 0 1-11.9 7L4 20l1.5-4A8 8 0 1 1 20 11.5ZM8.5 8.5c.2 3.8 3.2 6.6 6.9 7 .7.1 1.5-.9 1.6-1.4l-2.1-1c-.4.5-.7.8-1.2.7-1.4-.3-3.1-1.9-3.4-3.3-.1-.5.3-.8.7-1.2l-1-2.1c-.7.1-1.6.6-1.5 1.3Z',
   'message-check': 'M3 12.5 7 16.5 15 6.5M10 12.5 14 16.5 22 6.5',
+  pdf: 'M6 2h9l5 5v15H6Z M14 2v6h6 M8.5 17v-5h2a1.5 1.5 0 0 1 0 3h-2 M13 17v-5h1.5a2 2 0 0 1 0 4H13 M17 12h3M17 14h2',
+  'pdf-plus': 'M5 2h9l5 5v5M13 2v6h6M8 12v8M4 16h8M15 17h7M18.5 13.5v7',
   lock: 'M7 11V7a5 5 0 0 1 10 0v4M6 11h12v10H6Z',
   unlock: 'M7 11V7a5 5 0 0 1 9.5-2.2M6 11h12v10H6Z'
 };

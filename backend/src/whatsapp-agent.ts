@@ -2,6 +2,7 @@ import dotenv from 'dotenv';
 import os from 'os';
 import {
   getWhatsappWebStatus,
+  sendWhatsappDocumentMessage,
   sendWhatsappTextMessage,
   startWhatsappWebSession,
   stopWhatsappWebSession
@@ -26,6 +27,18 @@ async function api(path: string, body: unknown) {
   const payload: any = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(payload.message || `API HTTP ${response.status}`);
   return payload;
+}
+
+async function downloadAttachment(jobId: number, attachment: { id: number; name: string }) {
+  const response = await fetch(
+    `${baseUrl}/whatsapp/agent/jobs/${jobId}/attachments/${attachment.id}`,
+    { headers: { 'x-whatsapp-agent-key': key }, signal: AbortSignal.timeout(60000) }
+  );
+  if (!response.ok) {
+    const payload: any = await response.json().catch(() => ({}));
+    throw new Error(payload.message || `No se pudo descargar ${attachment.name}`);
+  }
+  return Buffer.from(await response.arrayBuffer());
 }
 
 async function ensureConnected() {
@@ -76,6 +89,12 @@ async function cycle() {
   for (const job of payload.data || []) {
     let sent = false;
     try {
+      const attachments = typeof job.attachments_json === 'string'
+        ? JSON.parse(job.attachments_json) : (job.attachments_json || []);
+      for (const attachment of attachments) {
+        const buffer = await downloadAttachment(job.id, attachment);
+        await sendWhatsappDocumentMessage(job.phone, buffer, attachment.name);
+      }
       await sendWhatsappTextMessage(job.phone, job.message);
       sent = true;
       await reportWithRetry(job.id, { agent_id: agentId, success: true });
@@ -94,7 +113,10 @@ async function cycle() {
 }
 
 async function main() {
-  if (!baseUrl || !/^https:\/\//i.test(baseUrl)) throw new Error('WHATSAPP_AGENT_API_URL debe ser una URL HTTPS');
+  const localDevelopmentUrl = /^http:\/\/(?:127\.0\.0\.1|localhost)(?::\d+)?$/i.test(baseUrl);
+  if (!baseUrl || (!/^https:\/\//i.test(baseUrl) && !localDevelopmentUrl)) {
+    throw new Error('WHATSAPP_AGENT_API_URL debe usar HTTPS, salvo localhost en desarrollo');
+  }
   if (key.length < 32) throw new Error('WHATSAPP_AGENT_KEY debe tener al menos 32 caracteres');
   console.log(`[agente] Iniciado como ${agentId}. No abre puertos locales.`);
   while (!stopping) {
