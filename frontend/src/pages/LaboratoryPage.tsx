@@ -1664,8 +1664,8 @@ export default function LaboratoryPage() {
                       )}
                     </div>
                   </td>
-                  <td>
-                    <div className="table-actions">
+                  <td className="laboratory-actions-cell">
+                    <div className="table-actions laboratory-row-actions">
                       <input
                         accept="application/pdf"
                         id={`laboratory-pdf-${record.id}`}

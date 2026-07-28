@@ -1568,6 +1568,16 @@
   gap: 5px;
 }
 
+.laboratory-actions-cell {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.table-actions.laboratory-row-actions {
+  min-width: max-content;
+  flex-wrap: nowrap;
+}
+
 .laboratory-delivery-badge {
   position: relative;
   display: inline-flex;
