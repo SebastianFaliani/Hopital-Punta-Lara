@@ -571,6 +571,11 @@
     flex-wrap: nowrap;
   }
 
+  table td > .table-actions {
+    min-width: max-content;
+    flex-wrap: nowrap;
+  }
+
   .btn-primary,
   .btn-secondary,
   .btn-success,
