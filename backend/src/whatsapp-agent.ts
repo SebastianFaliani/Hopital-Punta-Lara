@@ -18,6 +18,7 @@ const pollMs = Math.max(1000, Number(process.env.WHATSAPP_AGENT_POLL_MS || 5000)
 let stopping = false;
 let lastQr = '';
 let starting: Promise<unknown> | null = null;
+let heartbeatInFlight = false;
 
 async function api(path: string, body: unknown) {
   const response = await fetch(`${baseUrl}${path}`, {
@@ -78,12 +79,29 @@ async function reportWithRetry(id: number, body: unknown) {
   throw lastError;
 }
 
+async function reportHeartbeat() {
+  if (heartbeatInFlight) return;
+  heartbeatInFlight = true;
+
+  try {
+    const status = getWhatsappWebStatus();
+    await api('/whatsapp/agent/heartbeat', {
+      agent_id: agentId,
+      status: {
+        isReady: status.isReady,
+        status: status.status,
+        phone: status.phone,
+        lastEvent: status.lastEvent
+      }
+    });
+  } finally {
+    heartbeatInFlight = false;
+  }
+}
+
 async function cycle() {
   const status = await ensureConnected();
-  await api('/whatsapp/agent/heartbeat', {
-    agent_id: agentId,
-    status: { isReady: status.isReady, status: status.status, phone: status.phone, lastEvent: status.lastEvent }
-  });
+  await reportHeartbeat();
   if (!status.isReady) return;
   const payload = await api('/whatsapp/agent/jobs/claim', { agent_id: agentId, limit: 5 });
   for (const job of payload.data || []) {
@@ -119,10 +137,18 @@ async function main() {
   }
   if (key.length < 32) throw new Error('WHATSAPP_AGENT_KEY debe tener al menos 32 caracteres');
   console.log(`[agente] Iniciado como ${agentId}. No abre puertos locales.`);
+
+  const heartbeatTimer = setInterval(() => {
+    void reportHeartbeat().catch((error: any) => {
+      console.error(`[agente] No se pudo informar el estado: ${error.message}`);
+    });
+  }, 10000);
+
   while (!stopping) {
     try { await cycle(); } catch (error: any) { console.error(`[agente] ${error.message}`); }
     await new Promise((resolve) => setTimeout(resolve, pollMs));
   }
+  clearInterval(heartbeatTimer);
 }
 
 process.on('SIGINT', () => { stopping = true; });

@@ -90,7 +90,7 @@ export async function getWhatsappDeliveryStatus() {
   await ensureWhatsappOutboxSchema();
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT agent_id, is_ready, status, phone, last_event, last_seen,
-       last_seen >= DATE_SUB(NOW(), INTERVAL 20 SECOND) AS is_online
+       last_seen >= DATE_SUB(NOW(), INTERVAL 45 SECOND) AS is_online
      FROM whatsapp_agent_status ORDER BY last_seen DESC LIMIT 1`
   );
   const agent = rows[0];
