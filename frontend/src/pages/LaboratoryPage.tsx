@@ -467,7 +467,9 @@ export default function LaboratoryPage() {
         : '';
     }, [filters]);
 
-  async function loadLaboratory() {
+  async function loadLaboratory(
+    silent = false
+  ) {
     try {
       const [recordsRes, statsRes] =
         await Promise.all([
@@ -489,7 +491,9 @@ export default function LaboratoryPage() {
         ...statsRes.data
       });
     } catch (error: any) {
-      showSystemAlert(error.message);
+      if (!silent) {
+        showSystemAlert(error.message);
+      }
     }
   }
 
@@ -524,6 +528,22 @@ export default function LaboratoryPage() {
     return () =>
       window.clearInterval(interval);
   }, [canSendWhatsapp]);
+
+  useEffect(() => {
+    if (!canView) {
+      return;
+    }
+
+    const interval =
+      window.setInterval(() => {
+        if (document.visibilityState === 'visible') {
+          void loadLaboratory(true);
+        }
+      }, 10000);
+
+    return () =>
+      window.clearInterval(interval);
+  }, [canView, queryString]);
 
   useEffect(() => {
     if (!showForm) {
