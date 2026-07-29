@@ -118,6 +118,59 @@ export async function queueWhatsappTextMessage(
 ) {
   await ensureWhatsappOutboxSchema();
   const maxAttempts = Math.max(1, Number(process.env.WHATSAPP_QUEUE_MAX_ATTEMPTS || 5));
+
+  if (options?.referenceType && options.referenceId) {
+    const [result] = await pool.execute<ResultSetHeader>(
+      `INSERT INTO whatsapp_outbox
+         (phone, message, source, max_attempts, attachments_json,
+          reference_type, reference_id, requested_by)
+       SELECT ?, ?, ?, ?, ?, ?, ?, ?
+       FROM DUAL
+       WHERE NOT EXISTS (
+         SELECT 1
+         FROM whatsapp_outbox
+         WHERE reference_type = ?
+           AND reference_id = ?
+           AND status IN ('pending', 'processing')
+       )`,
+      [
+        phone,
+        message,
+        source,
+        maxAttempts,
+        options.attachments?.length
+          ? JSON.stringify(options.attachments)
+          : null,
+        options.referenceType,
+        options.referenceId,
+        options.requestedBy || null,
+        options.referenceType,
+        options.referenceId
+      ]
+    );
+
+    if (result.insertId) {
+      return result.insertId;
+    }
+
+    const [existing] =
+      await pool.query<RowDataPacket[]>(
+        `SELECT id
+         FROM whatsapp_outbox
+         WHERE reference_type = ?
+           AND reference_id = ?
+           AND status IN ('pending', 'processing')
+         ORDER BY id DESC
+         LIMIT 1`,
+        [
+          options.referenceType,
+          options.referenceId
+        ]
+      );
+
+    return Number(existing[0]?.id || 0);
+  }
+
   const [result] = await pool.execute<ResultSetHeader>(
     `INSERT INTO whatsapp_outbox
        (phone, message, source, max_attempts, attachments_json, reference_type, reference_id, requested_by)
