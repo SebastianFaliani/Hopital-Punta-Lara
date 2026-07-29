@@ -212,6 +212,51 @@ function withTimeout<T>(
   ]).finally(() => clearTimeout(timeout));
 }
 
+async function ensureWhatsappWebFunctions() {
+  const page: any = client?.pupPage;
+
+  if (!page) {
+    throw new Error(
+      'WhatsApp perdio la pagina de conexion. Reinicia la conexion y volve a intentar.'
+    );
+  }
+
+  const hasRequiredFunctions =
+    await page.evaluate(() => {
+      const web = (window as any).WWebJS;
+
+      return (
+        typeof web?.sendMessage === 'function' &&
+        typeof web?.processMediaData === 'function'
+      );
+    });
+
+  if (!hasRequiredFunctions) {
+    const {
+      LoadUtils
+    } =
+      require('whatsapp-web.js/src/util/Injected/Utils');
+
+    await page.evaluate(LoadUtils);
+  }
+
+  const injectionReady =
+    await page.evaluate(() => {
+      const web = (window as any).WWebJS;
+
+      return (
+        typeof web?.sendMessage === 'function' &&
+        typeof web?.processMediaData === 'function'
+      );
+    });
+
+  if (!injectionReady) {
+    throw new Error(
+      'WhatsApp Web no termino de cargar las funciones de envio.'
+    );
+  }
+}
+
 async function resolveWhatsappRecipient(
   phone: string
 ) {
@@ -444,6 +489,8 @@ export async function sendWhatsappTextMessage(
     );
   }
 
+  await ensureWhatsappWebFunctions();
+
   const recipient =
     await resolveWhatsappRecipient(phone);
 
@@ -549,6 +596,9 @@ export async function sendWhatsappDocumentMessage(
   if (!client || !state.isReady) {
     throw new Error('WhatsApp no esta conectado');
   }
+
+  await ensureWhatsappWebFunctions();
+
   const recipient = await resolveWhatsappRecipient(phone);
   const page: any = (client as any).pupPage;
 
@@ -782,11 +832,25 @@ export async function startWhatsappWebSession() {
 
   client.on(
     'ready',
-    () => {
+    async () => {
       if (syncFallbackTimer) {
         clearTimeout(syncFallbackTimer);
         syncFallbackTimer = null;
       }
+
+      try {
+        await ensureWhatsappWebFunctions();
+      } catch (error: any) {
+        initializing = false;
+        state.isReady = false;
+        setEvent(
+          'failed',
+          error?.message ||
+            'WhatsApp Web no termino de cargar las funciones de envio'
+        );
+        return;
+      }
+
       initializing = false;
       whatsappAuthenticated = true;
       state.isReady = true;
