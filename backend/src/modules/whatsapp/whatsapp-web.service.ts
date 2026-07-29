@@ -474,10 +474,18 @@ export async function sendWhatsappTextMessage(
         browserWindow.__hospitalWhatsappChats[chatId];
 
       if (!chat) {
-        chat = await browserWindow.WWebJS.getChat(
-          chatId,
-          { getAsModel: false }
-        );
+        const chatWid = browserWindow
+          .require('WAWebWidFactory')
+          .createWid(chatId);
+        chat =
+          browserWindow
+            .require('WAWebCollections')
+            .Chat.get(chatWid) ||
+          (
+            await browserWindow
+              .require('WAWebFindChatAction')
+              .findOrCreateLatestChat(chatWid)
+          )?.chat;
         browserWindow.__hospitalWhatsappChats[chatId] = chat;
       }
 
@@ -542,15 +550,67 @@ export async function sendWhatsappDocumentMessage(
     throw new Error('WhatsApp no esta conectado');
   }
   const recipient = await resolveWhatsappRecipient(phone);
-  const { MessageMedia } = require('whatsapp-web.js');
-  const media = new MessageMedia('application/pdf', buffer.toString('base64'), fileName);
+  const page: any = (client as any).pupPage;
+
+  if (!page) {
+    throw new Error(
+      'WhatsApp perdio la pagina de conexion. Reinicia la conexion y volve a intentar.'
+    );
+  }
+
   setEvent('connected', `Enviando ${fileName} a ${recipient.replace(/@.+$/, '')}`);
+
   await withTimeout(
-    client.sendMessage(recipient, media, {
+    page.evaluate(
+      async (
+        media: {
+          mimetype: string;
+          data: string;
+          filename: string;
+        },
+        documentCaption: string,
+        chatId: string
+      ) => {
+        const browserWindow: any = window;
+        const chatWid = browserWindow
+          .require('WAWebWidFactory')
+          .createWid(chatId);
+        const chat =
+          browserWindow
+            .require('WAWebCollections')
+            .Chat.get(chatWid) ||
+          (
+            await browserWindow
+              .require('WAWebFindChatAction')
+              .findOrCreateLatestChat(chatWid)
+          )?.chat;
+
+        if (!chat) {
+          throw new Error(
+            'WhatsApp no encontro la conversacion del telefono indicado.'
+          );
+        }
+
+        return Boolean(
+          await browserWindow.WWebJS.sendMessage(
+            chat,
+            '',
+            {
+              media,
+              caption: documentCaption,
+              sendMediaAsDocument: true
+            }
+          )
+        );
+      },
+      {
+        mimetype: 'application/pdf',
+        data: buffer.toString('base64'),
+        filename: fileName
+      },
       caption,
-      sendMediaAsDocument: true,
-      sendSeen: false
-    }),
+      recipient
+    ),
     60000,
     `WhatsApp no pudo enviar el archivo ${fileName}.`
   );
