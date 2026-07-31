@@ -1074,6 +1074,10 @@
   object-fit: contain;
 }
 
+.planned-off-organization-logo {
+  justify-self: start;
+}
+
 .planned-off-sheet-header h1,
 .planned-off-sheet-header h2 {
   margin: 0 0 1.5mm;

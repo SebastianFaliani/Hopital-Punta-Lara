@@ -10781,22 +10781,46 @@ function PlannedDaysOffPrintModal({
             const plannedDays =
               new Set(employee.planned_off_days);
 
+            const isMunicipalSector =
+              (employee.department_name || '')
+                .trim()
+                .toLocaleUpperCase('es-AR') ===
+              'MUNICIPALES';
+
             return (
               <section
                 className="planned-off-print-page"
                 key={employee.id}
               >
                 <header className="planned-off-sheet-header">
-                  <div className="planned-off-sheet-logo">
+                  <div className="planned-off-sheet-logo planned-off-organization-logo">
                     <img
-                      src="/menu-icons/sigsa-logo.png"
-                      alt="SIGSA"
+                      src={
+                        isMunicipalSector
+                          ? '/menu-icons/municipalidad-logo.png'
+                          : '/menu-icons/ministerio%20de%20salud-logo.png'
+                      }
+                      alt={
+                        isMunicipalSector
+                          ? 'Municipalidad de Ensenada'
+                          : 'Ministerio de Salud'
+                      }
                     />
                   </div>
                   <div>
-                    <h1>SECRETARIA DE SALUD Y MEDIO AMBIENTE</h1>
-                    <h2>DIRECCION DE SALUD Y ATENCION PRIMARIA</h2>
-                    <h2>MUNICIPALIDAD DE ENSENADA</h2>
+                    <h1>
+                      {
+                        isMunicipalSector
+                          ? 'SECRETARIA DE SALUD Y MEDIO AMBIENTE'
+                          : 'MINISTERIO DE SALUD'
+                      }
+                    </h1>
+                    {isMunicipalSector && (
+                      <>
+                        <h2>DIRECCION DE SALUD Y ATENCION PRIMARIA</h2>
+                        <h2>MUNICIPALIDAD DE ENSENADA</h2>
+                      </>
+                    )}
                   </div>
                 </header>
 
