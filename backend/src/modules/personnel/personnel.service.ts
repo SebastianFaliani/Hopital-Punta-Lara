@@ -1905,9 +1905,8 @@ async function ensureVacationBalance(
       )
       VALUES (?, ?, ?, ?, ?, ?)
       ON DUPLICATE KEY UPDATE
-        allowed_days = GREATEST(allowed_days, VALUES(allowed_days)),
         used_days = VALUES(used_days),
-        remaining_days = GREATEST(allowed_days, VALUES(allowed_days)) - VALUES(used_days)
+        remaining_days = allowed_days - VALUES(used_days)
     `,
     [
       employeeId,
