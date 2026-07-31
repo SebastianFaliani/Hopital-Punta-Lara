@@ -10840,7 +10840,14 @@ function PlannedDaysOffPrintModal({
                   </thead>
                   <tbody>
                     {dayNumbers.map((day) => (
-                      <tr key={day}>
+                      <tr
+                        key={day}
+                        className={
+                          plannedDays.has(day)
+                            ? 'planned-off-row'
+                            : ''
+                        }
+                      >
                         <td>{day}</td>
                         <td />
                         <td />

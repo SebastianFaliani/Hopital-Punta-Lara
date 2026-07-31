@@ -1152,8 +1152,14 @@
   width: 31mm;
 }
 
+.planned-off-sheet-table .planned-off-row td {
+  background: #e5e7eb !important;
+  box-shadow: inset 0 0 0 1000px #e5e7eb;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
 .planned-off-sheet-table .planned-off-mark {
-  background: #e5e7eb;
   font-weight: 700;
   letter-spacing: .4px;
 }
