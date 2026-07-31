@@ -10686,7 +10686,7 @@ function PlannedDaysOffPrintModal({
     );
 
   return (
-    <div className="modal-overlay">
+    <div className="modal-overlay planned-off-print-overlay">
       <div className="modal-content modal-content-wide planned-off-print-modal">
         <div className="permission-print-actions">
           <button

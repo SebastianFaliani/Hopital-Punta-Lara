@@ -1186,6 +1186,11 @@
 
 @media print {
 
+  @page {
+    size: A4 portrait;
+    margin: 0;
+  }
+
   body * {
 
     visibility: hidden;
@@ -1299,8 +1304,27 @@
     background: #ffffff;
   }
 
+  .planned-off-print-overlay {
+    position: static;
+    display: block;
+    width: auto;
+    height: auto;
+    background: transparent;
+  }
+
+  .planned-off-print-overlay .planned-off-print-modal {
+    position: static;
+    width: auto;
+    max-width: none;
+    max-height: none;
+    overflow: visible;
+    padding: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
   .planned-off-print-area {
-    position: absolute;
+    position: static;
     left: 0;
     top: 0;
     width: 100%;
