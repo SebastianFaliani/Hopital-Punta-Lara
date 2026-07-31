@@ -352,13 +352,29 @@ function buildWhereClause(
 
   if (filters.pickup_status === 'retirado') {
     where.push(
-      'laboratory_records.pickup_date IS NOT NULL'
+      `laboratory_records.pickup_date IS NOT NULL
+       AND laboratory_records.whatsapp_notified_at IS NULL`
     );
   }
 
   if (filters.pickup_status === 'pendiente') {
     where.push(
-      'laboratory_records.pickup_date IS NULL'
+      `laboratory_records.pickup_date IS NULL
+       AND laboratory_records.whatsapp_notified_at IS NULL`
+    );
+  }
+
+  if (filters.pickup_status === 'whatsapp') {
+    where.push(
+      `laboratory_records.whatsapp_notified_at IS NOT NULL
+       AND laboratory_records.pickup_date IS NULL`
+    );
+  }
+
+  if (filters.pickup_status === 'whatsapp_retirado') {
+    where.push(
+      `laboratory_records.whatsapp_notified_at IS NOT NULL
+       AND laboratory_records.pickup_date IS NOT NULL`
     );
   }
 
@@ -1155,7 +1171,10 @@ export async function markLaboratoryWhatsappNotified(
             ? 'whatsapp_notified_by = ?,'
             : ''
         }
-        updated_by = ?
+        updated_by = ?,
+        workflow_reopened_at = NULL,
+        workflow_reopened_by = NULL,
+        workflow_reopen_reason = NULL
       WHERE id = ?
     `,
     [

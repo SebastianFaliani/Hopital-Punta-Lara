@@ -1490,9 +1490,11 @@ export default function LaboratoryPage() {
             })
           }
         >
-          <option value="todos">Todos los retiros</option>
-          <option value="pendiente">Pendientes</option>
-          <option value="retirado">Retirados</option>
+          <option value="todos">Todas las entregas</option>
+          <option value="pendiente">Pendiente</option>
+          <option value="whatsapp">WhatsApp</option>
+          <option value="retirado">Retirado</option>
+          <option value="whatsapp_retirado">WhatsApp y Retirado</option>
         </select>
 
         <button
@@ -1679,9 +1681,6 @@ export default function LaboratoryPage() {
                           </span>
                         </span>
                       )}
-                      {record.workflow_reopened_at && (
-                        <span className="badge badge-warning">Reabierto por correccion</span>
-                      )}
                     </div>
                   </td>
                   <td className="laboratory-actions-cell">
@@ -1774,15 +1773,11 @@ export default function LaboratoryPage() {
                               loading ||
                               !whatsappStatus?.isReady
                             }
-                            icon={
-                              record.whatsapp_notified_at
-                                ? 'message-check'
-                                : 'whatsapp'
-                            }
+                            icon="whatsapp"
                             label={
                               whatsappStatus?.isReady
-                                ? record.whatsapp_notified_at
-                                  ? 'Aviso de WhatsApp enviado'
+                                ? record.workflow_reopened_at
+                                  ? 'Reenviar por WhatsApp'
                                   : 'Avisar por WhatsApp'
                                 : 'WhatsApp no esta conectado'
                             }
@@ -1790,12 +1785,14 @@ export default function LaboratoryPage() {
                               setWhatsappRecord(record)
                             }
                             className={
-                              record.whatsapp_notified_at
+                              record.whatsapp_notified_at &&
+                              !record.workflow_reopened_at
                                 ? 'laboratory-whatsapp-sent'
                                 : ''
                             }
                             variant={
-                              record.whatsapp_notified_at
+                              record.whatsapp_notified_at &&
+                              !record.workflow_reopened_at
                                 ? 'secondary'
                                 : 'success'
                             }
