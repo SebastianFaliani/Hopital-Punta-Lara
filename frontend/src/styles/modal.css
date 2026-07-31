@@ -1028,6 +1028,162 @@
   font-size: 11px;
 }
 
+.planned-off-print-modal {
+  max-width: 980px;
+}
+
+.planned-off-print-area {
+  max-height: 78vh;
+  overflow: auto;
+  background: #d1d5db;
+  padding: 18px;
+}
+
+.planned-off-print-page {
+  box-sizing: border-box;
+  width: 210mm;
+  min-height: 297mm;
+  margin: 0 auto 18px;
+  padding: 14mm 17mm 12mm;
+  background: #fff;
+  color: #111827;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.planned-off-sheet-header {
+  display: grid;
+  grid-template-columns: 25mm 1fr 25mm;
+  align-items: center;
+  min-height: 24mm;
+  margin-bottom: 5mm;
+  text-align: center;
+}
+
+.planned-off-sheet-logo {
+  display: flex;
+  width: 21mm;
+  height: 21mm;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed #9ca3af;
+  color: #9ca3af;
+  font-size: 9px;
+}
+
+.planned-off-sheet-header h1,
+.planned-off-sheet-header h2 {
+  margin: 0 0 1.5mm;
+  font-size: 13px;
+  line-height: 1.15;
+}
+
+.planned-off-sheet-header h2 {
+  font-size: 11px;
+}
+
+.planned-off-sheet-details {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  column-gap: 14mm;
+  row-gap: 3mm;
+  margin-bottom: 4mm;
+  font-size: 10px;
+}
+
+.planned-off-sheet-details p {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 3mm;
+  margin: 0;
+  min-width: 0;
+}
+
+.planned-off-sheet-details span {
+  text-decoration: underline;
+}
+
+.planned-off-sheet-details strong {
+  overflow: hidden;
+  border-bottom: 1px dotted #4b5563;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.planned-off-sheet-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 9px;
+}
+
+.planned-off-sheet-table th,
+.planned-off-sheet-table td {
+  height: 5.5mm;
+  padding: 0 1.5mm;
+  border: 1px solid #111827;
+  text-align: center;
+}
+
+.planned-off-sheet-table th {
+  height: 6mm;
+  font-size: 8px;
+  font-weight: 700;
+}
+
+.planned-off-sheet-table th:first-child {
+  width: 8mm;
+}
+
+.planned-off-sheet-table th:nth-child(2),
+.planned-off-sheet-table th:nth-child(4) {
+  width: 25mm;
+}
+
+.planned-off-sheet-table th:nth-child(3),
+.planned-off-sheet-table th:nth-child(5) {
+  width: 27mm;
+}
+
+.planned-off-sheet-table th:last-child {
+  width: 31mm;
+}
+
+.planned-off-sheet-table .planned-off-mark {
+  background: #e5e7eb;
+  font-weight: 700;
+  letter-spacing: .4px;
+}
+
+.planned-off-sheet-observations {
+  display: flex;
+  gap: 3mm;
+  align-items: flex-end;
+  margin-top: 5mm;
+  font-size: 9px;
+}
+
+.planned-off-sheet-observations div {
+  flex: 1;
+  height: 5mm;
+  border-bottom: 1px solid #111827;
+}
+
+.planned-off-sheet-signature {
+  width: 75mm;
+  margin: 13mm auto 0;
+  text-align: center;
+  font-size: 9px;
+}
+
+.planned-off-sheet-signature span {
+  display: block;
+  border-top: 1px solid #111827;
+}
+
+.planned-off-sheet-signature p {
+  margin: 2mm 0 0;
+}
+
 @media print {
 
   body * {
@@ -1040,7 +1196,9 @@
   .leave-summary-print-area,
   .leave-summary-print-area *,
   .employee-leaves-print-area,
-  .employee-leaves-print-area * {
+  .employee-leaves-print-area *,
+  .planned-off-print-area,
+  .planned-off-print-area * {
 
     visibility: visible;
   }
@@ -1139,5 +1297,30 @@
     padding: 0;
 
     background: #ffffff;
+  }
+
+  .planned-off-print-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    max-height: none;
+    overflow: visible;
+    padding: 0;
+    background: #ffffff;
+  }
+
+  .planned-off-print-page {
+    width: auto;
+    min-height: 0;
+    margin: 0;
+    padding: 10mm 14mm 9mm;
+    break-after: page;
+    page-break-after: always;
+  }
+
+  .planned-off-print-page:last-child {
+    break-after: auto;
+    page-break-after: auto;
   }
 }

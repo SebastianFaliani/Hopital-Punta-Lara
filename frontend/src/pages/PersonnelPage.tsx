@@ -308,6 +308,10 @@ type AttendanceRecordSummary = {
   created_by_name?: string | null;
 };
 
+type PlannedDaysOffPrintEmployee = Employee & {
+  planned_off_days: number[];
+};
+
 type AttendanceConsecutivePeriod = {
   startDate: string;
   endDate: string;
@@ -1233,6 +1237,9 @@ export default function PersonnelPage() {
 
   const [savingPlannedOff, setSavingPlannedOff] =
     useState(false);
+
+  const [plannedOffPrintEmployees, setPlannedOffPrintEmployees] =
+    useState<PlannedDaysOffPrintEmployee[] | null>(null);
 
   const [savingAttendance, setSavingAttendance] =
     useState(false);
@@ -4293,6 +4300,50 @@ export default function PersonnelPage() {
     }
   }
 
+  function openPlannedDaysOffPrint() {
+    const printEmployees =
+      filteredPlannedOffRows.map((row) => {
+        const employee =
+          employees.find((item) => item.id === row.id);
+
+        return {
+          ...(employee || {
+            ...row,
+            facility_id: null,
+            facility_name: null,
+            facility_type: null,
+            cuil: null,
+            birth_date: null,
+            hire_date: null,
+            address: null,
+            phone: null,
+            email: null,
+            license_number: null,
+            employment_type: null,
+            work_shift: null,
+            shift_start_time: null,
+            shift_end_time: null,
+            is_professional: false,
+            notes: null,
+            is_active: true
+          }),
+          planned_off_days:
+            plannedOffDayNumbers.filter((day) =>
+              getPlannedOffValue(row, day)
+            )
+        };
+      });
+
+    if (printEmployees.length === 0) {
+      showSystemAlert(
+        'No hay empleados para imprimir con los filtros seleccionados.'
+      );
+      return;
+    }
+
+    setPlannedOffPrintEmployees(printEmployees);
+  }
+
   useEffect(() => {
 
     loadData();
@@ -6076,6 +6127,20 @@ export default function PersonnelPage() {
       }
 
       {
+        plannedOffPrintEmployees && (
+          <PlannedDaysOffPrintModal
+            employees={plannedOffPrintEmployees}
+            year={Number(attendanceFilters.year)}
+            month={Number(attendanceFilters.month)}
+            daysInMonth={plannedOffDays}
+            onClose={() =>
+              setPlannedOffPrintEmployees(null)
+            }
+          />
+        )
+      }
+
+      {
         directivePrintMode &&
         directiveSummary && (
           <DirectiveSummaryPrintModal
@@ -6702,6 +6767,15 @@ export default function PersonnelPage() {
                     ? 'Guardando...'
                     : 'Guardar francos'
                 }
+              </button>
+
+              <button
+                className="btn-primary"
+                type="button"
+                disabled={filteredPlannedOffRows.length === 0}
+                onClick={openPlannedDaysOffPrint}
+              >
+                Imprimir planillas
               </button>
             </div>
 
@@ -10581,6 +10655,147 @@ function LeaveSummaryPrintModal({
             </footer>
           </div>
         </section>
+      </div>
+    </div>
+  );
+}
+
+function PlannedDaysOffPrintModal({
+  employees,
+  year,
+  month,
+  daysInMonth,
+  onClose
+}: {
+  employees: PlannedDaysOffPrintEmployee[];
+  year: number;
+  month: number;
+  daysInMonth: number;
+  onClose: () => void;
+}) {
+  const monthLabel =
+    new Intl.DateTimeFormat(
+      'es-AR',
+      { month: 'long', year: 'numeric' }
+    ).format(new Date(year, month - 1, 1));
+
+  const dayNumbers =
+    Array.from(
+      { length: daysInMonth },
+      (_, index) => index + 1
+    );
+
+  return (
+    <div className="modal-overlay">
+      <div className="modal-content modal-content-wide planned-off-print-modal">
+        <div className="permission-print-actions">
+          <button
+            className="btn-secondary"
+            type="button"
+            onClick={onClose}
+          >
+            Cerrar
+          </button>
+          <span>
+            {employees.length} planilla(s) - una por empleado
+          </span>
+          <button
+            className="btn-success"
+            type="button"
+            onClick={() => window.print()}
+          >
+            Imprimir
+          </button>
+        </div>
+
+        <div className="planned-off-print-area">
+          {employees.map((employee) => {
+            const plannedDays =
+              new Set(employee.planned_off_days);
+
+            return (
+              <section
+                className="planned-off-print-page"
+                key={employee.id}
+              >
+                <header className="planned-off-sheet-header">
+                  <div className="planned-off-sheet-logo">
+                    LOGO
+                  </div>
+                  <div>
+                    <h1>SECRETARIA DE SALUD Y MEDIO AMBIENTE</h1>
+                    <h2>DIRECCION DE SALUD Y ATENCION PRIMARIA</h2>
+                    <h2>MUNICIPALIDAD DE ENSENADA</h2>
+                  </div>
+                </header>
+
+                <div className="planned-off-sheet-details">
+                  <p>
+                    <span>MES:</span>
+                    <strong>{monthLabel.toUpperCase()}</strong>
+                  </p>
+                  <p>
+                    <span>DEPENDENCIA:</span>
+                    <strong>{employee.facility_name || employee.department_name || '-'}</strong>
+                  </p>
+                  <p>
+                    <span>AGENTE:</span>
+                    <strong>{employee.full_name}</strong>
+                  </p>
+                  <p>
+                    <span>LEGAJO:</span>
+                    <strong>{employee.file_number || '-'}</strong>
+                  </p>
+                  <p>
+                    <span>REGIMEN HORARIO:</span>
+                    <strong>{formatEmployeeShift(employee) || '-'}</strong>
+                  </p>
+                  <p>
+                    <span>FUNCION:</span>
+                    <strong>{employee.employment_type || '-'}</strong>
+                  </p>
+                </div>
+
+                <table className="planned-off-sheet-table">
+                  <thead>
+                    <tr>
+                      <th>DIA</th>
+                      <th>HORA ENTRADA</th>
+                      <th>FIRMA</th>
+                      <th>HORA SALIDA</th>
+                      <th>FIRMA</th>
+                      <th>OBSERVACIONES</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {dayNumbers.map((day) => (
+                      <tr key={day}>
+                        <td>{day}</td>
+                        <td />
+                        <td />
+                        <td />
+                        <td />
+                        <td className={plannedDays.has(day) ? 'planned-off-mark' : ''}>
+                          {plannedDays.has(day) ? 'FRANCO' : ''}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+
+                <div className="planned-off-sheet-observations">
+                  <span>OBSERVACIONES:</span>
+                  <div />
+                </div>
+
+                <div className="planned-off-sheet-signature">
+                  <span />
+                  <p>FIRMA Y SELLO DEL JEFE Y/O RESPONSABLE</p>
+                </div>
+              </section>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
