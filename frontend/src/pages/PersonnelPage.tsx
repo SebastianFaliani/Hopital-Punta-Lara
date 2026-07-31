@@ -10673,6 +10673,9 @@ function PlannedDaysOffPrintModal({
   daysInMonth: number;
   onClose: () => void;
 }) {
+  const printAreaRef =
+    useRef<HTMLDivElement>(null);
+
   const monthLabel =
     new Intl.DateTimeFormat(
       'es-AR',
@@ -10684,6 +10687,68 @@ function PlannedDaysOffPrintModal({
       { length: daysInMonth },
       (_, index) => index + 1
     );
+
+  function handlePrint() {
+    if (!printAreaRef.current) {
+      return;
+    }
+
+    const printWindow =
+      window.open('', '_blank');
+
+    if (!printWindow) {
+      window.alert(
+        'El navegador bloqueo la ventana de impresion. Habilite las ventanas emergentes e intente nuevamente.'
+      );
+      return;
+    }
+
+    const documentStyles =
+      Array.from(
+        document.querySelectorAll(
+          'link[rel="stylesheet"], style'
+        )
+      )
+        .map((node) => node.outerHTML)
+        .join('\n');
+
+    printWindow.document.open();
+    printWindow.document.write(`
+      <!doctype html>
+      <html lang="es">
+        <head>
+          <meta charset="utf-8" />
+          <base href="${window.location.origin}/" />
+          <title>Planillas de francos - ${monthLabel}</title>
+          ${documentStyles}
+          <style>
+            html, body {
+              width: auto !important;
+              height: auto !important;
+              min-height: 0 !important;
+              margin: 0 !important;
+              padding: 0 !important;
+              background: #ffffff !important;
+            }
+          </style>
+        </head>
+        <body>${printAreaRef.current.outerHTML}</body>
+      </html>
+    `);
+
+    printWindow.onload = () => {
+      printWindow.focus();
+      window.setTimeout(
+        () => printWindow.print(),
+        250
+      );
+    };
+
+    printWindow.onafterprint = () =>
+      printWindow.close();
+
+    printWindow.document.close();
+  }
 
   return (
     <div className="modal-overlay planned-off-print-overlay">
@@ -10702,13 +10767,16 @@ function PlannedDaysOffPrintModal({
           <button
             className="btn-success"
             type="button"
-            onClick={() => window.print()}
+            onClick={handlePrint}
           >
             Imprimir
           </button>
         </div>
 
-        <div className="planned-off-print-area">
+        <div
+          className="planned-off-print-area"
+          ref={printAreaRef}
+        >
           {employees.map((employee) => {
             const plannedDays =
               new Set(employee.planned_off_days);
@@ -10720,7 +10788,10 @@ function PlannedDaysOffPrintModal({
               >
                 <header className="planned-off-sheet-header">
                   <div className="planned-off-sheet-logo">
-                    LOGO
+                    <img
+                      src="/menu-icons/sigsa-logo.png"
+                      alt="SIGSA"
+                    />
                   </div>
                   <div>
                     <h1>SECRETARIA DE SALUD Y MEDIO AMBIENTE</h1>

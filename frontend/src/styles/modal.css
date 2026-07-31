@@ -1044,7 +1044,7 @@
   width: 210mm;
   min-height: 297mm;
   margin: 0 auto 18px;
-  padding: 14mm 17mm 12mm;
+  padding: 18mm 17mm 12mm;
   background: #fff;
   color: #111827;
   font-family: Arial, Helvetica, sans-serif;
@@ -1052,7 +1052,7 @@
 
 .planned-off-sheet-header {
   display: grid;
-  grid-template-columns: 25mm 1fr 25mm;
+  grid-template-columns: 38mm 1fr 38mm;
   align-items: center;
   min-height: 24mm;
   margin-bottom: 5mm;
@@ -1061,13 +1061,17 @@
 
 .planned-off-sheet-logo {
   display: flex;
-  width: 21mm;
-  height: 21mm;
+  width: 35mm;
+  height: 18mm;
   align-items: center;
   justify-content: center;
-  border: 1px dashed #9ca3af;
-  color: #9ca3af;
-  font-size: 9px;
+}
+
+.planned-off-sheet-logo img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 
 .planned-off-sheet-header h1,
@@ -1170,9 +1174,11 @@
 
 .planned-off-sheet-signature {
   width: 75mm;
-  margin: 13mm auto 0;
+  margin: 6mm auto 0;
   text-align: center;
   font-size: 9px;
+  break-inside: avoid;
+  page-break-inside: avoid;
 }
 
 .planned-off-sheet-signature span {
@@ -1189,6 +1195,16 @@
   @page {
     size: A4 portrait;
     margin: 0;
+  }
+
+  html,
+  body,
+  #root {
+    width: auto !important;
+    height: auto !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
   }
 
   body * {
@@ -1305,22 +1321,30 @@
   }
 
   .planned-off-print-overlay {
-    position: static;
-    display: block;
-    width: auto;
-    height: auto;
-    background: transparent;
+    position: static !important;
+    inset: auto !important;
+    display: block !important;
+    width: auto !important;
+    height: auto !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    align-items: flex-start !important;
+    justify-content: flex-start !important;
+    background: transparent !important;
   }
 
   .planned-off-print-overlay .planned-off-print-modal {
-    position: static;
-    width: auto;
-    max-width: none;
-    max-height: none;
-    overflow: visible;
-    padding: 0;
-    border-radius: 0;
-    box-shadow: none;
+    position: static !important;
+    width: auto !important;
+    max-width: none !important;
+    max-height: none !important;
+    height: auto !important;
+    margin: 0 !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
   }
 
   .planned-off-print-area {
@@ -1338,9 +1362,17 @@
     width: auto;
     min-height: 0;
     margin: 0;
-    padding: 10mm 14mm 9mm;
+    padding: 18mm 14mm 9mm;
     break-after: page;
     page-break-after: always;
+  }
+
+  .planned-off-sheet-table td {
+    height: 6mm;
+  }
+
+  .planned-off-sheet-table th {
+    height: 5mm;
   }
 
   .planned-off-print-page:last-child {
