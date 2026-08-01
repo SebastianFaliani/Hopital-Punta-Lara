@@ -12,6 +12,8 @@ import { useAuth } from '../auth/useAuth';
 import { hasPermission } from '../auth/permissions';
 import { IconButton } from '../components/IconButton';
 import PageTitle from '../components/PageTitle';
+import { showSystemConfirm }
+  from '../components/SystemConfirmModal';
 import {
   formatDisplayDate
 } from '../utils/dateFormat';
@@ -1587,23 +1589,6 @@ export default function PersonnelPage() {
     }
   }
 
-  function openEmployeeAttendance(
-    employee: Pick<Employee, 'id' | 'full_name'>
-  ) {
-    if (!confirmDiscardAttendanceChanges()) {
-      return;
-    }
-
-    const employeeId =
-      String(employee.id);
-
-    setActiveTab('attendance');
-    setAttendanceViewMode('employee');
-    setAnnualAttendanceEmployeeId(employeeId);
-    setAnnualAttendanceEdits({});
-    loadAnnualAttendance(employeeId);
-  }
-
   async function loadPlannedDaysOff() {
 
     try {
@@ -3030,6 +3015,17 @@ export default function PersonnelPage() {
     return employee.attendance[String(day)]?.code || '';
   }
 
+  function getSavedAttendanceCode(
+    employee: AttendanceEmployee,
+    day: number
+  ) {
+    return (
+      employee.attendance[String(day)]?.code || ''
+    )
+      .trim()
+      .toUpperCase();
+  }
+
   function getAnnualAttendanceEditKey(
     employeeId: number,
     month: number,
@@ -3059,6 +3055,17 @@ export default function PersonnelPage() {
     }
 
     return monthRow.attendance[String(day)]?.code || '';
+  }
+
+  function getSavedAnnualAttendanceCode(
+    monthRow: AnnualAttendanceMonth,
+    day: number
+  ) {
+    return (
+      monthRow.attendance[String(day)]?.code || ''
+    )
+      .trim()
+      .toUpperCase();
   }
 
   function getAttendanceCodeDescription(
@@ -3414,14 +3421,39 @@ export default function PersonnelPage() {
     );
   }
 
+  function getSavedPlannedOffValue(
+    employee: PlannedDaysOffEmployee,
+    day: number
+  ) {
+    return Boolean(
+      employee.planned_days[String(day)]
+    );
+  }
+
   function updatePlannedOffCell(
-    employeeId: number,
+    employee: PlannedDaysOffEmployee,
     day: number,
     checked: boolean
   ) {
-    setPlannedOffEdits({
-      ...plannedOffEdits,
-      [`${employeeId}-${day}`]: checked
+    const key =
+      `${employee.id}-${day}`;
+
+    const savedValue =
+      getSavedPlannedOffValue(employee, day);
+
+    setPlannedOffEdits((current) => {
+      const next =
+        { ...current };
+
+      if (checked === savedValue) {
+        delete next[key];
+        return next;
+      }
+
+      next[key] =
+        checked;
+
+      return next;
     });
   }
 
@@ -3436,11 +3468,38 @@ export default function PersonnelPage() {
     const key =
       `${employee.id}-${day}`;
 
-    setAttendanceEdits({
-      ...attendanceEdits,
-      [key]:
-      normalizedValue
+    const savedValue =
+      getSavedAttendanceCode(employee, day);
+
+    const isSameAsSaved =
+      normalizedValue.trim() === savedValue;
+
+    setAttendanceEdits((current) => {
+      const next =
+        { ...current };
+
+      if (isSameAsSaved) {
+        delete next[key];
+        return next;
+      }
+
+      next[key] =
+        normalizedValue;
+
+      return next;
     });
+
+    if (isSameAsSaved) {
+      setAttendanceCompensatoryEdits((current) => {
+        const next =
+          { ...current };
+
+        delete next[key];
+
+        return next;
+      });
+      return;
+    }
 
     if (
       normalizedValue.trim() === 'P' &&
@@ -3487,11 +3546,38 @@ export default function PersonnelPage() {
         day
       );
 
-    setAnnualAttendanceEdits({
-      ...annualAttendanceEdits,
-      [key]:
-        normalizedValue
+    const savedValue =
+      getSavedAnnualAttendanceCode(monthRow, day);
+
+    const isSameAsSaved =
+      normalizedValue.trim() === savedValue;
+
+    setAnnualAttendanceEdits((current) => {
+      const next =
+        { ...current };
+
+      if (isSameAsSaved) {
+        delete next[key];
+        return next;
+      }
+
+      next[key] =
+        normalizedValue;
+
+      return next;
     });
+
+    if (isSameAsSaved) {
+      setAnnualAttendanceCompensatoryEdits((current) => {
+        const next =
+          { ...current };
+
+        delete next[key];
+
+        return next;
+      });
+      return;
+    }
 
     if (
       normalizedValue.trim() === 'P' &&
@@ -3526,14 +3612,107 @@ export default function PersonnelPage() {
     }
 
     if (compensatoryPrompt.mode === 'month') {
-      setAttendanceCompensatoryEdits({
-        ...attendanceCompensatoryEdits,
-        [compensatoryPrompt.key]: days
+      const [
+        employeeId,
+        day
+      ] = compensatoryPrompt.key.split('-');
+
+      const employee =
+        attendanceRows.find((item) =>
+          item.id === Number(employeeId)
+        );
+
+      const savedDays =
+        employee?.attendance[String(day)]
+          ?.compensatory_days || null;
+
+      setAttendanceCompensatoryEdits((current) => {
+        const next =
+          { ...current };
+
+        if (savedDays === days) {
+          delete next[compensatoryPrompt.key];
+          return next;
+        }
+
+        next[compensatoryPrompt.key] =
+          days;
+
+        return next;
       });
     } else {
-      setAnnualAttendanceCompensatoryEdits({
-        ...annualAttendanceCompensatoryEdits,
-        [compensatoryPrompt.key]: days
+      const [
+        ,
+        month,
+        day
+      ] = compensatoryPrompt.key.split('-');
+
+      const monthRow =
+        annualAttendanceMonths.find((item) =>
+          item.month === Number(month)
+        );
+
+      const savedDays =
+        monthRow?.attendance[String(day)]
+          ?.compensatory_days || null;
+
+      setAnnualAttendanceCompensatoryEdits((current) => {
+        const next =
+          { ...current };
+
+        if (savedDays === days) {
+          delete next[compensatoryPrompt.key];
+          return next;
+        }
+
+        next[compensatoryPrompt.key] =
+          days;
+
+        return next;
+      });
+    }
+
+    setCompensatoryPrompt(null);
+  }
+
+  function cancelCompensatoryPrompt() {
+    if (!compensatoryPrompt) {
+      return;
+    }
+
+    if (compensatoryPrompt.mode === 'month') {
+      setAttendanceEdits((current) => {
+        const next =
+          { ...current };
+
+        delete next[compensatoryPrompt.key];
+
+        return next;
+      });
+      setAttendanceCompensatoryEdits((current) => {
+        const next =
+          { ...current };
+
+        delete next[compensatoryPrompt.key];
+
+        return next;
+      });
+    } else {
+      setAnnualAttendanceEdits((current) => {
+        const next =
+          { ...current };
+
+        delete next[compensatoryPrompt.key];
+
+        return next;
+      });
+      setAnnualAttendanceCompensatoryEdits((current) => {
+        const next =
+          { ...current };
+
+        delete next[compensatoryPrompt.key];
+
+        return next;
       });
     }
 
@@ -3639,61 +3818,155 @@ export default function PersonnelPage() {
     );
   }
 
-  function confirmDiscardAttendanceChanges() {
+  async function confirmAttendanceChangesAction() {
 
     if (!hasPendingAttendanceChanges()) {
       return true;
     }
 
-    return window.confirm(
-      'Tenes cambios de presentismo sin guardar. Si continuas, vas a perder esos cambios.'
-    );
+    const shouldSave =
+      await showSystemConfirm(
+        'Tenes cambios de presentismo sin guardar. Elegi si queres guardarlos antes de continuar.',
+        {
+          title: 'Cambios pendientes',
+          confirmLabel: 'Guardar cambios',
+          cancelLabel: 'No guardar'
+        }
+      );
+
+    if (shouldSave) {
+      return attendanceViewMode === 'month'
+        ? saveAttendance()
+        : saveAnnualAttendance();
+    }
+
+    return true;
   }
 
-  function changeTab(
+  function clearAttendancePendingChanges() {
+    setAttendanceEdits({});
+    setAttendanceCompensatoryEdits({});
+    setAnnualAttendanceEdits({});
+    setAnnualAttendanceCompensatoryEdits({});
+  }
+
+  async function changeTab(
     tab: string
   ) {
 
-    if (
+    const needsAttendanceDecision =
       activeTab === 'attendance' &&
-      tab !== 'attendance' &&
-      !confirmDiscardAttendanceChanges()
+      tab !== 'attendance';
+
+    if (
+      needsAttendanceDecision &&
+      !await confirmAttendanceChangesAction()
     ) {
       return;
     }
 
-    if (
-      activeTab === 'attendance' &&
-      tab !== 'attendance'
-    ) {
-      setAttendanceEdits({});
-      setAnnualAttendanceEdits({});
+    if (needsAttendanceDecision) {
+      clearAttendancePendingChanges();
     }
 
     setActiveTab(tab);
   }
 
-  function updateAttendanceFilters(
+  async function updateAttendanceFilters(
     data: Partial<typeof attendanceFilters>,
     shouldDiscardEdits = false
   ) {
 
     if (
       shouldDiscardEdits &&
-      !confirmDiscardAttendanceChanges()
+      !await confirmAttendanceChangesAction()
     ) {
       return;
     }
 
     if (shouldDiscardEdits) {
-      setAttendanceEdits({});
-      setAnnualAttendanceEdits({});
+      clearAttendancePendingChanges();
     }
 
     setAttendanceFilters({
       ...attendanceFilters,
       ...data
     });
+  }
+
+  async function returnToAttendanceMonth() {
+    if (!await confirmAttendanceChangesAction()) {
+      return;
+    }
+
+    clearAttendancePendingChanges();
+    setSelectedAnnualMonth(null);
+    setAttendanceViewMode('month');
+  }
+
+  async function refreshAttendanceView() {
+    if (!await confirmAttendanceChangesAction()) {
+      return;
+    }
+
+    clearAttendancePendingChanges();
+
+    if (attendanceViewMode === 'employee') {
+      loadAnnualAttendance();
+      return;
+    }
+
+    loadAttendance();
+  }
+
+  async function openEmployeeAttendance(
+    employee: Pick<Employee, 'id' | 'full_name'>
+  ) {
+    if (!await confirmAttendanceChangesAction()) {
+      return;
+    }
+
+    const employeeId =
+      String(employee.id);
+
+    setActiveTab('attendance');
+    setAttendanceViewMode('employee');
+    setAnnualAttendanceEmployeeId(employeeId);
+    clearAttendancePendingChanges();
+    loadAnnualAttendance(employeeId);
+  }
+
+  function navigateAfterDiscard(
+    link: HTMLAnchorElement
+  ) {
+    const target =
+      link.getAttribute('target');
+
+    if (target && target !== '_self') {
+      window.open(link.href, target);
+      return;
+    }
+
+    window.location.href =
+      link.href;
+  }
+
+  async function resolvePendingAttendanceLink(
+    link: HTMLAnchorElement
+  ) {
+    if (!await confirmAttendanceChangesAction()) {
+      return;
+    }
+
+    clearAttendancePendingChanges();
+    navigateAfterDiscard(link);
+  }
+
+  function shouldShowProcessSpinner() {
+    return (
+      savingAttendance ||
+      savingPlannedOff
+    );
   }
 
   function focusNextEditableAttendanceInput(
@@ -3909,7 +4182,7 @@ export default function PersonnelPage() {
         setError(
           `La clave ${invalidCodes.join(', ')} no existe. Claves disponibles: ${Array.from(activeCodes).sort().join(', ')}`
         );
-        return;
+        return false;
       }
 
       const leaveOnlyCodes =
@@ -3944,7 +4217,7 @@ export default function PersonnelPage() {
 
         setError(message);
         showSystemAlert(message);
-        return;
+        return false;
       }
 
       const missingCompensatoryChoice =
@@ -3996,7 +4269,7 @@ export default function PersonnelPage() {
           dayLabel:
             `${String(day).padStart(2, '0')}/${String(attendanceFilters.month).padStart(2, '0')}/${attendanceFilters.year}`
         });
-        return;
+        return false;
       }
 
       const records =
@@ -4039,10 +4312,13 @@ export default function PersonnelPage() {
         );
       }
 
+      return true;
+
     } catch (error: any) {
 
       setError(error.message);
       showSystemAlert(error.message);
+      return false;
 
     } finally {
 
@@ -4053,7 +4329,7 @@ export default function PersonnelPage() {
   async function saveAnnualAttendance() {
 
     if (!annualAttendanceEmployee) {
-      return;
+      return false;
     }
 
     setSavingAttendance(true);
@@ -4082,7 +4358,7 @@ export default function PersonnelPage() {
 
         setError(message);
         showSystemAlert(message);
-        return;
+        return false;
       }
 
       const leaveOnlyCodes =
@@ -4117,7 +4393,7 @@ export default function PersonnelPage() {
 
         setError(message);
         showSystemAlert(message);
-        return;
+        return false;
       }
 
       const missingAnnualCompensatoryChoice =
@@ -4163,7 +4439,7 @@ export default function PersonnelPage() {
           dayLabel:
             `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}/${attendanceFilters.year}`
         });
-        return;
+        return false;
       }
 
       const recordsByMonth =
@@ -4228,14 +4504,11 @@ export default function PersonnelPage() {
         );
       }
 
-      showSystemAlert(
-        'Presentismo del empleado guardado correctamente.',
-        'Listo',
-        'success'
-      );
+      return true;
     } catch (error: any) {
       setError(error.message);
       showSystemAlert(error.message);
+      return false;
     } finally {
       setSavingAttendance(false);
     }
@@ -4286,14 +4559,12 @@ export default function PersonnelPage() {
         );
       }
 
-      showSystemAlert(
-        'Francos programados guardados correctamente.',
-        'Listo',
-        'success'
-      );
+      setPlannedOffEdits({});
+      return true;
     } catch (error: any) {
       setError(error.message);
       showSystemAlert(error.message);
+      return false;
     } finally {
       setSavingPlannedOff(false);
     }
@@ -4389,13 +4660,8 @@ export default function PersonnelPage() {
         return;
       }
 
-      if (
-        !window.confirm(
-          'Tenes cambios de presentismo sin guardar. Si continuas, vas a perder esos cambios.'
-        )
-      ) {
-        event.preventDefault();
-      }
+      event.preventDefault();
+      void resolvePendingAttendanceLink(link);
     }
 
     window.addEventListener(
@@ -4421,7 +4687,14 @@ export default function PersonnelPage() {
       );
     };
 
-  }, [attendanceEdits, annualAttendanceEdits, activeTab]);
+  }, [
+    attendanceEdits,
+    attendanceCompensatoryEdits,
+    annualAttendanceEdits,
+    annualAttendanceCompensatoryEdits,
+    activeTab,
+    attendanceViewMode
+  ]);
 
   useEffect(() => {
 
@@ -5035,6 +5308,15 @@ export default function PersonnelPage() {
   return (
 
     <div>
+      {shouldShowProcessSpinner() && (
+        <div className="process-spinner-overlay" aria-live="polite" aria-busy="true">
+          <div className="process-spinner-card">
+            <span className="process-spinner" aria-hidden="true" />
+            <strong>Procesando</strong>
+            <span>Espera un momento...</span>
+          </div>
+        </div>
+      )}
 
       <div className="page-header">
         <div>
@@ -5071,6 +5353,13 @@ export default function PersonnelPage() {
               {compensatoryPrompt.employeeName} figura con franco programado el {compensatoryPrompt.dayLabel}. Indica cuantos dias compensatorios corresponde acreditar.
             </p>
             <div className="modal-actions">
+              <button
+                className="btn-secondary"
+                type="button"
+                onClick={cancelCompensatoryPrompt}
+              >
+                Cancelar
+              </button>
               <button
                 className="btn-secondary"
                 type="button"
@@ -6717,11 +7006,7 @@ export default function PersonnelPage() {
                 }
                 onClick={savePlannedDaysOff}
               >
-                {
-                  savingPlannedOff
-                    ? 'Guardando...'
-                    : 'Guardar francos'
-                }
+                Guardar francos
               </button>
 
               <button
@@ -6807,7 +7092,7 @@ export default function PersonnelPage() {
                               )}
                               onChange={(e) =>
                                 updatePlannedOffCell(
-                                  employee.id,
+                                  employee,
                                   day,
                                   e.target.checked
                                 )
@@ -6955,45 +7240,14 @@ export default function PersonnelPage() {
                   <button
                     className="btn-secondary"
                     type="button"
-                    onClick={() => {
-                      if (!confirmDiscardAttendanceChanges()) {
-                        return;
-                      }
-
-                      setAnnualAttendanceEdits({});
-                      setAnnualAttendanceCompensatoryEdits({});
-                      setSelectedAnnualMonth(null);
-                      setAttendanceViewMode('month');
-                    }}
+                    onClick={() =>
+                      void returnToAttendanceMonth()
+                    }
                   >
                     Volver al mes
                   </button>
                 )
               }
-
-              <button
-                className="btn-primary"
-                type="button"
-                onClick={() => {
-                  if (!confirmDiscardAttendanceChanges()) {
-                    return;
-                  }
-
-                  if (attendanceViewMode === 'employee') {
-                    setAnnualAttendanceEdits({});
-                    setAnnualAttendanceCompensatoryEdits({});
-                    loadAnnualAttendance();
-                    return;
-                  }
-
-                  setAttendanceEdits({});
-                  setAttendanceCompensatoryEdits({});
-                  setAnnualAttendanceEdits({});
-                  loadAttendance();
-                }}
-              >
-                Actualizar
-              </button>
 
               <button
                 className="btn-success"
@@ -7015,15 +7269,22 @@ export default function PersonnelPage() {
                 }
                 onClick={
                   attendanceViewMode === 'month'
-                    ? saveAttendance
-                    : saveAnnualAttendance
+                    ? () => void saveAttendance()
+                    : () => void saveAnnualAttendance()
                 }
               >
-                {
-                  savingAttendance
-                    ? 'Guardando...'
-                    : 'Guardar cambios'
+                Guardar cambios
+              </button>
+
+              <button
+                className="btn-primary"
+                type="button"
+                disabled={savingAttendance}
+                onClick={() =>
+                  void refreshAttendanceView()
                 }
+              >
+                Actualizar
               </button>
             </div>
 
