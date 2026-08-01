@@ -667,15 +667,28 @@ export default function HousekeepingPage() {
         Number(returnMovement.returned_quantity || 0)
       : 0;
 
+  const housekeepingHeader =
+    activeTab === 'items'
+      ? {
+        title: 'Elementos',
+        description:
+          'Administra los insumos, materiales y elementos disponibles para mayordomia.'
+      }
+      : {
+        title: 'Movimientos',
+        description:
+          'Controla entradas, salidas, prestamos, consumos y devoluciones.'
+      };
+
   return (
     <div>
       <div className="page-header">
         <div>
           <PageTitle icon="mayordomia">
-            Mayordomia
+            {housekeepingHeader.title}
           </PageTitle>
           <p className="page-subtitle">
-            Control de entradas, salidas, prestamos y devoluciones.
+            {housekeepingHeader.description}
           </p>
         </div>
         <button

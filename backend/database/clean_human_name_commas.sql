@@ -80,25 +80,6 @@ WHERE
   OR patient_first_name LIKE '%,%'
   OR picked_up_by LIKE '%,%';
 
-UPDATE transfer_requests
-SET patient_name =
-  TRIM(
-    REPLACE(
-      REPLACE(
-        REPLACE(
-          REPLACE(patient_name, ',', ' '),
-          '  ',
-          ' '
-        ),
-        '  ',
-        ' '
-      ),
-      '  ',
-      ' '
-    )
-  )
-WHERE patient_name LIKE '%,%';
-
 UPDATE drivers
 SET
   first_name =

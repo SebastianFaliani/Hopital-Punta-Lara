@@ -5305,6 +5305,78 @@ export default function PersonnelPage() {
       normalized !== 'P';
   }
 
+  const personnelHeaderByTab:
+    Record<string, {
+      title: string;
+      description: string;
+    }> = {
+      employees: {
+        title: 'Empleados',
+        description:
+          'Gestiona los datos del personal activo, sectores y datos laborales.'
+      },
+      attendance: {
+        title: 'Presentismo',
+        description:
+          'Carga y revisa las claves diarias de asistencia del personal.'
+      },
+      'planned-days-off': {
+        title: 'Francos',
+        description:
+          'Programa los francos mensuales y controla los cambios pendientes.'
+      },
+      leaves: {
+        title: 'Licencias',
+        description:
+          'Consulta el historial de licencias, permisos y saldos por empleado.'
+      },
+      'leave-requests': {
+        title: 'Licencias pendientes',
+        description:
+          'Revisa, aprueba o rechaza las solicitudes de licencia pendientes.'
+      },
+      departments: {
+        title: 'Sectores',
+        description:
+          'Administra los sectores y dependencias asociados al personal.'
+      },
+      codes: {
+        title: 'Claves de presentismo',
+        description:
+          'Configura las claves utilizadas en presentismo y licencias.'
+      },
+      'leave-rules': {
+        title: 'Reglas de licencias',
+        description:
+          'Define condiciones, limites y requisitos para cada tipo de licencia.'
+      },
+      'vacation-rules': {
+        title: 'Reglas de vacaciones',
+        description:
+          'Configura los dias de vacaciones segun antiguedad.'
+      },
+      'balance-adjustments': {
+        title: 'Saldos de licencias',
+        description:
+          'Ajusta saldos disponibles y usados del personal.'
+      },
+      'no-access': {
+        title: 'Personal',
+        description:
+          'No tenes permisos para administrar esta seccion.'
+      }
+    };
+
+  const personnelHeader =
+    personnelHeaderByTab[activeTab] || {
+      title: isPersonnelSettingsPage
+        ? 'Configuracion Personal'
+        : 'Personal',
+      description: isPersonnelSettingsPage
+        ? 'Sectores, claves, reglas y saldos sensibles.'
+        : 'Empleados, presentismo, francos y licencias.'
+    };
+
   return (
 
     <div>
@@ -5327,18 +5399,10 @@ export default function PersonnelPage() {
                 : 'personal'
             }
           >
-            {
-              isPersonnelSettingsPage
-                ? 'Configuracion Personal'
-                : 'Personal'
-            }
+            {personnelHeader.title}
           </PageTitle>
           <p className="page-subtitle">
-            {
-              isPersonnelSettingsPage
-                ? 'Sectores, claves, reglas y saldos sensibles.'
-                : 'Empleados, presentismo, francos y licencias.'
-            }
+            {personnelHeader.description}
           </p>
         </div>
       </div>

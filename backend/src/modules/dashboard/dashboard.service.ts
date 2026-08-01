@@ -25,9 +25,6 @@ export async function getDashboardStats() {
     lowStockMedications,
     expiringBatches,
     expiredBatches,
-    totalTransfers,
-    pendingTransfers,
-    todayTransfers,
     activeAmbulances,
     activeDrivers,
     activeShifts,
@@ -100,23 +97,6 @@ export async function getDashboardStats() {
         FROM medication_batches
         WHERE is_active = TRUE
         AND expiration_date < CURDATE()
-      `
-    ),
-    getSingleValue(
-      'SELECT COUNT(*) AS value FROM transfer_requests'
-    ),
-    getSingleValue(
-      `
-        SELECT COUNT(*) AS value
-        FROM transfer_requests
-        WHERE status IN ('pendiente', 'programado', 'en_proceso')
-      `
-    ),
-    getSingleValue(
-      `
-        SELECT COUNT(*) AS value
-        FROM transfer_requests
-        WHERE transfer_date = CURDATE()
       `
     ),
     getSingleValue(
@@ -205,33 +185,6 @@ export async function getDashboardStats() {
       `
     )
   ]);
-
-  const [upcomingTransfers]: any =
-    await pool.query(
-      `
-        SELECT
-          tr.id,
-          tr.patient_name,
-          tr.destination_type,
-          tr.destination_address,
-          tt.trip_type,
-          tt.scheduled_datetime,
-          tt.status,
-          a.internal_code AS ambulance_code,
-          CONCAT(d.first_name, ' ', d.last_name)
-            AS driver_name
-        FROM transfer_trips tt
-        INNER JOIN transfer_requests tr
-          ON tr.id = tt.transfer_request_id
-        LEFT JOIN ambulances a
-          ON a.id = tt.ambulance_id
-        LEFT JOIN drivers d
-          ON d.id = tt.driver_id
-        WHERE tt.status IN ('pendiente', 'asignado', 'en_camino')
-        ORDER BY tt.scheduled_datetime ASC
-        LIMIT 6
-      `
-    );
 
   const [criticalMedications]: any =
     await pool.query(
@@ -342,9 +295,6 @@ export async function getDashboardStats() {
       expiredBatches
     },
     transfers: {
-      total: totalTransfers,
-      pending: pendingTransfers,
-      today: todayTransfers,
       activeAmbulances,
       activeDrivers,
       activeShifts
@@ -362,7 +312,6 @@ export async function getDashboardStats() {
       absentToday,
       pendingLeaveRequests
     },
-    upcomingTransfers,
     criticalMedications,
     criticalVaccines,
     expiringMedicationBatches: expiringMedicationBatchesList,

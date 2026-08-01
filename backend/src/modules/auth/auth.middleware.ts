@@ -120,7 +120,6 @@ function getRequestPermission(
     {
       paths: [
         '/transfers',
-        '/transfer-trips',
         '/ambulances',
         '/drivers',
         '/driver-shifts'

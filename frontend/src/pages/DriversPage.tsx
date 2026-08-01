@@ -10,8 +10,8 @@ import { useAuth }
 import { hasPermission } from '../auth/permissions';
 import { IconButton } from '../components/IconButton';
 
-import TransfersNav
-  from '../components/transfers/TransfersNav';
+import TransfersHeader
+  from '../components/transfers/TransfersHeader';
 
 type Driver = {
   id: number;
@@ -149,9 +149,10 @@ export default function DriversPage() {
 
     <div>
 
-      <TransfersNav />
-
-     
+      <TransfersHeader
+        title="Choferes"
+        description="Gestiona los choferes habilitados y sus datos de contacto y licencia."
+      />
 
       {!canEdit && (
         <p className="page-subtitle">

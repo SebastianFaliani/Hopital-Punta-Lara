@@ -13,8 +13,7 @@ import { useAuth }
 import PageTitle
   from '../components/PageTitle';
 import {
-  formatDisplayDate,
-  formatDisplayDateTime
+  formatDisplayDate
 } from '../utils/dateFormat';
 
 type DashboardStats = {
@@ -32,9 +31,6 @@ type DashboardStats = {
     expiredBatches: number;
   };
   transfers: {
-    total: number;
-    pending: number;
-    today: number;
     activeAmbulances: number;
     activeDrivers: number;
     activeShifts: number;
@@ -52,17 +48,6 @@ type DashboardStats = {
     absentToday: number;
     pendingLeaveRequests: number;
   };
-  upcomingTransfers: Array<{
-    id: number;
-    patient_name: string;
-    destination_type: string;
-    destination_address: string;
-    trip_type: string;
-    scheduled_datetime: string | null;
-    status: string;
-    ambulance_code: string | null;
-    driver_name: string | null;
-  }>;
   criticalMedications: Array<{
     id: number;
     name: string;
@@ -88,17 +73,6 @@ type DashboardStats = {
     current_stock: number;
   }>;
 };
-
-function formatDateTime(
-  value: string | null
-) {
-
-  if (!value) {
-    return 'Sin horario';
-  }
-
-  return formatDisplayDateTime(value, 'Sin horario');
-}
 
 function formatDate(
   value: string
@@ -194,14 +168,6 @@ export default function DashboardPage() {
         />
 
         <Card
-          title="Traslados hoy"
-          value={stats.transfers.today}
-          detail={`${stats.transfers.pending} pendientes o en curso`}
-          color="#7c3aed"
-          onClick={() => navigate('/transfers')}
-        />
-
-        <Card
           title="Vacunas activas"
           value={stats.vaccines.active}
           detail={`${stats.vaccines.lowStock} con stock bajo`}
@@ -228,7 +194,7 @@ export default function DashboardPage() {
         <Card
           title="Guardias activas"
           value={stats.transfers.activeShifts}
-          detail={`${stats.transfers.total} traslados historicos`}
+          detail="Guardias en curso"
           color="#b45309"
           onClick={() => navigate('/transfers/shifts')}
         />
@@ -244,44 +210,6 @@ export default function DashboardPage() {
       </div>
 
       <div className="dashboard-sections">
-
-        <section className="dashboard-panel">
-          <h2>Proximos traslados</h2>
-
-          <div className="dashboard-list">
-            {stats.upcomingTransfers.map((trip) => (
-              <div
-                className="dashboard-list-item"
-                key={`${trip.id}-${trip.trip_type}`}
-              >
-                <strong>
-                  {trip.patient_name} - {trip.trip_type}
-                </strong>
-                <span>
-                  {formatDateTime(
-                    trip.scheduled_datetime
-                  )}
-                </span>
-                <span>
-                  {trip.destination_type}: {trip.destination_address}
-                </span>
-                <span>
-                  {trip.ambulance_code || 'Sin ambulancia'}
-                  {' / '}
-                  {trip.driver_name || 'Sin chofer'}
-                </span>
-              </div>
-            ))}
-
-            {
-              stats.upcomingTransfers.length === 0 && (
-                <p className="page-subtitle">
-                  No hay traslados pendientes.
-                </p>
-              )
-            }
-          </div>
-        </section>
 
         <section className="dashboard-panel">
           <h2>Medicamentos criticos</h2>

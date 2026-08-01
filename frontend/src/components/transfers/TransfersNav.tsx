@@ -9,18 +9,6 @@ export default function TransfersNav() {
     <div className="module-tabs">
 
       <NavLink
-        to="/transfers"
-        end
-        className={({ isActive }) =>
-          isActive
-            ? 'module-tab module-tab-active'
-            : 'module-tab'
-        }
-      >
-        Solicitudes
-      </NavLink>
-
-      <NavLink
         to="/transfers/ambulances"
         className={({ isActive }) =>
           isActive

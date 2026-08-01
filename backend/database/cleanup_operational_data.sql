@@ -25,9 +25,7 @@ DELETE FROM prescriptions;
 DELETE FROM inventory_movements;
 DELETE FROM medication_batches;
 
--- Traslados: viajes, solicitudes y guardias programadas/de prueba.
-DELETE FROM transfer_trips;
-DELETE FROM transfer_requests;
+-- Traslados: guardias programadas/de prueba.
 DELETE FROM driver_shifts;
 
 -- Personal: presentismo, licencias, saldos y ajustes cargados.
@@ -56,8 +54,6 @@ ALTER TABLE prescriptions AUTO_INCREMENT = 1;
 ALTER TABLE inventory_movements AUTO_INCREMENT = 1;
 ALTER TABLE medication_batches AUTO_INCREMENT = 1;
 
-ALTER TABLE transfer_trips AUTO_INCREMENT = 1;
-ALTER TABLE transfer_requests AUTO_INCREMENT = 1;
 ALTER TABLE driver_shifts AUTO_INCREMENT = 1;
 
 ALTER TABLE attendance_records AUTO_INCREMENT = 1;

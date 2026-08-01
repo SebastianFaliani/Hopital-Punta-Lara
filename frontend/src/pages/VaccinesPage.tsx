@@ -352,9 +352,14 @@ export default function VaccinesPage() {
 
       <div className="page-header">
 
-        <PageTitle icon="vacunas">
-          Vacunas
-        </PageTitle>
+        <div>
+          <PageTitle icon="vacunas">
+            Vacunas
+          </PageTitle>
+          <p className="page-subtitle">
+            Gestiona el catalogo de vacunas, stock activo y alertas por lote.
+          </p>
+        </div>
 
         {canEdit && (
           <button

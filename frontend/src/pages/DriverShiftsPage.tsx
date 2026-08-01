@@ -10,8 +10,8 @@ import { useAuth }
   from '../auth/useAuth';
 import { hasPermission } from '../auth/permissions';
 
-import TransfersNav
-  from '../components/transfers/TransfersNav';
+import TransfersHeader
+  from '../components/transfers/TransfersHeader';
 
 type Driver = {
   id: number;
@@ -374,9 +374,10 @@ export default function DriverShiftsPage() {
 
     <div>
 
-      <TransfersNav />
-
-      
+      <TransfersHeader
+        title="Guardias"
+        description="Organiza los turnos de choferes y ambulancias por dia y horario."
+      />
 
       {!canEdit && (
         <p className="page-subtitle">

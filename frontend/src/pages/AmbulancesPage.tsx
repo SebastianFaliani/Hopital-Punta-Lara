@@ -10,8 +10,8 @@ import { useAuth }
 import { hasPermission } from '../auth/permissions';
 import { IconButton } from '../components/IconButton';
 
-import TransfersNav
-  from '../components/transfers/TransfersNav';
+import TransfersHeader
+  from '../components/transfers/TransfersHeader';
 
 type Ambulance = {
   id: number;
@@ -163,9 +163,10 @@ export default function AmbulancesPage() {
 
     <div>
 
-      <TransfersNav />
-
-      
+      <TransfersHeader
+        title="Ambulancias"
+        description="Administra las unidades disponibles, sus patentes, tipos y estado operativo."
+      />
 
       {!canEdit && (
         <p className="page-subtitle">
