@@ -1432,6 +1432,8 @@ export default function TransfersPage() {
           <style>
             body { font-family: Arial, sans-serif; color: #111; margin: 24px; }
             h1 { font-size: 20px; margin-bottom: 4px; }
+            .report-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+            .print-logo { display: block; width: 150px; max-height: 58px; object-fit: contain; object-position: left center; }
             p { margin: 4px 0 18px; }
             table { width: 100%; border-collapse: collapse; font-size: 10px; }
             th, td { border: 1px solid #111; padding: 6px; vertical-align: top; }
@@ -1442,8 +1444,17 @@ export default function TransfersPage() {
           </style>
         </head>
         <body>
-          <h1>Hospital Municipal de Punta Lara - Hoja diaria de traslados</h1>
-          <p>Fecha: ${agendaDate}</p>
+          <header class="report-header">
+            <img
+              class="print-logo"
+              src="${window.location.origin}/menu-icons/sigsa-logo.png"
+              alt="SIGSA"
+            />
+            <div>
+              <h1>Hospital Municipal de Punta Lara - Hoja diaria de traslados</h1>
+              <p>Fecha: ${agendaDate}</p>
+            </div>
+          </header>
           <table>
             <thead>
               <tr>

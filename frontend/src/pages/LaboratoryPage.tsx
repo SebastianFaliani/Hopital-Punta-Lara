@@ -749,6 +749,8 @@ export default function LaboratoryPage() {
               * { box-sizing: border-box; }
               body { margin: 0; color: #111827; font-family: Arial, sans-serif; font-size: 10px; }
               h1 { margin: 0 0 6px; font-size: 18px; text-transform: uppercase; }
+              .report-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+              .print-logo { display: block; width: 145px; max-height: 58px; object-fit: contain; object-position: left center; }
               .summary { margin: 0 0 12px; color: #374151; }
               table { width: 100%; border-collapse: collapse; }
               th, td { border: 1px solid #9ca3af; padding: 5px; text-align: left; vertical-align: top; }
@@ -758,10 +760,19 @@ export default function LaboratoryPage() {
             </style>
           </head>
           <body>
-            <h1>${escapePrintHtml(title)}</h1>
+            <header class="report-header">
+              <img
+                class="print-logo"
+                src="${window.location.origin}/menu-icons/sigsa-logo.png"
+                alt="SIGSA"
+              />
+              <div>
+                <h1>${escapePrintHtml(title)}</h1>
             <p class="summary">
               Estado: ${escapePrintHtml(statusLabel)} · Total: ${allRecords.length}
-            </p>
+                </p>
+              </div>
+            </header>
             <table>
               <thead>
                 <tr>

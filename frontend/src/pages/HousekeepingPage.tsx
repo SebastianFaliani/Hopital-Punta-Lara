@@ -538,6 +538,15 @@ export default function HousekeepingPage() {
               text-transform: uppercase;
             }
 
+            .print-logo {
+              display: block;
+              width: 150px;
+              max-height: 58px;
+              margin: 0 0 8px;
+              object-fit: contain;
+              object-position: left center;
+            }
+
             .header p {
               margin: 5px 0 0;
               font-size: 12px;
@@ -600,6 +609,11 @@ export default function HousekeepingPage() {
           <main class="sheet">
             <section class="header">
               <div>
+                <img
+                  class="print-logo"
+                  src="${window.location.origin}/menu-icons/sigsa-logo.png"
+                  alt="SIGSA"
+                />
                 <h1>Planilla de Mayordomia</h1>
                 <p>Registro manual de entradas, salidas, prestamos, consumos y devoluciones.</p>
               </div>

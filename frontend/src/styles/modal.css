@@ -1028,6 +1028,20 @@
   font-size: 11px;
 }
 
+.sigsa-print-logo {
+  display: flex;
+  justify-content: flex-start;
+  margin-bottom: 8px;
+}
+
+.sigsa-print-logo img {
+  display: block;
+  width: 38mm;
+  max-height: 18mm;
+  object-fit: contain;
+  object-position: left center;
+}
+
 .planned-off-print-modal {
   max-width: 980px;
 }

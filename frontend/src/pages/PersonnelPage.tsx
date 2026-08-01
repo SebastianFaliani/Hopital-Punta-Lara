@@ -10168,6 +10168,7 @@ function DirectiveSummaryPrintModal({
 
         <section className="employee-leaves-print-area">
           <div className="employee-leaves-print-page">
+            <SigsaPrintLogo />
             <header className="leave-summary-print-header">
               <h2>{getDirectivePrintTitle(mode)}</h2>
               <p>Hospital Municipal de Punta Lara - {summary.period.year}</p>
@@ -10349,6 +10350,7 @@ function EmployeeAttendanceHistoryPrintModal({
 
         <section className="employee-leaves-print-area">
           <div className="employee-leaves-print-page">
+            <SigsaPrintLogo />
             <header className="leave-summary-print-header">
               <h2>Historial de presentismo</h2>
               <p>Hospital Municipal de Punta Lara - {summary.period.year}</p>
@@ -10454,6 +10456,7 @@ function EmployeeLeavesHistoryPrintModal({
 
         <section className="employee-leaves-print-area">
           <div className="employee-leaves-print-page">
+            <SigsaPrintLogo />
             <header className="leave-summary-print-header">
               <h2>Historial de licencias</h2>
               <p>Hospital Municipal de Punta Lara</p>
@@ -10561,6 +10564,7 @@ function LeaveSummaryPrintModal({
 
         <section className="leave-summary-print-area">
           <div className="leave-summary-print-page">
+            <SigsaPrintLogo />
             <header className="leave-summary-print-header">
               <div>
                 <h2>Resumen de licencias</h2>
@@ -10899,6 +10903,17 @@ function PlannedDaysOffPrintModal({
           })}
         </div>
       </div>
+    </div>
+  );
+}
+
+function SigsaPrintLogo() {
+  return (
+    <div className="sigsa-print-logo">
+      <img
+        src="/menu-icons/sigsa-logo.png"
+        alt="SIGSA"
+      />
     </div>
   );
 }
