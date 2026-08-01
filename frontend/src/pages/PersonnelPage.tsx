@@ -1186,7 +1186,6 @@ export default function PersonnelPage() {
         ),
         department: 'todos',
         facility_id: defaultFacilityId || 'todos',
-        departmentSearch: '',
         search: ''
       };
     });
@@ -3671,7 +3670,106 @@ export default function PersonnelPage() {
       setAnnualAttendanceEdits({});
     }
 
+    const singleEmployee =
+      getSingleFilteredEmployee();
+
+    if (singleEmployee) {
+      const facilityId =
+        singleEmployee.facility_id
+          ? String(singleEmployee.facility_id)
+          : 'todos';
+
+      const departmentId =
+        singleEmployee.department_id
+          ? String(singleEmployee.department_id)
+          : 'todos';
+
+      setAttendanceFilters((current) => ({
+        ...current,
+        facility_id: facilityId,
+        department: departmentId,
+        search: singleEmployee.full_name
+      }));
+
+      setFilters((current) => ({
+        ...current,
+        facility_id: facilityId,
+        department: departmentId,
+        search: singleEmployee.full_name,
+        page: 1
+      }));
+
+      setLeaveEmployeeSearch(
+        singleEmployee.full_name
+      );
+      setLeaveEmployeePage(0);
+      setLeaveRequestFilters((current) => ({
+        ...current,
+        search: singleEmployee.full_name
+      }));
+      setLeaveRequestsPage(0);
+      selectLeaveEmployee(singleEmployee);
+    }
+
     setActiveTab(tab);
+  }
+
+  function getSingleFilteredEmployee() {
+    let employeeId: number | null = null;
+
+    if (
+      activeTab === 'employees' &&
+      employeePagination.total === 1 &&
+      filteredEmployees.length === 1
+    ) {
+      employeeId = filteredEmployees[0].id;
+    }
+
+    if (
+      activeTab === 'attendance' &&
+      filteredAttendanceRows.length === 1
+    ) {
+      employeeId = filteredAttendanceRows[0].id;
+    }
+
+    if (
+      activeTab === 'planned-days-off' &&
+      filteredPlannedOffRows.length === 1
+    ) {
+      employeeId = filteredPlannedOffRows[0].id;
+    }
+
+    if (
+      activeTab === 'leaves' &&
+      filteredLeaveEmployees.length === 1
+    ) {
+      employeeId = filteredLeaveEmployees[0].id;
+    }
+
+    if (activeTab === 'leave-requests') {
+      const requestEmployeeIds =
+        Array.from(
+          new Set(
+            filteredLeaveRequests.map((request) =>
+              request.employee_id
+            )
+          )
+        );
+
+      if (requestEmployeeIds.length === 1) {
+        employeeId = requestEmployeeIds[0];
+      }
+    }
+
+    if (!employeeId) {
+      return null;
+    }
+
+    return employees.find((employee) =>
+      employee.id === employeeId
+    ) || employeeList.find((employee) =>
+      employee.id === employeeId
+    ) || null;
   }
 
   function updateAttendanceFilters(
@@ -4587,29 +4685,11 @@ export default function PersonnelPage() {
           .trim();
 
       if (!search) {
-        return !attendanceFilters.departmentSearch ||
-          (employee.department_name || '')
-            .toLowerCase()
-            .includes(
-              attendanceFilters.departmentSearch
-                .toLowerCase()
-                .trim()
-            );
+        return true;
       }
 
-      const matchesDepartment =
-        !attendanceFilters.departmentSearch ||
-        (employee.department_name || '')
-          .toLowerCase()
-          .includes(
-            attendanceFilters.departmentSearch
-              .toLowerCase()
-              .trim()
-          );
-
       return (
-        matchesDepartment &&
-          (
+        (
           matchesNameSearch(employee.full_name, search) ||
           (employee.dni || '')
             .toLowerCase()
@@ -4634,31 +4714,18 @@ export default function PersonnelPage() {
           .toLowerCase()
           .trim();
 
-      const matchesDepartment =
-        !attendanceFilters.departmentSearch ||
-        (employee.department_name || '')
-          .toLowerCase()
-          .includes(
-            attendanceFilters.departmentSearch
-              .toLowerCase()
-              .trim()
-          );
-
       if (!search) {
-        return matchesDepartment;
+        return true;
       }
 
       return (
-        matchesDepartment &&
-        (
-          matchesNameSearch(employee.full_name, search) ||
-          (employee.dni || '')
-            .toLowerCase()
-            .includes(search) ||
-          (employee.file_number || '')
-            .toLowerCase()
-            .includes(search)
-        )
+        matchesNameSearch(employee.full_name, search) ||
+        (employee.dni || '')
+          .toLowerCase()
+          .includes(search) ||
+        (employee.file_number || '')
+          .toLowerCase()
+          .includes(search)
       );
     });
 
@@ -6732,17 +6799,6 @@ export default function PersonnelPage() {
               </select>
 
               <input
-                className="form-input attendance-filter-wide"
-                placeholder="Filtrar sector"
-                value={attendanceFilters.departmentSearch}
-                onChange={(e) =>
-                  updateAttendanceFilters({
-                    departmentSearch: e.target.value
-                  })
-                }
-              />
-
-              <input
                 className="form-input attendance-filter-search"
                 placeholder="Buscar nombre, DNI o legajo"
                 value={attendanceFilters.search}
@@ -6959,17 +7015,27 @@ export default function PersonnelPage() {
                       ))}
                     </select>
 
-                    <input
+                    <select
                       className="form-input attendance-filter-wide"
-                      placeholder="Filtrar sector"
-                      value={attendanceFilters.departmentSearch}
+                      value={attendanceFilters.department}
                       onChange={(e) =>
                         updateAttendanceFilters({
-                          departmentSearch: e.target.value,
-                          department: 'todos'
+                          department: e.target.value
                         })
                       }
-                    />
+                    >
+                      <option value="todos">Todos los sectores</option>
+                      {departmentsForFacility(
+                        attendanceFilters.facility_id
+                      ).map((department) => (
+                        <option
+                          key={department.id}
+                          value={department.id}
+                        >
+                          {department.name}
+                        </option>
+                      ))}
+                    </select>
 
                     <input
                       className="form-input attendance-filter-search"
