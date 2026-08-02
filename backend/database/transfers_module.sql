@@ -54,6 +54,7 @@ CREATE TABLE IF NOT EXISTS drivers (
 CREATE TABLE IF NOT EXISTS driver_shifts (
   id BIGINT PRIMARY KEY AUTO_INCREMENT,
   driver_id BIGINT NOT NULL,
+  covered_by_driver_id BIGINT NULL,
   shift_date DATE NULL,
   shift_type ENUM('manana', 'tarde') NULL,
   ambulance_id BIGINT NULL,
@@ -64,13 +65,47 @@ CREATE TABLE IF NOT EXISTS driver_shifts (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   INDEX idx_driver_shifts_driver (driver_id),
+  INDEX idx_driver_shifts_covered_by_driver (covered_by_driver_id),
   INDEX idx_driver_shifts_ambulance (ambulance_id),
   INDEX idx_driver_shifts_shift_date (shift_date, shift_type),
   INDEX idx_driver_shifts_dates (start_datetime, end_datetime),
   CONSTRAINT fk_driver_shifts_driver
     FOREIGN KEY (driver_id) REFERENCES drivers(id),
+  CONSTRAINT fk_driver_shifts_covered_by_driver
+    FOREIGN KEY (covered_by_driver_id) REFERENCES drivers(id)
+    ON DELETE SET NULL,
   CONSTRAINT fk_driver_shifts_ambulance
     FOREIGN KEY (ambulance_id) REFERENCES ambulances(id)
+    ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS driver_shift_changes (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  shift_id BIGINT NOT NULL,
+  original_driver_id BIGINT NOT NULL,
+  previous_covering_driver_id BIGINT NULL,
+  covering_driver_id BIGINT NULL,
+  reason VARCHAR(120) NULL,
+  notes VARCHAR(255) NULL,
+  changed_by BIGINT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_driver_shift_changes_shift (shift_id),
+  INDEX idx_driver_shift_changes_original (original_driver_id),
+  INDEX idx_driver_shift_changes_covering (covering_driver_id),
+  INDEX idx_driver_shift_changes_created (created_at),
+  CONSTRAINT fk_driver_shift_changes_shift
+    FOREIGN KEY (shift_id) REFERENCES driver_shifts(id)
+    ON DELETE CASCADE,
+  CONSTRAINT fk_driver_shift_changes_original
+    FOREIGN KEY (original_driver_id) REFERENCES drivers(id),
+  CONSTRAINT fk_driver_shift_changes_previous_covering
+    FOREIGN KEY (previous_covering_driver_id) REFERENCES drivers(id)
+    ON DELETE SET NULL,
+  CONSTRAINT fk_driver_shift_changes_covering
+    FOREIGN KEY (covering_driver_id) REFERENCES drivers(id)
+    ON DELETE SET NULL,
+  CONSTRAINT fk_driver_shift_changes_user
+    FOREIGN KEY (changed_by) REFERENCES users(id)
     ON DELETE SET NULL
 );
 

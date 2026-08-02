@@ -1284,6 +1284,7 @@
 }
 
 .driver-shift-cell {
+  position: relative;
   display: inline-grid;
   place-items: center;
   width: 18px;
@@ -1305,15 +1306,54 @@
 }
 
 .driver-shift-cell-active {
-  color: #fff;
-  background: #0f766e;
-  border-color: #0f766e;
+  color: #ffffff;
+  background: #166534;
+  border-color: #166534;
 }
 
 .driver-shift-cell-active:hover:not(:disabled) {
-  color: #fff;
-  background: #115e59;
-  border-color: #115e59;
+  color: #ffffff;
+  background: #14532d;
+  border-color: #14532d;
+}
+
+.driver-shift-cell-original-covered {
+  color: #991b1b;
+  background: #fee2e2;
+  border-color: #fecaca;
+  overflow: hidden;
+  text-decoration: none;
+}
+
+.driver-shift-cell-original-covered::after {
+  content: "";
+  position: absolute;
+  left: -2px;
+  right: -2px;
+  top: 50%;
+  height: 2px;
+  background: #991b1b;
+  border-radius: 999px;
+  transform: rotate(-38deg);
+  transform-origin: center;
+}
+
+.driver-shift-cell-original-covered:hover:not(:disabled) {
+  color: #7f1d1d;
+  background: #fecaca;
+  border-color: #fca5a5;
+}
+
+.driver-shift-cell-covering {
+  color: #ffffff;
+  background: #92400e;
+  border-color: #92400e;
+}
+
+.driver-shift-cell-covering:hover:not(:disabled) {
+  color: #ffffff;
+  background: #78350f;
+  border-color: #78350f;
 }
 
 .driver-shift-cell:disabled {

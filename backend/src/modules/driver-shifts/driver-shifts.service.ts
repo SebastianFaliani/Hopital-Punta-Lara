@@ -35,6 +35,7 @@ export async function getAllDriverShifts() {
         SELECT
           ds.id,
           ds.driver_id,
+          ds.covered_by_driver_id,
           ds.ambulance_id,
           DATE_FORMAT(ds.shift_date, '%Y-%m-%d')
             AS shift_date,
@@ -55,6 +56,10 @@ export async function getAllDriverShifts() {
             e.full_name,
             CONCAT(d.first_name, ' ', d.last_name)
           ) AS driver_name,
+          COALESCE(
+            covering_employee.full_name,
+            CONCAT(covering_driver.first_name, ' ', covering_driver.last_name)
+          ) AS covered_by_driver_name,
           a.internal_code
             AS ambulance_code,
           a.plate
@@ -64,6 +69,10 @@ export async function getAllDriverShifts() {
           ON d.id = ds.driver_id
         LEFT JOIN employees e
           ON e.id = d.employee_id
+        LEFT JOIN drivers covering_driver
+          ON covering_driver.id = ds.covered_by_driver_id
+        LEFT JOIN employees covering_employee
+          ON covering_employee.id = covering_driver.employee_id
         LEFT JOIN ambulances a
           ON a.id = ds.ambulance_id
         ORDER BY ds.start_datetime DESC, driver_name ASC
@@ -102,6 +111,7 @@ export async function createDriverShift(
       `
         INSERT INTO driver_shifts (
           driver_id,
+          covered_by_driver_id,
           shift_date,
           shift_type,
           ambulance_id,
@@ -110,10 +120,11 @@ export async function createDriverShift(
           status,
           notes
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
       [
         data.driver_id,
+        data.covered_by_driver_id || null,
         shiftDate,
         shiftType,
         data.ambulance_id || null,
@@ -294,7 +305,8 @@ export async function createBulkDriverShifts(
 
 export async function updateDriverShift(
   id: number,
-  data: any
+  data: any,
+  changedBy?: number | null
 ) {
   const shiftDate =
     data.shift_date ||
@@ -317,11 +329,48 @@ export async function updateDriverShift(
       data.end_time
     );
 
-  await pool.query(
+  const connection =
+    await pool.getConnection();
+
+  try {
+    await connection.beginTransaction();
+
+    const [currentRows]: any =
+      await connection.query(
+        `
+          SELECT
+            driver_id,
+            covered_by_driver_id
+          FROM driver_shifts
+          WHERE id = ?
+          LIMIT 1
+        `,
+        [id]
+      );
+
+    if (currentRows.length === 0) {
+      throw new Error('La guardia no existe');
+    }
+
+    const current =
+      currentRows[0];
+
+    const originalDriverId =
+      Number(data.driver_id);
+
+    const coveredByDriverId =
+      data.covered_by_driver_id &&
+      Number(data.covered_by_driver_id) !==
+        originalDriverId
+        ? Number(data.covered_by_driver_id)
+        : null;
+
+    await connection.query(
     `
       UPDATE driver_shifts
       SET
         driver_id = ?,
+        covered_by_driver_id = ?,
         shift_date = ?,
         shift_type = ?,
         ambulance_id = ?,
@@ -333,6 +382,7 @@ export async function updateDriverShift(
     `,
     [
       data.driver_id,
+      coveredByDriverId,
       shiftDate,
       shiftType,
       data.ambulance_id || null,
@@ -342,7 +392,51 @@ export async function updateDriverShift(
       data.notes || null,
       id
     ]
-  );
+    );
+
+    const previousCoveringDriverId =
+      current.covered_by_driver_id
+        ? Number(current.covered_by_driver_id)
+        : null;
+
+    if (
+      Number(current.driver_id) !==
+        originalDriverId ||
+      previousCoveringDriverId !==
+        coveredByDriverId
+    ) {
+      await connection.query(
+        `
+          INSERT INTO driver_shift_changes (
+            shift_id,
+            original_driver_id,
+            previous_covering_driver_id,
+            covering_driver_id,
+            reason,
+            notes,
+            changed_by
+          )
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+        `,
+        [
+          id,
+          originalDriverId,
+          previousCoveringDriverId,
+          coveredByDriverId,
+          data.change_reason || 'cambio_guardia',
+          data.notes || null,
+          changedBy || null
+        ]
+      );
+    }
+
+    await connection.commit();
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
 
   return true;
 }

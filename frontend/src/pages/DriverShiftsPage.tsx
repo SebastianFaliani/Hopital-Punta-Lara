@@ -30,6 +30,7 @@ type ShiftType =
 type Shift = {
   id: number;
   driver_id: number;
+  covered_by_driver_id: number | string | null;
   shift_date: string;
   shift_type: ShiftType;
   start_datetime: string;
@@ -37,11 +38,13 @@ type Shift = {
   status: string;
   notes: string | null;
   driver_name: string;
+  covered_by_driver_name: string | null;
 };
 
 type ShiftModalState = {
   id?: number;
-  driver_id: string;
+  original_driver_id: string;
+  covering_driver_id: string;
   shift_date: string;
   shift_type: ShiftType;
   notes: string;
@@ -230,6 +233,19 @@ export default function DriverShiftsPage() {
       [drivers]
     );
 
+  const displayedDrivers =
+    useMemo(
+      () =>
+        filters.driver_id
+          ? activeDrivers.filter(
+            (driver) =>
+              String(driver.id) ===
+                filters.driver_id
+          )
+          : activeDrivers,
+      [activeDrivers, filters.driver_id]
+    );
+
   const monthDays =
     useMemo(
       () =>
@@ -253,6 +269,8 @@ export default function DriverShiftsPage() {
             (
               !filters.driver_id ||
               String(shift.driver_id) ===
+                filters.driver_id ||
+              String(shift.covered_by_driver_id || '') ===
                 filters.driver_id
             ) &&
             true
@@ -271,6 +289,13 @@ export default function DriverShiftsPage() {
           `${shift.driver_id}-${shift.shift_date}-${shift.shift_type}`,
           shift
         );
+
+        if (shift.covered_by_driver_id) {
+          map.set(
+            `${shift.covered_by_driver_id}-${shift.shift_date}-${shift.shift_type}`,
+            shift
+          );
+        }
       });
 
       return map;
@@ -294,6 +319,20 @@ export default function DriverShiftsPage() {
 
       return map;
     }, [filteredShifts]);
+
+  function driverNameById(
+    driverId: string
+  ) {
+    const driver =
+      activeDrivers.find(
+        (item) =>
+          String(item.id) === driverId
+      );
+
+    return driver
+      ? driverLabel(driver)
+      : 'Chofer no disponible';
+  }
 
   async function loadData() {
 
@@ -358,8 +397,14 @@ export default function DriverShiftsPage() {
 
     setEditingShift({
       id: shift.id,
-      driver_id:
+      original_driver_id:
         String(shift.driver_id || driver.id),
+      covering_driver_id:
+        String(
+          shift.covered_by_driver_id ||
+          shift.driver_id ||
+          driver.id
+        ),
       shift_date: date,
       shift_type: shiftType,
       notes:
@@ -377,9 +422,19 @@ export default function DriverShiftsPage() {
     }
 
     const payload = {
-      ...editingShift,
       driver_id:
-        Number(editingShift.driver_id)
+        Number(editingShift.original_driver_id),
+      covered_by_driver_id:
+        editingShift.covering_driver_id !==
+          editingShift.original_driver_id
+          ? Number(editingShift.covering_driver_id)
+          : null,
+      shift_date:
+        editingShift.shift_date,
+      shift_type:
+        editingShift.shift_type,
+      notes:
+        editingShift.notes
     };
 
     try {
@@ -447,8 +502,16 @@ export default function DriverShiftsPage() {
               <strong>${String(day).padStart(2, '0')}</strong>
               <span>${escapePrintHtml(weekdayLabel(filters.month, day))}</span>
             </td>
-            <td>${morning.map((shift) => escapePrintHtml(shift.driver_name)).join('<br>') || '-'}</td>
-            <td>${afternoon.map((shift) => escapePrintHtml(shift.driver_name)).join('<br>') || '-'}</td>
+            <td>${morning.map((shift) => escapePrintHtml(
+              shift.covered_by_driver_id
+                ? `${shift.driver_name} -> ${shift.covered_by_driver_name}`
+                : shift.driver_name
+            )).join('<br>') || '-'}</td>
+            <td>${afternoon.map((shift) => escapePrintHtml(
+              shift.covered_by_driver_id
+                ? `${shift.driver_name} -> ${shift.covered_by_driver_name}`
+                : shift.driver_name
+            )).join('<br>') || '-'}</td>
           </tr>
         `;
       }).join('');
@@ -613,7 +676,7 @@ export default function DriverShiftsPage() {
             </tr>
           </thead>
           <tbody>
-            {activeDrivers.map((driver) => (
+            {displayedDrivers.map((driver) => (
               <tr key={driver.id}>
                 <td className="driver-shift-driver-col">
                   <strong>{driverLabel(driver)}</strong>
@@ -646,21 +709,48 @@ export default function DriverShiftsPage() {
                             `${driver.id}-${date}-${type}`
                           );
 
+                        const isCoveredOriginal =
+                          Boolean(
+                            shift &&
+                            Number(shift.driver_id) ===
+                              Number(driver.id) &&
+                            shift.covered_by_driver_id
+                          );
+
+                        const isCoveringDriver =
+                          Boolean(
+                            shift &&
+                            Number(shift.covered_by_driver_id) ===
+                              Number(driver.id)
+                          );
+
+                        const cellTitle =
+                          !shift
+                            ? `Cargar ${shiftLabels[type]}`
+                            : isCoveredOriginal
+                              ? `${shiftLabels[type]} cubierta por ${shift.covered_by_driver_name || ''}`
+                              : isCoveringDriver
+                                ? `${shiftLabels[type]} cubre a ${shift.driver_name}`
+                                : `${shiftLabels[type]} asignado`;
+
                         return (
                           <button
                             key={type}
-                            className={
+                            className={[
+                              'driver-shift-cell',
                               shift
-                                ? 'driver-shift-cell driver-shift-cell-active'
-                                : 'driver-shift-cell'
-                            }
+                                ? 'driver-shift-cell-active'
+                                : '',
+                              isCoveredOriginal
+                                ? 'driver-shift-cell-original-covered'
+                                : '',
+                              isCoveringDriver
+                                ? 'driver-shift-cell-covering'
+                                : ''
+                            ].filter(Boolean).join(' ')}
                             type="button"
                             disabled={!canEdit}
-                            title={
-                              shift
-                                ? `${shiftLabels[type]} asignado`
-                                : `Cargar ${shiftLabels[type]}`
-                            }
+                            title={cellTitle}
                             onClick={() =>
                               handleCalendarShift(
                                 driver,
@@ -679,7 +769,7 @@ export default function DriverShiftsPage() {
               </tr>
             ))}
 
-            {activeDrivers.length === 0 && (
+            {displayedDrivers.length === 0 && (
               <tr>
                 <td colSpan={monthDays.length + 1}>
                   No hay choferes activos para mostrar.
@@ -722,14 +812,23 @@ export default function DriverShiftsPage() {
             </div>
 
             <label className="form-field">
-              <span>Chofer</span>
+              <span>Asignada a</span>
+              <input
+                className="form-input"
+                value={driverNameById(editingShift.original_driver_id)}
+                readOnly
+              />
+            </label>
+
+            <label className="form-field">
+              <span>La cubre</span>
               <select
                 className="form-input"
-                value={editingShift.driver_id}
+                value={editingShift.covering_driver_id}
                 onChange={(event) =>
                   setEditingShift({
                     ...editingShift,
-                    driver_id:
+                    covering_driver_id:
                       event.target.value
                   })
                 }

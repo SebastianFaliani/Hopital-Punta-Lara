@@ -3,6 +3,9 @@ import {
   Response
 } from 'express';
 
+import { AuthRequest }
+  from '../auth/auth.middleware';
+
 import {
   createBulkDriverShifts,
   createDriverShift,
@@ -149,7 +152,7 @@ export async function create(
 }
 
 export async function update(
-  req: Request,
+  req: AuthRequest,
   res: Response
 ) {
 
@@ -167,7 +170,8 @@ export async function update(
 
     await updateDriverShift(
       Number(req.params.id),
-      req.body
+      req.body,
+      req.user?.userId || req.user?.id || null
     );
 
     return res.json({
