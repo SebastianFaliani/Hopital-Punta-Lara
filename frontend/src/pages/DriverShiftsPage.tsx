@@ -50,6 +50,12 @@ type ShiftModalState = {
   notes: string;
 };
 
+type DriverCalendarDay = {
+  date: string;
+  day: number;
+  inMonth: boolean;
+};
+
 const shiftLabels: Record<ShiftType, string> = {
   manana: 'Manana',
   tarde: 'Tarde'
@@ -114,6 +120,58 @@ function dayDate(
   day: number
 ) {
   return `${month}-${String(day).padStart(2, '0')}`;
+}
+
+function monthCalendarWeeks(
+  month: string
+) {
+  const [year, monthNumber] =
+    month.split('-').map(Number);
+
+  const totalDays =
+    daysInMonth(month);
+
+  const firstWeekday =
+    new Date(
+      year,
+      monthNumber - 1,
+      1
+    ).getDay();
+
+  const cells: DriverCalendarDay[] = [];
+
+  for (let index = 0; index < firstWeekday; index += 1) {
+    cells.push({
+      date: '',
+      day: 0,
+      inMonth: false
+    });
+  }
+
+  for (let day = 1; day <= totalDays; day += 1) {
+    cells.push({
+      date:
+        dayDate(month, day),
+      day,
+      inMonth: true
+    });
+  }
+
+  while (cells.length % 7 !== 0) {
+    cells.push({
+      date: '',
+      day: 0,
+      inMonth: false
+    });
+  }
+
+  const weeks: DriverCalendarDay[][] = [];
+
+  for (let index = 0; index < cells.length; index += 7) {
+    weeks.push(cells.slice(index, index + 7));
+  }
+
+  return weeks;
 }
 
 function formatDisplayDate(
@@ -219,6 +277,9 @@ export default function DriverShiftsPage() {
   const [editingShift, setEditingShift] =
     useState<ShiftModalState | null>(null);
 
+  const [selectedDriverCalendar, setSelectedDriverCalendar] =
+    useState<Driver | null>(null);
+
   const [error, setError] =
     useState('');
 
@@ -320,6 +381,13 @@ export default function DriverShiftsPage() {
       return map;
     }, [filteredShifts]);
 
+  const selectedDriverCalendarWeeks =
+    useMemo(
+      () =>
+        monthCalendarWeeks(filters.month),
+      [filters.month]
+    );
+
   function driverNameById(
     driverId: string
   ) {
@@ -332,6 +400,81 @@ export default function DriverShiftsPage() {
     return driver
       ? driverLabel(driver)
       : 'Chofer no disponible';
+  }
+
+  function shiftBelongsToDriver(
+    shift: Shift,
+    driverId: number | null
+  ) {
+    return (
+      Number(shift.driver_id) ===
+        Number(driverId) ||
+      Number(shift.covered_by_driver_id || 0) ===
+        Number(driverId)
+    );
+  }
+
+  function shiftClassForDriver(
+    shift: Shift,
+    driverId: number | null
+  ) {
+    if (
+      Number(shift.covered_by_driver_id || 0) ===
+        Number(driverId)
+    ) {
+      return 'driver-shift-personal-chip-covering';
+    }
+
+    if (
+      Number(shift.driver_id) ===
+        Number(driverId) &&
+      shift.covered_by_driver_id
+    ) {
+      return 'driver-shift-personal-chip-original-covered';
+    }
+
+    return 'driver-shift-personal-chip-active';
+  }
+
+  function shiftTextForDriver(
+    shift: Shift,
+    driverId: number | null
+  ) {
+    const label =
+      shift.shift_type === 'manana'
+        ? 'MAÑANA'
+        : 'TARDE';
+
+    if (
+      Number(shift.covered_by_driver_id || 0) ===
+        Number(driverId)
+    ) {
+      return `${label}: cubre a ${shift.driver_name}`;
+    }
+
+    if (
+      Number(shift.driver_id) ===
+        Number(driverId) &&
+      shift.covered_by_driver_id
+    ) {
+      return `${label}: cubre ${shift.covered_by_driver_name}`;
+    }
+
+    return label;
+  }
+
+  function shiftsForDriverDate(
+    driver: Driver,
+    date: string
+  ) {
+    return filteredShifts
+      .filter((shift) =>
+        shift.shift_date === date &&
+        shiftBelongsToDriver(shift, driver.id)
+      )
+      .sort((a, b) =>
+        a.shift_type.localeCompare(b.shift_type)
+      );
   }
 
   async function loadData() {
@@ -485,55 +628,85 @@ export default function DriverShiftsPage() {
       return;
     }
 
+    const weekDays = [
+      'Domingo',
+      'Lunes',
+      'Martes',
+      'Miercoles',
+      'Jueves',
+      'Viernes',
+      'Sabado'
+    ];
+
     const rows =
-      monthDays.map((day) => {
-        const date =
-          dayDate(filters.month, day);
+      monthCalendarWeeks(filters.month).map((week) => `
+        <tr>
+          ${week.map((day) => {
+            if (!day.inMonth) {
+              return '<td class="empty"></td>';
+            }
 
-        const morning =
-          shiftsByDate.get(`${date}-manana`) || [];
+            const morning =
+              shiftsByDate.get(`${day.date}-manana`) || [];
 
-        const afternoon =
-          shiftsByDate.get(`${date}-tarde`) || [];
+            const afternoon =
+              shiftsByDate.get(`${day.date}-tarde`) || [];
 
-        return `
-          <tr>
-            <td>
-              <strong>${String(day).padStart(2, '0')}</strong>
-              <span>${escapePrintHtml(weekdayLabel(filters.month, day))}</span>
-            </td>
-            <td>${morning.map((shift) => escapePrintHtml(
-              shift.covered_by_driver_id
-                ? `${shift.driver_name} -> ${shift.covered_by_driver_name}`
-                : shift.driver_name
-            )).join('<br>') || '-'}</td>
-            <td>${afternoon.map((shift) => escapePrintHtml(
-              shift.covered_by_driver_id
-                ? `${shift.driver_name} -> ${shift.covered_by_driver_name}`
-                : shift.driver_name
-            )).join('<br>') || '-'}</td>
-          </tr>
-        `;
-      }).join('');
+            const renderShift = (shift: Shift) =>
+              escapePrintHtml(
+                shift.covered_by_driver_id
+                  ? `${shift.driver_name} -> ${shift.covered_by_driver_name}`
+                  : shift.driver_name
+              );
+
+            return `
+              <td class="${dateState(filters.month, day.day).isSunday ? 'sunday' : ''}">
+                <strong>${day.day}</strong>
+                <section>
+                  <b>MAÑANA</b>
+                  <div>
+                    ${morning.map((shift) => `<span>${renderShift(shift)}</span>`).join('') || '<em>-</em>'}
+                  </div>
+                </section>
+                <section>
+                  <b>TARDE</b>
+                  <div>
+                    ${afternoon.map((shift) => `<span>${renderShift(shift)}</span>`).join('') || '<em>-</em>'}
+                  </div>
+                </section>
+              </td>
+            `;
+          }).join('')}
+        </tr>
+      `).join('');
 
     printWindow.document.open();
     printWindow.document.write(`
       <!doctype html>
       <html>
         <head>
-          <title>Guardias de choferes</title>
+          <title></title>
           <style>
-            body { margin: 28px; color: #111827; font-family: Arial, sans-serif; }
-            .print-header { display: flex; align-items: center; gap: 18px; margin-bottom: 18px; padding-bottom: 12px; border-bottom: 2px solid #0f766e; }
-            .print-logo { width: 145px; max-height: 58px; object-fit: contain; object-position: left center; }
-            h1 { margin: 0; font-size: 22px; }
-            p { margin: 5px 0 0; color: #475569; font-size: 13px; }
-            table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-            th, td { border: 1px solid #cbd5e1; padding: 8px; vertical-align: top; font-size: 12px; }
-            th { background: #f1f5f9; text-align: left; }
-            td:first-child { width: 80px; }
-            td:first-child span { display: block; margin-top: 2px; color: #64748b; text-transform: uppercase; font-size: 10px; }
-            @media print { body { margin: 12mm; } }
+            @page { size: A4 landscape; margin: 7mm; }
+            * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            html, body { margin: 0; padding: 0; }
+            body { color: #111827; font-family: Arial, sans-serif; }
+            .print-header { display: flex; align-items: center; gap: 14px; margin-bottom: 8px; padding-bottom: 7px; border-bottom: 2px solid #0D3B66; }
+            .print-logo { width: 112px; max-height: 42px; object-fit: contain; object-position: left center; }
+            h1 { margin: 0; font-size: 18px; }
+            p { margin: 3px 0 0; color: #475569; font-size: 11px; }
+            table { width: 100%; height: 163mm; border-collapse: collapse; table-layout: fixed; }
+            tbody tr { height: ${100 / monthCalendarWeeks(filters.month).length}%; }
+            th { color: #ffffff !important; background: #1e5f93 !important; padding: 5px; font-size: 10px; text-align: center; }
+            td { height: auto; border: 1px solid #cbd5e1; padding: 4px; vertical-align: top; font-size: 8.5px; }
+            td.empty { background: #f8fafc; }
+            td strong { display: block; margin-bottom: 3px; color: #0f172a; font-size: 17px; line-height: 0.9; }
+            td.sunday strong { color: #dc2626; }
+            section { margin-top: 2px; }
+            b { display: block; color: #0D3B66; font-size: 8.5px; line-height: 1.1; }
+            section div { padding-left: 7px; }
+            span { display: block; margin-top: 1px; line-height: 1.12; }
+            em { color: #94a3b8; font-style: normal; }
           </style>
         </head>
         <body>
@@ -547,9 +720,7 @@ export default function DriverShiftsPage() {
           <table>
             <thead>
               <tr>
-                <th>Dia</th>
-                <th>Turno manana</th>
-                <th>Turno tarde</th>
+                ${weekDays.map((day) => `<th>${day}</th>`).join('')}
               </tr>
             </thead>
             <tbody>${rows}</tbody>
@@ -559,7 +730,111 @@ export default function DriverShiftsPage() {
     `);
     printWindow.document.close();
     printWindow.focus();
-    printWindow.print();
+    window.setTimeout(
+      () => printWindow.print(),
+      1000
+    );
+  }
+
+  function printDriverCalendar(
+    driver: Driver
+  ) {
+    const printWindow =
+      window.open('', '_blank', 'width=1100,height=800');
+
+    if (!printWindow) {
+      setError('No se pudo abrir la ventana de impresion');
+      return;
+    }
+
+    const weekDays = [
+      'Domingo',
+      'Lunes',
+      'Martes',
+      'Miercoles',
+      'Jueves',
+      'Viernes',
+      'Sabado'
+    ];
+
+    const rows =
+      selectedDriverCalendarWeeks.map((week) => `
+        <tr>
+          ${week.map((day) => {
+            if (!day.inMonth) {
+              return '<td class="empty"></td>';
+            }
+
+            const shifts =
+              shiftsForDriverDate(driver, day.date);
+
+            return `
+              <td class="${dateState(filters.month, day.day).isSunday ? 'sunday' : ''}">
+                <strong>${day.day}</strong>
+                ${shifts.map((shift) => `
+                  <span class="${escapePrintHtml(shiftClassForDriver(shift, driver.id))}">
+                    ${escapePrintHtml(shiftTextForDriver(shift, driver.id))}
+                  </span>
+                `).join('')}
+              </td>
+            `;
+          }).join('')}
+        </tr>
+      `).join('');
+
+    printWindow.document.open();
+    printWindow.document.write(`
+      <!doctype html>
+      <html>
+        <head>
+          <title></title>
+          <style>
+            @page { size: A4 portrait; margin: 9mm; }
+            * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            html, body { margin: 0; padding: 0; }
+            body { color: #111827; font-family: Arial, sans-serif; }
+            .print-header { display: flex; align-items: center; gap: 14px; margin-bottom: 8px; padding-bottom: 7px; border-bottom: 2px solid #0D3B66; }
+            .print-logo { width: 112px; max-height: 42px; object-fit: contain; object-position: left center; }
+            h1 { margin: 0; font-size: 18px; }
+            p { margin: 3px 0 0; color: #475569; font-size: 11px; }
+            table { width: 100%; height: 118mm; border-collapse: collapse; table-layout: fixed; }
+            tbody tr { height: ${100 / selectedDriverCalendarWeeks.length}%; }
+            th { color: #ffffff !important; background: #1e5f93 !important; padding: 5px; font-size: 10px; text-align: center; }
+            td { height: auto; border: 1px solid #cbd5e1; padding: 4px; vertical-align: top; font-size: 9px; }
+            td.empty { background: #f8fafc; }
+            td strong { display: block; margin-bottom: 5px; color: #0f172a; font-size: 18px; line-height: 0.95; }
+            td.sunday strong { color: #dc2626; }
+            span { display: block; margin-top: 4px; margin-left: 6px; padding-left: 10px; border-left: 2px solid currentColor; overflow-wrap: anywhere; font-size: 9px; font-weight: 400; line-height: 1.15; }
+            .driver-shift-personal-chip-active { color: #166534 !important; }
+            .driver-shift-personal-chip-covering { color: #92400e !important; }
+            .driver-shift-personal-chip-original-covered { color: #991b1b !important; text-decoration: line-through; }
+          </style>
+        </head>
+        <body>
+          <div class="print-header">
+            <img class="print-logo" src="${window.location.origin}/menu-icons/sigsa-logo.png" />
+            <div>
+              <h1>Guardias de chofer</h1>
+              <p>${escapePrintHtml(driverLabel(driver))} - ${escapePrintHtml(monthLabel(filters.month))}</p>
+            </div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                ${weekDays.map((day) => `<th>${day}</th>`).join('')}
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+    printWindow.focus();
+    window.setTimeout(
+      () => printWindow.print(),
+      1000
+    );
   }
 
   useEffect(() => {
@@ -679,7 +954,15 @@ export default function DriverShiftsPage() {
             {displayedDrivers.map((driver) => (
               <tr key={driver.id}>
                 <td className="driver-shift-driver-col">
-                  <strong>{driverLabel(driver)}</strong>
+                  <button
+                    className="driver-shift-driver-button"
+                    type="button"
+                    onClick={() =>
+                      setSelectedDriverCalendar(driver)
+                    }
+                  >
+                    <strong>{driverLabel(driver)}</strong>
+                  </button>
                 </td>
                 {monthDays.map((day) => {
                   const date =
@@ -888,6 +1171,130 @@ export default function DriverShiftsPage() {
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {selectedDriverCalendar && (
+        <div className="modal-overlay">
+          <div className="modal-content modal-content-wide driver-shift-personal-modal">
+            <div className="modal-header">
+              <div>
+                <h2>
+                  Guardias de chofer
+                </h2>
+                <p>
+                  {driverLabel(selectedDriverCalendar)}
+                  {' - '}
+                  {monthLabel(filters.month)}
+                </p>
+              </div>
+              <button
+                aria-label="Cerrar"
+                className="modal-close-button"
+                type="button"
+                onClick={() =>
+                  setSelectedDriverCalendar(null)
+                }
+              >
+                x
+              </button>
+            </div>
+
+            <div className="driver-shift-personal-actions">
+              <IconButton
+                icon="print"
+                label="Imprimir guardias del chofer"
+                onClick={() =>
+                  printDriverCalendar(
+                    selectedDriverCalendar
+                  )
+                }
+              />
+            </div>
+
+            <div className="driver-shift-personal-calendar-wrap">
+              <table className="driver-shift-personal-calendar">
+                <thead>
+                  <tr>
+                    {[
+                      'Domingo',
+                      'Lunes',
+                      'Martes',
+                      'Miercoles',
+                      'Jueves',
+                      'Viernes',
+                      'Sabado'
+                    ].map((day) => (
+                      <th key={day}>
+                        {day}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {selectedDriverCalendarWeeks.map((week, weekIndex) => (
+                    <tr key={weekIndex}>
+                      {week.map((day, dayIndex) => {
+                        const shifts =
+                          day.inMonth
+                            ? shiftsForDriverDate(
+                              selectedDriverCalendar,
+                              day.date
+                            )
+                            : [];
+
+                        return (
+                          <td
+                            key={`${weekIndex}-${dayIndex}`}
+                            className={
+                              [
+                                day.inMonth
+                                  ? ''
+                                  : 'driver-shift-personal-empty',
+                                dayIndex === 0 &&
+                                day.inMonth
+                                  ? 'driver-shift-personal-sunday'
+                                  : ''
+                              ].filter(Boolean).join(' ')
+                            }
+                          >
+                            {day.inMonth && (
+                              <>
+                                <strong>{day.day}</strong>
+                                {shifts.map((shift) => (
+                                  <span
+                                    key={`${shift.id}-${shift.shift_type}`}
+                                    className={[
+                                      'driver-shift-personal-chip',
+                                      shiftClassForDriver(
+                                        shift,
+                                        selectedDriverCalendar.id
+                                      )
+                                    ].join(' ')}
+                                    title={
+                                      shiftTextForDriver(
+                                        shift,
+                                        selectedDriverCalendar.id
+                                      )
+                                    }
+                                  >
+                                    {shiftTextForDriver(
+                                      shift,
+                                      selectedDriverCalendar.id
+                                    )}
+                                  </span>
+                                ))}
+                              </>
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       )}
     </div>
