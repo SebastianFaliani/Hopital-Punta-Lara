@@ -10,6 +10,7 @@ import {
   create,
   createBulk,
   getDriverShifts,
+  remove,
   update
 } from './driver-shifts.controller';
 
@@ -41,6 +42,13 @@ router.put(
   authenticateToken,
   authorizeRoles('admin', 'user'),
   update
+);
+
+router.delete(
+  '/:id',
+  authenticateToken,
+  authorizeRoles('admin', 'user'),
+  remove
 );
 
 export default router;

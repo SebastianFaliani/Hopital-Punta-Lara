@@ -10,34 +10,51 @@ import { useAuth }
   from '../auth/useAuth';
 import { hasPermission } from '../auth/permissions';
 
+import { IconButton }
+  from '../components/IconButton';
 import TransfersHeader
   from '../components/transfers/TransfersHeader';
 
 type Driver = {
-  id: number;
+  id: number | null;
   full_name: string;
   first_name: string;
   last_name: string;
   is_active: boolean;
 };
 
-type Ambulance = {
-  id: number;
-  internal_code: string;
-  plate: string;
-  is_active: boolean;
-};
+type ShiftType =
+  'manana' |
+  'tarde';
 
 type Shift = {
   id: number;
   driver_id: number;
-  ambulance_id: number;
+  shift_date: string;
+  shift_type: ShiftType;
   start_datetime: string;
   end_datetime: string;
   status: string;
+  notes: string | null;
   driver_name: string;
-  ambulance_code: string;
-  ambulance_plate: string;
+};
+
+type ShiftModalState = {
+  id?: number;
+  driver_id: string;
+  shift_date: string;
+  shift_type: ShiftType;
+  notes: string;
+};
+
+const shiftLabels: Record<ShiftType, string> = {
+  manana: 'Manana',
+  tarde: 'Tarde'
+};
+
+const shiftShortLabels: Record<ShiftType, string> = {
+  manana: 'M',
+  tarde: 'T'
 };
 
 const currentMonth =
@@ -48,43 +65,129 @@ const currentMonth =
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
   })();
 
-const emptyBulkForm = {
-  driver_id: '',
-  ambulance_id: '',
-  month: currentMonth,
-  morning_days: [] as number[],
-  afternoon_days: [] as number[],
-  morning_start_time: '08:00',
-  morning_end_time: '15:00',
-  afternoon_start_time: '15:00',
-  afternoon_end_time: '21:00'
-};
+function driverLabel(
+  driver: Driver
+) {
+  return (
+    driver.full_name ||
+    `${driver.first_name || ''} ${driver.last_name || ''}`.trim()
+  );
+}
 
-function formatDateTime(
+function daysInMonth(
+  month: string
+) {
+  const [year, monthNumber] =
+    month.split('-').map(Number);
+
+  return new Date(
+    year,
+    monthNumber,
+    0
+  ).getDate();
+}
+
+function monthLabel(
+  month: string
+) {
+  const [year, monthNumber] =
+    month.split('-').map(Number);
+
+  return new Date(
+    year,
+    monthNumber - 1,
+    1
+  ).toLocaleDateString(
+    'es-AR',
+    {
+      month: 'long',
+      year: 'numeric'
+    }
+  );
+}
+
+function dayDate(
+  month: string,
+  day: number
+) {
+  return `${month}-${String(day).padStart(2, '0')}`;
+}
+
+function formatDisplayDate(
   value: string
 ) {
-
-  const normalized =
-    String(value)
-      .replace(' ', 'T');
-
-  const [
-    datePart,
-    timePart = ''
-  ] = normalized.split('T');
-
   const [
     year,
     month,
     day
-  ] = datePart.split('-');
+  ] = value.split('-');
 
-  const [
-    hour = '00',
-    minute = '00'
-  ] = timePart.split(':');
+  return `${day}-${month}-${year}`;
+}
 
-  return `${day}-${month}-${year} ${hour}:${minute}`;
+function weekdayLabel(
+  month: string,
+  day: number
+) {
+  const [year, monthNumber] =
+    month.split('-').map(Number);
+
+  return new Date(
+    year,
+    monthNumber - 1,
+    day
+  ).toLocaleDateString(
+    'es-AR',
+    {
+      weekday: 'short'
+    }
+  );
+}
+
+function dateState(
+  month: string,
+  day: number
+) {
+  const [year, monthNumber] =
+    month.split('-').map(Number);
+
+  const date =
+    new Date(
+      year,
+      monthNumber - 1,
+      day
+    );
+
+  const today =
+    new Date();
+
+  const normalizedToday =
+    new Date(
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate()
+    );
+
+  return {
+    isPast:
+      date < normalizedToday,
+    isToday:
+      date.getTime() ===
+        normalizedToday.getTime(),
+    isSunday:
+      date.getDay() === 0
+  };
+}
+
+function escapePrintHtml(
+  value: unknown
+) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
 }
 
 export default function DriverShiftsPage() {
@@ -104,110 +207,93 @@ export default function DriverShiftsPage() {
   const [drivers, setDrivers] =
     useState<Driver[]>([]);
 
-  const [ambulances, setAmbulances] =
-    useState<Ambulance[]>([]);
+  const [filters, setFilters] =
+    useState({
+      driver_id: '',
+      month: currentMonth
+    });
 
-  const [bulkForm, setBulkForm] =
-    useState(emptyBulkForm);
+  const [editingShift, setEditingShift] =
+    useState<ShiftModalState | null>(null);
 
   const [error, setError] =
     useState('');
 
-  const [filters, setFilters] =
-    useState({
-      driver_id: '',
-      ambulance_id: '',
-      status: '',
-      date_from: '',
-      date_to: ''
-    });
+  const activeDrivers =
+    useMemo(
+      () =>
+        drivers.filter(
+          (driver) =>
+            driver.is_active &&
+            driver.id
+        ),
+      [drivers]
+    );
+
+  const monthDays =
+    useMemo(
+      () =>
+        Array.from(
+          {
+            length:
+              daysInMonth(filters.month)
+          },
+          (_, index) => index + 1
+        ),
+      [filters.month]
+    );
 
   const filteredShifts =
     useMemo(
       () =>
         shifts.filter((shift) => {
-          const shiftDate =
-            String(shift.start_datetime)
-              .slice(0, 10);
-
           return (
+            String(shift.shift_date).slice(0, 7) ===
+              filters.month &&
             (
               !filters.driver_id ||
               String(shift.driver_id) ===
                 filters.driver_id
             ) &&
-            (
-              !filters.ambulance_id ||
-              String(shift.ambulance_id) ===
-                filters.ambulance_id
-            ) &&
-            (
-              !filters.status ||
-              shift.status === filters.status
-            ) &&
-            (
-              !filters.date_from ||
-              shiftDate >= filters.date_from
-            ) &&
-            (
-              !filters.date_to ||
-              shiftDate <= filters.date_to
-            )
+            true
           );
         }),
       [shifts, filters]
     );
 
-  const selectedDriverMonthSummary =
+  const shiftsByDriverDate =
     useMemo(() => {
-      if (
-        !bulkForm.driver_id ||
-        !bulkForm.month
-      ) {
-        return [];
-      }
+      const map =
+        new Map<string, Shift>();
 
-      const summary =
-        new Map<
-          number,
-          {
-            ambulance_id: number;
-            ambulance_label: string;
-            count: number;
-          }
-        >();
-
-      shifts.forEach((shift) => {
-        if (
-          String(shift.driver_id) !==
-            bulkForm.driver_id ||
-          String(shift.start_datetime)
-            .slice(0, 7) !== bulkForm.month
-        ) {
-          return;
-        }
-
-        const current =
-          summary.get(shift.ambulance_id) || {
-            ambulance_id: shift.ambulance_id,
-            ambulance_label:
-              `${shift.ambulance_code} - ${shift.ambulance_plate}`,
-            count: 0
-          };
-
-        current.count += 1;
-        summary.set(
-          shift.ambulance_id,
-          current
+      filteredShifts.forEach((shift) => {
+        map.set(
+          `${shift.driver_id}-${shift.shift_date}-${shift.shift_type}`,
+          shift
         );
       });
 
-      return Array.from(summary.values());
-    }, [
-      bulkForm.driver_id,
-      bulkForm.month,
-      shifts
-    ]);
+      return map;
+    }, [filteredShifts]);
+
+  const shiftsByDate =
+    useMemo(() => {
+      const map =
+        new Map<string, Shift[]>();
+
+      filteredShifts.forEach((shift) => {
+        const key =
+          `${shift.shift_date}-${shift.shift_type}`;
+
+        const current =
+          map.get(key) || [];
+
+        current.push(shift);
+        map.set(key, current);
+      });
+
+      return map;
+    }, [filteredShifts]);
 
   async function loadData() {
 
@@ -215,17 +301,15 @@ export default function DriverShiftsPage() {
 
       const [
         shiftRes,
-        driverRes,
-        ambulanceRes
+        driverRes
       ] = await Promise.all([
         apiFetch('/driver-shifts'),
-        apiFetch('/drivers'),
-        apiFetch('/ambulances')
+        apiFetch('/drivers')
       ]);
 
       setShifts(shiftRes.data);
       setDrivers(driverRes.data);
-      setAmbulances(ambulanceRes.data);
+      setError('');
 
     } catch (error: any) {
 
@@ -233,151 +317,204 @@ export default function DriverShiftsPage() {
     }
   }
 
-  function daysInMonth(
-    month: string
+  async function handleCalendarShift(
+    driver: Driver,
+    day: number,
+    shiftType: ShiftType
   ) {
-    const [year, monthNumber] =
-      month.split('-').map(Number);
+    if (!driver.id) {
+      return;
+    }
 
-    return new Date(
-      year,
-      monthNumber,
-      0
-    ).getDate();
+    const date =
+      dayDate(filters.month, day);
+
+    const shift =
+      shiftsByDriverDate.get(
+        `${driver.id}-${date}-${shiftType}`
+      );
+
+    if (!shift) {
+      try {
+        await apiFetch(
+          '/driver-shifts',
+          {
+            method: 'POST',
+            body: JSON.stringify({
+              driver_id: driver.id,
+              shift_date: date,
+              shift_type: shiftType
+            })
+          }
+        );
+
+        await loadData();
+      } catch (error: any) {
+        setError(error.message);
+      }
+
+      return;
+    }
+
+    setEditingShift({
+      id: shift.id,
+      driver_id:
+        String(shift.driver_id || driver.id),
+      shift_date: date,
+      shift_type: shiftType,
+      notes:
+        shift.notes || ''
+    });
   }
 
-  function toggleBulkDay(
-    field:
-      'morning_days' |
-      'afternoon_days',
-    day: number
-  ) {
-    setBulkForm((current) => ({
-      ...current,
-      [field]:
-        current[field].includes(day)
-          ? current[field].filter(
-            (item) => item !== day
-          )
-          : [...current[field], day]
-            .sort((a, b) => a - b)
-    }));
-  }
-
-  async function handleBulkSubmit(
+  async function saveShift(
     event: React.FormEvent
   ) {
     event.preventDefault();
 
-    await apiFetch(
-      '/driver-shifts/bulk',
-      {
-        method: 'POST',
-        body: JSON.stringify({
-          ...bulkForm,
-          driver_id:
-            Number(bulkForm.driver_id),
-          ambulance_id:
-            Number(bulkForm.ambulance_id),
-          sync_existing: true
-        })
-      }
-    );
-
-    setBulkForm({
-      ...bulkForm,
-      driver_id: bulkForm.driver_id,
-      ambulance_id:
-        bulkForm.ambulance_id,
-      month: bulkForm.month,
-      morning_days: [],
-      afternoon_days: []
-    });
-
-    loadData();
-  }
-
-  useEffect(() => {
-
-    loadData();
-
-  }, []);
-
-  useEffect(() => {
-    if (
-      !bulkForm.driver_id ||
-      !bulkForm.ambulance_id ||
-      !bulkForm.month ||
-      shifts.length === 0
-    ) {
+    if (!editingShift) {
       return;
     }
 
-    const morningDays: number[] = [];
-    const afternoonDays: number[] = [];
+    const payload = {
+      ...editingShift,
+      driver_id:
+        Number(editingShift.driver_id)
+    };
 
-    shifts.forEach((shift) => {
-      if (
-        String(shift.driver_id) !==
-          bulkForm.driver_id ||
-        String(shift.ambulance_id) !==
-          bulkForm.ambulance_id ||
-        String(shift.start_datetime)
-          .slice(0, 7) !== bulkForm.month
-      ) {
-        return;
-      }
+    try {
+      await apiFetch(
+        editingShift.id
+          ? `/driver-shifts/${editingShift.id}`
+          : '/driver-shifts',
+        {
+          method:
+            editingShift.id ? 'PUT' : 'POST',
+          body: JSON.stringify(payload)
+        }
+      );
 
-      const day =
-        Number(
-          String(shift.start_datetime)
-            .slice(8, 10)
-        );
+      setEditingShift(null);
+      await loadData();
+    } catch (error: any) {
+      setError(error.message);
+    }
+  }
 
-      const startTime =
-        String(shift.start_datetime)
-          .slice(11, 16);
+  async function removeShift() {
+    if (!editingShift?.id) {
+      return;
+    }
 
-      if (
-        startTime ===
-        bulkForm.morning_start_time
-      ) {
-        morningDays.push(day);
-      }
+    try {
+      await apiFetch(
+        `/driver-shifts/${editingShift.id}`,
+        {
+          method: 'DELETE'
+        }
+      );
 
-      if (
-        startTime ===
-        bulkForm.afternoon_start_time
-      ) {
-        afternoonDays.push(day);
-      }
-    });
+      setEditingShift(null);
+      await loadData();
+    } catch (error: any) {
+      setError(error.message);
+    }
+  }
 
-    setBulkForm((current) => ({
-      ...current,
-      morning_days:
-        Array.from(new Set(morningDays))
-          .sort((a, b) => a - b),
-      afternoon_days:
-        Array.from(new Set(afternoonDays))
-          .sort((a, b) => a - b)
-    }));
-  }, [
-    bulkForm.driver_id,
-    bulkForm.ambulance_id,
-    bulkForm.month,
-    bulkForm.morning_start_time,
-    bulkForm.afternoon_start_time,
-    shifts
-  ]);
+  function printCalendar() {
+    const printWindow =
+      window.open('', '_blank', 'width=1200,height=800');
+
+    if (!printWindow) {
+      setError('No se pudo abrir la ventana de impresion');
+      return;
+    }
+
+    const rows =
+      monthDays.map((day) => {
+        const date =
+          dayDate(filters.month, day);
+
+        const morning =
+          shiftsByDate.get(`${date}-manana`) || [];
+
+        const afternoon =
+          shiftsByDate.get(`${date}-tarde`) || [];
+
+        return `
+          <tr>
+            <td>
+              <strong>${String(day).padStart(2, '0')}</strong>
+              <span>${escapePrintHtml(weekdayLabel(filters.month, day))}</span>
+            </td>
+            <td>${morning.map((shift) => escapePrintHtml(shift.driver_name)).join('<br>') || '-'}</td>
+            <td>${afternoon.map((shift) => escapePrintHtml(shift.driver_name)).join('<br>') || '-'}</td>
+          </tr>
+        `;
+      }).join('');
+
+    printWindow.document.open();
+    printWindow.document.write(`
+      <!doctype html>
+      <html>
+        <head>
+          <title>Guardias de choferes</title>
+          <style>
+            body { margin: 28px; color: #111827; font-family: Arial, sans-serif; }
+            .print-header { display: flex; align-items: center; gap: 18px; margin-bottom: 18px; padding-bottom: 12px; border-bottom: 2px solid #0f766e; }
+            .print-logo { width: 145px; max-height: 58px; object-fit: contain; object-position: left center; }
+            h1 { margin: 0; font-size: 22px; }
+            p { margin: 5px 0 0; color: #475569; font-size: 13px; }
+            table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+            th, td { border: 1px solid #cbd5e1; padding: 8px; vertical-align: top; font-size: 12px; }
+            th { background: #f1f5f9; text-align: left; }
+            td:first-child { width: 80px; }
+            td:first-child span { display: block; margin-top: 2px; color: #64748b; text-transform: uppercase; font-size: 10px; }
+            @media print { body { margin: 12mm; } }
+          </style>
+        </head>
+        <body>
+          <div class="print-header">
+            <img class="print-logo" src="${window.location.origin}/menu-icons/sigsa-logo.png" />
+            <div>
+              <h1>Guardias de choferes</h1>
+              <p>${escapePrintHtml(monthLabel(filters.month))}</p>
+            </div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Dia</th>
+                <th>Turno manana</th>
+                <th>Turno tarde</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+  }
+
+  useEffect(() => {
+    loadData();
+  }, []);
 
   return (
-
     <div>
-
       <TransfersHeader
         title="Guardias"
-        description="Organiza los turnos de choferes y ambulancias por dia y horario."
+        description="Organiza que chofer cubre cada turno y deja una grilla mensual lista para imprimir."
+        actions={
+          <IconButton
+            icon="print"
+            label="Imprimir calendario"
+            onClick={printCalendar}
+          />
+        }
       />
 
       {!canEdit && (
@@ -386,231 +523,19 @@ export default function DriverShiftsPage() {
         </p>
       )}
 
-      {canEdit && (
-        <>
-          <form
-            className="bulk-shift-form"
-            onSubmit={handleBulkSubmit}
-          >
-            <div className="bulk-shift-header">
-              <label className="form-field">
-                <span>Chofer</span>
-                <select
-                  className="form-input"
-                  value={bulkForm.driver_id}
-                  onChange={(event) =>
-                    setBulkForm({
-                      ...bulkForm,
-                      driver_id:
-                        event.target.value,
-                      morning_days: [],
-                      afternoon_days: []
-                    })
-                  }
-                  required
-                >
-                  <option value="">Seleccionar</option>
-                  {drivers
-                    .filter((item) => item.is_active)
-                    .map((item) => (
-                      <option
-                        key={item.id}
-                        value={item.id}
-                      >
-                        {item.full_name || `${item.first_name} ${item.last_name}`}
-                      </option>
-                    ))}
-                </select>
-              </label>
-
-              <label className="form-field">
-                <span>Ambulancia</span>
-                <select
-                  className="form-input"
-                  value={bulkForm.ambulance_id}
-                  onChange={(event) =>
-                    setBulkForm({
-                      ...bulkForm,
-                      ambulance_id:
-                        event.target.value,
-                      morning_days: [],
-                      afternoon_days: []
-                    })
-                  }
-                  required
-                >
-                  <option value="">Seleccionar</option>
-                  {ambulances
-                    .filter((item) => item.is_active)
-                    .map((item) => (
-                      <option
-                        key={item.id}
-                        value={item.id}
-                      >
-                        {item.internal_code} - {item.plate}
-                      </option>
-                    ))}
-                </select>
-              </label>
-
-              <label className="form-field">
-                <span>Mes</span>
-                <input
-                  className="form-input"
-                  type="month"
-                  value={bulkForm.month}
-                  onChange={(event) =>
-                    setBulkForm({
-                      ...bulkForm,
-                      month: event.target.value,
-                      morning_days: [],
-                      afternoon_days: []
-                    })
-                  }
-                  required
-                />
-              </label>
-            </div>
-
-            {selectedDriverMonthSummary.length > 0 && (
-              <div className="bulk-shift-summary">
-                <span>
-                  Guardias ya cargadas para este chofer en el mes:
-                </span>
-                {selectedDriverMonthSummary.map((item) => (
-                  <button
-                    key={item.ambulance_id}
-                    className={
-                      String(item.ambulance_id) ===
-                        bulkForm.ambulance_id
-                        ? 'bulk-shift-summary-chip bulk-shift-summary-chip-active'
-                        : 'bulk-shift-summary-chip'
-                    }
-                    type="button"
-                    onClick={() =>
-                      setBulkForm({
-                        ...bulkForm,
-                        ambulance_id:
-                          String(item.ambulance_id),
-                        morning_days: [],
-                        afternoon_days: []
-                      })
-                    }
-                  >
-                    {item.ambulance_label}
-                    {' · '}
-                    {item.count} guardias
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {([
-              [
-                'morning_days',
-                'Turno mañana',
-                'morning_start_time',
-                'morning_end_time'
-              ],
-              [
-                'afternoon_days',
-                'Turno tarde (sabados, domingos y feriados hasta 22:00)',
-                'afternoon_start_time',
-                'afternoon_end_time'
-              ]
-            ] as const).map((group) => (
-              <section
-                className="bulk-shift-group"
-                key={group[0]}
-              >
-                <div className="bulk-shift-group-heading">
-                  <strong>{group[1]}</strong>
-                  <input
-                    className="form-input"
-                    type="time"
-                    value={bulkForm[group[2]]}
-                    onChange={(event) =>
-                      setBulkForm({
-                        ...bulkForm,
-                        [group[2]]:
-                          event.target.value
-                      })
-                    }
-                  />
-                  <span>a</span>
-                  <input
-                    className="form-input"
-                    type="time"
-                    value={bulkForm[group[3]]}
-                    onChange={(event) =>
-                      setBulkForm({
-                        ...bulkForm,
-                        [group[3]]:
-                          event.target.value
-                      })
-                    }
-                  />
-                </div>
-
-                <div className="bulk-shift-days">
-                  {Array.from(
-                    {
-                      length:
-                        daysInMonth(
-                          bulkForm.month
-                        )
-                    },
-                    (_, index) => index + 1
-                  ).map((day) => (
-                    <button
-                      className={
-                        bulkForm[group[0]]
-                          .includes(day)
-                          ? 'bulk-shift-day bulk-shift-day-selected'
-                          : 'bulk-shift-day'
-                      }
-                      type="button"
-                      key={day}
-                      onClick={() =>
-                        toggleBulkDay(
-                          group[0],
-                          day
-                        )
-                      }
-                    >
-                      {day}
-                    </button>
-                  ))}
-                </div>
-              </section>
-            ))}
-
-            <div className="bulk-shift-footer">
-              <span>
-                {bulkForm.morning_days.length +
-                  bulkForm.afternoon_days.length}
-                {' '}guardias seleccionadas
-              </span>
-              <button
-                className="btn-success"
-                type="submit"
-              >
-                Guardar guardias del mes
-              </button>
-            </div>
-          </form>
-        </>
+      {error && (
+        <p className="auth-error">
+          {error}
+        </p>
       )}
 
-      {
-        error && (
-          <p className="auth-error">
-            {error}
-          </p>
-        )
-      }
+      {canEdit && (
+        <p className="driver-shift-help">
+          Click en una celda vacia carga la guardia. Click en una celda marcada permite cambiar chofer o eliminarla.
+        </p>
+      )}
 
-      <div className="shift-filter-panel">
+      <div className="shift-filter-panel driver-shift-filters">
         <select
           className="form-input"
           value={filters.driver_id}
@@ -624,92 +549,27 @@ export default function DriverShiftsPage() {
           <option value="">
             Todos los choferes
           </option>
-          {drivers.map((driver) => (
+          {activeDrivers.map((driver) => (
             <option
               key={driver.id}
-              value={driver.id}
+              value={driver.id || ''}
             >
-              {driver.full_name || `${driver.first_name} ${driver.last_name}`}
+              {driverLabel(driver)}
             </option>
           ))}
         </select>
 
-        <select
+        <input
           className="form-input"
-          value={filters.ambulance_id}
+          type="month"
+          value={filters.month}
           onChange={(event) =>
             setFilters({
               ...filters,
-              ambulance_id: event.target.value
+              month: event.target.value
             })
           }
-        >
-          <option value="">
-            Todas las ambulancias
-          </option>
-          {ambulances.map((ambulance) => (
-            <option
-              key={ambulance.id}
-              value={ambulance.id}
-            >
-              {ambulance.internal_code} - {ambulance.plate}
-            </option>
-          ))}
-        </select>
-
-        <select
-          className="form-input"
-          value={filters.status}
-          onChange={(event) =>
-            setFilters({
-              ...filters,
-              status: event.target.value
-            })
-          }
-        >
-          <option value="">
-            Todos los estados
-          </option>
-          <option value="programada">
-            Programada
-          </option>
-          <option value="activa">
-            Activa
-          </option>
-          <option value="finalizada">
-            Finalizada
-          </option>
-        </select>
-
-        <label className="form-field">
-          <span>Desde</span>
-          <input
-            className="form-input"
-            type="date"
-            value={filters.date_from}
-            onChange={(event) =>
-              setFilters({
-                ...filters,
-                date_from: event.target.value
-              })
-            }
-          />
-        </label>
-
-        <label className="form-field">
-          <span>Hasta</span>
-          <input
-            className="form-input"
-            type="date"
-            value={filters.date_to}
-            onChange={(event) =>
-              setFilters({
-                ...filters,
-                date_to: event.target.value
-              })
-            }
-          />
-        </label>
+        />
 
         <button
           className="btn-secondary"
@@ -717,10 +577,7 @@ export default function DriverShiftsPage() {
           onClick={() =>
             setFilters({
               driver_id: '',
-              ambulance_id: '',
-              status: '',
-              date_from: '',
-              date_to: ''
+              month: currentMonth
             })
           }
         >
@@ -728,42 +585,104 @@ export default function DriverShiftsPage() {
         </button>
       </div>
 
-      <div className="table-container">
-        <table className="data-table">
+      <div className="driver-shift-calendar-wrap">
+        <table className="data-table driver-shift-calendar">
           <thead>
             <tr>
-              <th>Chofer</th>
-              <th>Ambulancia</th>
-              <th>Inicio</th>
-              <th>Fin</th>
-              <th>Estado</th>
+              <th className="driver-shift-driver-col">
+              </th>
+              {monthDays.map((day) => (
+                <th
+                  key={day}
+                  className={[
+                    dateState(filters.month, day).isPast
+                      ? 'driver-shift-day-past'
+                      : '',
+                    dateState(filters.month, day).isToday
+                      ? 'driver-shift-day-today'
+                      : '',
+                    dateState(filters.month, day).isSunday
+                      ? 'driver-shift-day-sunday'
+                      : ''
+                  ].filter(Boolean).join(' ')}
+                >
+                  <strong>{day}</strong>
+                  <span>{weekdayLabel(filters.month, day)}</span>
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody>
-            {filteredShifts.map((shift) => (
-              <tr key={shift.id}>
-                <td>{shift.driver_name}</td>
-                <td>
-                  {shift.ambulance_code} - {shift.ambulance_plate}
+            {activeDrivers.map((driver) => (
+              <tr key={driver.id}>
+                <td className="driver-shift-driver-col">
+                  <strong>{driverLabel(driver)}</strong>
                 </td>
-                <td>
-                  {formatDateTime(
-                    shift.start_datetime
-                  )}
-                </td>
-                <td>
-                  {formatDateTime(
-                    shift.end_datetime
-                  )}
-                </td>
-                <td>{shift.status}</td>
+                {monthDays.map((day) => {
+                  const date =
+                    dayDate(filters.month, day);
+
+                  const state =
+                    dateState(filters.month, day);
+
+                  return (
+                    <td
+                      key={day}
+                      className={[
+                        state.isPast
+                          ? 'driver-shift-day-past'
+                          : '',
+                        state.isToday
+                          ? 'driver-shift-day-today'
+                          : '',
+                        state.isSunday
+                          ? 'driver-shift-day-sunday'
+                          : ''
+                      ].filter(Boolean).join(' ')}
+                    >
+                      {(['manana', 'tarde'] as ShiftType[]).map((type) => {
+                        const shift =
+                          shiftsByDriverDate.get(
+                            `${driver.id}-${date}-${type}`
+                          );
+
+                        return (
+                          <button
+                            key={type}
+                            className={
+                              shift
+                                ? 'driver-shift-cell driver-shift-cell-active'
+                                : 'driver-shift-cell'
+                            }
+                            type="button"
+                            disabled={!canEdit}
+                            title={
+                              shift
+                                ? `${shiftLabels[type]} asignado`
+                                : `Cargar ${shiftLabels[type]}`
+                            }
+                            onClick={() =>
+                              handleCalendarShift(
+                                driver,
+                                day,
+                                type
+                              )
+                            }
+                          >
+                            {shiftShortLabels[type]}
+                          </button>
+                        );
+                      })}
+                    </td>
+                  );
+                })}
               </tr>
             ))}
 
-            {filteredShifts.length === 0 && (
+            {activeDrivers.length === 0 && (
               <tr>
-                <td colSpan={5}>
-                  No hay guardias para los filtros seleccionados.
+                <td colSpan={monthDays.length + 1}>
+                  No hay choferes activos para mostrar.
                 </td>
               </tr>
             )}
@@ -771,6 +690,107 @@ export default function DriverShiftsPage() {
         </table>
       </div>
 
+      {editingShift && (
+        <div className="modal-overlay">
+          <form
+            className="modal-content"
+            onSubmit={saveShift}
+          >
+            <div className="modal-header">
+              <div>
+                <h2>
+                  {editingShift.id
+                    ? 'Editar guardia'
+                    : 'Nueva guardia'}
+                </h2>
+                <p>
+                  {formatDisplayDate(editingShift.shift_date)}
+                  {' - '}
+                  {shiftLabels[editingShift.shift_type]}
+                </p>
+              </div>
+              <button
+                aria-label="Cerrar"
+                className="modal-close-button"
+                type="button"
+                onClick={() =>
+                  setEditingShift(null)
+                }
+              >
+                x
+              </button>
+            </div>
+
+            <label className="form-field">
+              <span>Chofer</span>
+              <select
+                className="form-input"
+                value={editingShift.driver_id}
+                onChange={(event) =>
+                  setEditingShift({
+                    ...editingShift,
+                    driver_id:
+                      event.target.value
+                  })
+                }
+                required
+              >
+                {activeDrivers.map((driver) => (
+                  <option
+                    key={driver.id}
+                    value={driver.id || ''}
+                  >
+                    {driverLabel(driver)}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="form-field">
+              <span>Observaciones</span>
+              <textarea
+                className="form-input"
+                value={editingShift.notes}
+                onChange={(event) =>
+                  setEditingShift({
+                    ...editingShift,
+                    notes:
+                      event.target.value
+                  })
+                }
+                rows={3}
+              />
+            </label>
+
+            <div className="modal-actions">
+              {editingShift.id && (
+                <button
+                  className="btn-danger"
+                  type="button"
+                  onClick={removeShift}
+                >
+                  Eliminar
+                </button>
+              )}
+              <button
+                className="btn-secondary"
+                type="button"
+                onClick={() =>
+                  setEditingShift(null)
+                }
+              >
+                Cancelar
+              </button>
+              <button
+                className="btn-success"
+                type="submit"
+              >
+                Guardar
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   );
 }

@@ -1152,6 +1152,176 @@
   margin-bottom: 0;
 }
 
+.driver-shift-filters {
+  grid-template-columns:
+    minmax(220px, 1.4fr)
+    minmax(150px, 0.7fr)
+    auto;
+}
+
+.driver-shift-help {
+  margin: -6px 0 12px;
+  color: var(--color-muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.driver-shift-calendar-wrap {
+  width: 100%;
+  max-height: calc(100dvh - 260px);
+  min-height: 520px;
+  overflow: auto;
+  margin-bottom: 18px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow:
+    0 8px 22px rgba(15, 23, 42, 0.08);
+}
+
+.driver-shift-calendar {
+  min-width: 930px;
+  table-layout: fixed;
+  border-radius: 0;
+  box-shadow: none;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.driver-shift-calendar th,
+.driver-shift-calendar td {
+  width: 38px;
+  min-width: 38px;
+  padding: 3px;
+  text-align: center;
+  border-right: 1px solid #e5e7eb;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.driver-shift-calendar thead th {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  background: #1e5f93;
+}
+
+.driver-shift-calendar th strong,
+.driver-shift-calendar th span {
+  display: block;
+  text-align: center;
+}
+
+.driver-shift-calendar th strong {
+  color: #ffffff;
+  font-weight: 500;
+}
+
+.driver-shift-calendar th span {
+  margin-top: 2px;
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 9px;
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+.driver-shift-calendar td.driver-shift-day-past {
+  background: #f1f5f9;
+}
+
+.driver-shift-calendar td.driver-shift-day-past {
+  opacity: 0.62;
+}
+
+.driver-shift-calendar th.driver-shift-day-past strong,
+.driver-shift-calendar th.driver-shift-day-past span {
+  color: rgba(255, 255, 255, 0.58);
+}
+
+.driver-shift-calendar td.driver-shift-day-today {
+  background: #dbeafe;
+}
+
+.driver-shift-calendar th.driver-shift-day-today strong {
+  color: #ffffff;
+  font-weight: 800;
+}
+
+.driver-shift-calendar th.driver-shift-day-today span {
+  color: #ffffff;
+  font-weight: 800;
+}
+
+.driver-shift-calendar th.driver-shift-day-sunday strong,
+.driver-shift-calendar th.driver-shift-day-sunday span {
+  color: #f87171;
+  font-weight: 800;
+}
+
+.driver-shift-driver-col {
+  position: sticky;
+  left: 0;
+  z-index: 3;
+  width: 180px !important;
+  min-width: 180px !important;
+  max-width: 180px;
+  text-align: left !important;
+  background: #eef6ff;
+  color: inherit;
+  box-shadow: 2px 0 0 #cbd5e1;
+}
+
+.driver-shift-calendar thead .driver-shift-driver-col {
+  z-index: 5;
+  background: #174d78;
+}
+
+.driver-shift-driver-col strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+}
+
+.driver-shift-cell {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  margin: 1px;
+  color: #64748b;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.driver-shift-cell:hover:not(:disabled) {
+  color: var(--color-primary);
+  background: #eff6ff;
+  border-color: rgba(37, 99, 235, 0.35);
+}
+
+.driver-shift-cell-active {
+  color: #fff;
+  background: #0f766e;
+  border-color: #0f766e;
+}
+
+.driver-shift-cell-active:hover:not(:disabled) {
+  color: #fff;
+  background: #115e59;
+  border-color: #115e59;
+}
+
+.driver-shift-cell:disabled {
+  cursor: default;
+  opacity: 1;
+}
+
+
 .filter-bar {
 
   display: grid;

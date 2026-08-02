@@ -54,19 +54,24 @@ CREATE TABLE IF NOT EXISTS drivers (
 CREATE TABLE IF NOT EXISTS driver_shifts (
   id BIGINT PRIMARY KEY AUTO_INCREMENT,
   driver_id BIGINT NOT NULL,
-  ambulance_id BIGINT NOT NULL,
+  shift_date DATE NULL,
+  shift_type ENUM('manana', 'tarde') NULL,
+  ambulance_id BIGINT NULL,
   start_datetime DATETIME NOT NULL,
   end_datetime DATETIME NOT NULL,
   status ENUM('programada', 'activa', 'finalizada') DEFAULT 'programada',
+  notes VARCHAR(255) NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   INDEX idx_driver_shifts_driver (driver_id),
   INDEX idx_driver_shifts_ambulance (ambulance_id),
+  INDEX idx_driver_shifts_shift_date (shift_date, shift_type),
   INDEX idx_driver_shifts_dates (start_datetime, end_datetime),
   CONSTRAINT fk_driver_shifts_driver
     FOREIGN KEY (driver_id) REFERENCES drivers(id),
   CONSTRAINT fk_driver_shifts_ambulance
     FOREIGN KEY (ambulance_id) REFERENCES ambulances(id)
+    ON DELETE SET NULL
 );
 
 CREATE TABLE IF NOT EXISTS transfer_holidays (

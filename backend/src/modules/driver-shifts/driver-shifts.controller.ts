@@ -6,6 +6,7 @@ import {
 import {
   createBulkDriverShifts,
   createDriverShift,
+  deleteDriverShift,
   getAllDriverShifts,
   updateDriverShift
 } from './driver-shifts.service';
@@ -18,19 +19,14 @@ function validateShift(
     return 'El chofer es obligatorio';
   }
 
-  if (!body.ambulance_id) {
-    return 'La ambulancia es obligatoria';
-  }
-
-  if (!body.start_datetime || !body.end_datetime) {
-    return 'Inicio y fin son obligatorios';
+  if (!body.shift_date || !body.shift_type) {
+    return 'Fecha y turno son obligatorios';
   }
 
   if (
-    new Date(body.start_datetime) >=
-    new Date(body.end_datetime)
+    !['manana', 'tarde'].includes(body.shift_type)
   ) {
-    return 'La guardia debe terminar despues de empezar';
+    return 'El turno seleccionado no es valido';
   }
 
   return null;
@@ -43,13 +39,12 @@ export async function createBulk(
   try {
     if (
       !req.body.driver_id ||
-      !req.body.ambulance_id ||
       !/^\d{4}-\d{2}$/.test(req.body.month || '')
     ) {
       return res.status(400).json({
         success: false,
         message:
-          'Chofer, ambulancia y mes son obligatorios'
+          'Chofer y mes son obligatorios'
       });
     }
 
@@ -179,6 +174,32 @@ export async function update(
       success: true,
       message:
         'Guardia actualizada'
+    });
+
+  } catch (error: any) {
+
+    return res.status(400).json({
+      success: false,
+      message: error.message
+    });
+  }
+}
+
+export async function remove(
+  req: Request,
+  res: Response
+) {
+
+  try {
+
+    await deleteDriverShift(
+      Number(req.params.id)
+    );
+
+    return res.json({
+      success: true,
+      message:
+        'Guardia eliminada'
     });
 
   } catch (error: any) {

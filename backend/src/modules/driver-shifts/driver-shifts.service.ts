@@ -1,6 +1,32 @@
 import { pool }
   from '../../config/database';
 
+const shiftTimes: Record<string, {
+  start: string;
+  end: string;
+}> = {
+  manana: {
+    start: '08:00',
+    end: '15:00'
+  },
+  tarde: {
+    start: '15:00',
+    end: '21:00'
+  }
+};
+
+function resolveShiftTime(
+  shiftType: string,
+  field: 'start' | 'end',
+  fallback?: string
+) {
+  return (
+    fallback ||
+    shiftTimes[shiftType]?.[field] ||
+    shiftTimes.manana[field]
+  );
+}
+
 export async function getAllDriverShifts() {
 
   const [rows]: any =
@@ -10,6 +36,9 @@ export async function getAllDriverShifts() {
           ds.id,
           ds.driver_id,
           ds.ambulance_id,
+          DATE_FORMAT(ds.shift_date, '%Y-%m-%d')
+            AS shift_date,
+          ds.shift_type,
           DATE_FORMAT(
             ds.start_datetime,
             '%Y-%m-%dT%H:%i:%s'
@@ -19,6 +48,7 @@ export async function getAllDriverShifts() {
             '%Y-%m-%dT%H:%i:%s'
           ) AS end_datetime,
           ds.status,
+          ds.notes,
           ds.created_at,
           ds.updated_at,
           COALESCE(
@@ -34,9 +64,9 @@ export async function getAllDriverShifts() {
           ON d.id = ds.driver_id
         LEFT JOIN employees e
           ON e.id = d.employee_id
-        INNER JOIN ambulances a
+        LEFT JOIN ambulances a
           ON a.id = ds.ambulance_id
-        ORDER BY ds.start_datetime DESC
+        ORDER BY ds.start_datetime DESC, driver_name ASC
       `
     );
 
@@ -46,25 +76,51 @@ export async function getAllDriverShifts() {
 export async function createDriverShift(
   data: any
 ) {
+  const shiftDate =
+    data.shift_date ||
+    String(data.start_datetime).slice(0, 10);
+
+  const shiftType =
+    data.shift_type || 'manana';
+
+  const startTime =
+    resolveShiftTime(
+      shiftType,
+      'start',
+      data.start_time
+    );
+
+  const endTime =
+    resolveShiftTime(
+      shiftType,
+      'end',
+      data.end_time
+    );
 
   const [result]: any =
     await pool.query(
       `
         INSERT INTO driver_shifts (
           driver_id,
+          shift_date,
+          shift_type,
           ambulance_id,
           start_datetime,
           end_datetime,
-          status
+          status,
+          notes
         )
-        VALUES (?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       `,
       [
         data.driver_id,
-        data.ambulance_id,
-        data.start_datetime,
-        data.end_datetime,
-        data.status ?? 'programada'
+        shiftDate,
+        shiftType,
+        data.ambulance_id || null,
+        data.start_datetime || `${shiftDate} ${startTime}:00`,
+        data.end_datetime || `${shiftDate} ${endTime}:00`,
+        data.status ?? 'programada',
+        data.notes || null
       ]
     );
 
@@ -82,6 +138,7 @@ export async function createBulkDriverShifts(
 
     const groups = [
       {
+        shift_type: 'manana',
         days: data.morning_days || [],
         start_time:
           data.morning_start_time || '08:00',
@@ -89,6 +146,7 @@ export async function createBulkDriverShifts(
           data.morning_end_time || '15:00'
       },
       {
+        shift_type: 'tarde',
         days: data.afternoon_days || [],
         start_time:
           data.afternoon_start_time || '15:00',
@@ -107,13 +165,11 @@ export async function createBulkDriverShifts(
           `
             DELETE FROM driver_shifts
             WHERE driver_id = ?
-              AND ambulance_id = ?
               AND DATE_FORMAT(start_datetime, '%Y-%m') = ?
               AND TIME_FORMAT(start_datetime, '%H:%i') IN (?, ?)
           `,
           [
             data.driver_id,
-            data.ambulance_id,
             data.month,
             data.morning_start_time || '08:00',
             data.afternoon_start_time || '15:00'
@@ -165,8 +221,7 @@ export async function createBulkDriverShifts(
           holidayRows.length > 0;
 
         const endTime =
-          group.start_time ===
-            data.afternoon_start_time &&
+          group.shift_type === 'tarde' &&
           isWeekendOrHoliday
             ? '22:00'
             : group.end_time;
@@ -180,16 +235,14 @@ export async function createBulkDriverShifts(
               SELECT id
               FROM driver_shifts
               WHERE driver_id = ?
-                AND ambulance_id = ?
-                AND start_datetime = ?
-                AND end_datetime = ?
+                AND shift_date = ?
+                AND shift_type = ?
               LIMIT 1
             `,
             [
               data.driver_id,
-              data.ambulance_id,
-              start,
-              end
+              date,
+              group.shift_type
             ]
           );
 
@@ -202,16 +255,19 @@ export async function createBulkDriverShifts(
           `
             INSERT INTO driver_shifts (
               driver_id,
+              shift_date,
+              shift_type,
               ambulance_id,
               start_datetime,
               end_datetime,
               status
             )
-            VALUES (?, ?, ?, ?, 'programada')
+            VALUES (?, ?, ?, NULL, ?, ?, 'programada')
           `,
           [
             data.driver_id,
-            data.ambulance_id,
+            date,
+            group.shift_type,
             start,
             end
           ]
@@ -240,26 +296,66 @@ export async function updateDriverShift(
   id: number,
   data: any
 ) {
+  const shiftDate =
+    data.shift_date ||
+    String(data.start_datetime).slice(0, 10);
+
+  const shiftType =
+    data.shift_type || 'manana';
+
+  const startTime =
+    resolveShiftTime(
+      shiftType,
+      'start',
+      data.start_time
+    );
+
+  const endTime =
+    resolveShiftTime(
+      shiftType,
+      'end',
+      data.end_time
+    );
 
   await pool.query(
     `
       UPDATE driver_shifts
       SET
         driver_id = ?,
+        shift_date = ?,
+        shift_type = ?,
         ambulance_id = ?,
         start_datetime = ?,
         end_datetime = ?,
-        status = ?
+        status = ?,
+        notes = ?
       WHERE id = ?
     `,
     [
       data.driver_id,
-      data.ambulance_id,
-      data.start_datetime,
-      data.end_datetime,
-      data.status,
+      shiftDate,
+      shiftType,
+      data.ambulance_id || null,
+      data.start_datetime || `${shiftDate} ${startTime}:00`,
+      data.end_datetime || `${shiftDate} ${endTime}:00`,
+      data.status || 'programada',
+      data.notes || null,
       id
     ]
+  );
+
+  return true;
+}
+
+export async function deleteDriverShift(
+  id: number
+) {
+  await pool.query(
+    `
+      DELETE FROM driver_shifts
+      WHERE id = ?
+    `,
+    [id]
   );
 
   return true;

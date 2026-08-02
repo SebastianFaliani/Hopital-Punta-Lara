@@ -494,6 +494,10 @@
     grid-template-columns: 1fr;
   }
 
+  .driver-shift-filters {
+    grid-template-columns: 1fr;
+  }
+
   .form-input,
   .auth-input {
     min-height: 42px;

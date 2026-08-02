@@ -15,7 +15,7 @@ const transferSections = [
   },
   {
     title: 'Guardias',
-    detail: 'Carga y revisa las guardias de choferes y ambulancias.',
+    detail: 'Carga y revisa las guardias mensuales de choferes.',
     path: '/transfers/shifts'
   }
 ];
