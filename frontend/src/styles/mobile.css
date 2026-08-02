@@ -74,6 +74,7 @@
 }
 
 .app-nav-link {
+  position: relative;
   color: var(--color-primary);
   text-decoration: none;
   padding: 10px 12px;

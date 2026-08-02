@@ -9,6 +9,7 @@ import {
 import {
   create,
   getDrivers,
+  getLicenseAlerts,
   toggleStatus,
   update
 } from './drivers.controller';
@@ -20,6 +21,13 @@ router.get(
   authenticateToken,
   authorizeRoles('admin', 'user', 'dir'),
   getDrivers
+);
+
+router.get(
+  '/license-alerts',
+  authenticateToken,
+  authorizeRoles('admin', 'user', 'dir'),
+  getLicenseAlerts
 );
 
 router.post(

@@ -3203,6 +3203,7 @@ export async function getEmployeeDirectiveSummary(
           e.phone,
           e.email,
           e.license_number,
+          DATE_FORMAT(e.license_expiration_date, '%Y-%m-%d') AS license_expiration_date,
           e.employment_type,
           e.work_shift,
           TIME_FORMAT(e.shift_start_time, '%H:%i') AS shift_start_time,
@@ -5225,6 +5226,7 @@ export async function getEmployees(
           e.phone,
           e.email,
           e.license_number,
+          DATE_FORMAT(e.license_expiration_date, '%Y-%m-%d') AS license_expiration_date,
           e.employment_type,
           e.work_shift,
           TIME_FORMAT(e.shift_start_time, '%H:%i') AS shift_start_time,
@@ -5314,6 +5316,7 @@ export async function createEmployee(
           phone,
           email,
           license_number,
+          license_expiration_date,
           employment_type,
           work_shift,
           shift_start_time,
@@ -5321,7 +5324,7 @@ export async function createEmployee(
           is_professional,
           notes
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
       [
         facilityId,
@@ -5336,6 +5339,7 @@ export async function createEmployee(
         data.phone || null,
         data.email || null,
         data.license_number || null,
+        data.license_expiration_date || null,
         data.employment_type || null,
         data.work_shift || null,
         data.shift_start_time || null,
@@ -5391,6 +5395,7 @@ export async function updateEmployee(
         phone = ?,
         email = ?,
         license_number = ?,
+        license_expiration_date = ?,
         employment_type = ?,
         work_shift = ?,
         shift_start_time = ?,
@@ -5412,6 +5417,7 @@ export async function updateEmployee(
       data.phone || null,
       data.email || null,
       data.license_number || null,
+      data.license_expiration_date || null,
       data.employment_type || null,
       data.work_shift || null,
       data.shift_start_time || null,

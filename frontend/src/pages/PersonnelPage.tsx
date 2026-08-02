@@ -52,6 +52,7 @@ type Employee = {
   phone: string | null;
   email: string | null;
   license_number: string | null;
+  license_expiration_date: string | null;
   employment_type: string | null;
   work_shift: string | null;
   shift_start_time: string | null;
@@ -617,6 +618,7 @@ const emptyEmployee = {
   phone: '',
   email: '',
   license_number: '',
+  license_expiration_date: '',
   employment_type: '',
   work_shift: '',
   shift_start_time: '',
@@ -1722,6 +1724,8 @@ export default function PersonnelPage() {
         employee.email || '',
       license_number:
         employee.license_number || '',
+      license_expiration_date:
+        toDateInput(employee.license_expiration_date),
       employment_type:
         employee.employment_type || '',
       work_shift:
@@ -2150,6 +2154,7 @@ export default function PersonnelPage() {
         phone: null,
         email: null,
         license_number: null,
+        license_expiration_date: null,
         employment_type: request.employment_type,
         work_shift: null,
         shift_start_time: null,
@@ -4589,6 +4594,7 @@ export default function PersonnelPage() {
             phone: null,
             email: null,
             license_number: null,
+            license_expiration_date: null,
             employment_type: null,
             work_shift: null,
             shift_start_time: null,
@@ -5830,6 +5836,14 @@ export default function PersonnelPage() {
                 name="license_number"
                 placeholder="Matricula"
                 value={employeeForm.license_number}
+                onChange={handleEmployeeChange}
+              />
+
+              <input
+                className="form-input"
+                name="license_expiration_date"
+                type="date"
+                value={employeeForm.license_expiration_date}
                 onChange={handleEmployeeChange}
               />
 

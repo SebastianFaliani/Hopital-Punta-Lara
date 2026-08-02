@@ -1,14 +1,18 @@
+import type { ReactNode } from 'react';
+
 import PageTitle from '../PageTitle';
 import TransfersNav from './TransfersNav';
 
 type TransfersHeaderProps = {
   title: string;
   description?: string;
+  actions?: ReactNode;
 };
 
 export default function TransfersHeader({
   title,
-  description
+  description,
+  actions
 }: TransfersHeaderProps) {
   return (
     <>
@@ -23,6 +27,7 @@ export default function TransfersHeader({
             </p>
           )}
         </div>
+        {actions}
       </div>
 
       <TransfersNav />

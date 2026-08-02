@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useMemo,
   useState
 } from 'react';
 
@@ -9,25 +10,70 @@ import { useAuth }
   from '../auth/useAuth';
 import { hasPermission } from '../auth/permissions';
 import { IconButton } from '../components/IconButton';
-
 import TransfersHeader
   from '../components/transfers/TransfersHeader';
+import {
+  formatDisplayDate
+} from '../utils/dateFormat';
 
 type Driver = {
-  id: number;
+  id: number | null;
+  employee_id: number;
+  full_name: string;
   first_name: string;
   last_name: string;
-  phone: string;
-  license_number: string;
+  phone: string | null;
+  license_number: string | null;
+  license_expiration_date: string | null;
+  license_alert_level: number;
   is_active: boolean;
 };
 
 const emptyForm = {
-  first_name: '',
-  last_name: '',
-  phone: '',
-  license_number: ''
+  employee_id: '',
+  license_number: '',
+  license_expiration_date: ''
 };
+
+const pageSize =
+  10;
+
+function licenseBadgeClass(
+  driver: Driver
+) {
+  if (driver.license_alert_level === 2) {
+    return 'badge badge-danger';
+  }
+
+  if (driver.license_alert_level === 1) {
+    return 'badge badge-warning';
+  }
+
+  return 'badge badge-success';
+}
+
+function licenseBadgeText(
+  driver: Driver
+) {
+  if (!driver.license_expiration_date) {
+    return 'Sin vencimiento';
+  }
+
+  const dateText =
+    formatDisplayDate(
+      driver.license_expiration_date
+    );
+
+  if (driver.license_alert_level === 2) {
+    return `Vencida ${dateText}`;
+  }
+
+  if (driver.license_alert_level === 1) {
+    return `Por vencer ${dateText}`;
+  }
+
+  return dateText;
+}
 
 export default function DriversPage() {
   const { user } =
@@ -49,109 +95,171 @@ export default function DriversPage() {
   const [editing, setEditing] =
     useState<Driver | null>(null);
 
+  const [showForm, setShowForm] =
+    useState(false);
+
+  const [search, setSearch] =
+    useState('');
+
+  const [page, setPage] =
+    useState(1);
+
+  const [loading, setLoading] =
+    useState(false);
+
   const [error, setError] =
     useState('');
 
   async function loadDrivers() {
-
     try {
-
       const res =
         await apiFetch('/drivers');
 
       setDrivers(res.data);
-
     } catch (error: any) {
-
       setError(error.message);
     }
   }
 
-  function handleChange(
-    e: React.ChangeEvent<HTMLInputElement>
-  ) {
-
-    setForm({
-      ...form,
-      [e.target.name]: e.target.value
-    });
-  }
-
-  function startEdit(
+  function openEdit(
     driver: Driver
   ) {
-
     setEditing(driver);
     setForm({
-      first_name: driver.first_name,
-      last_name: driver.last_name,
-      phone: driver.phone || '',
+      employee_id:
+        driver.employee_id
+          ? String(driver.employee_id)
+          : '',
       license_number:
-        driver.license_number || ''
+        driver.license_number || '',
+      license_expiration_date:
+        driver.license_expiration_date || ''
+    });
+    setError('');
+    setShowForm(true);
+  }
+
+  function closeForm() {
+    setEditing(null);
+    setForm(emptyForm);
+    setShowForm(false);
+    setError('');
+  }
+
+  function handleChange(
+    event: React.ChangeEvent<HTMLInputElement>
+  ) {
+    setForm({
+      ...form,
+      [event.target.name]:
+        event.target.value
     });
   }
 
-  function resetForm() {
-
-    setEditing(null);
-    setForm(emptyForm);
-  }
-
-  async function handleSubmit(
-    e: React.FormEvent
+  async function saveDriver(
+    event: React.FormEvent
   ) {
-
-    e.preventDefault();
+    event.preventDefault();
     setError('');
 
     try {
+      setLoading(true);
 
       await apiFetch(
-        editing
+        editing?.id
           ? `/drivers/${editing.id}`
           : '/drivers',
         {
           method:
-            editing ? 'PUT' : 'POST',
+            editing?.id ? 'PUT' : 'POST',
           body:
             JSON.stringify(form)
         }
       );
 
-      resetForm();
-      loadDrivers();
-
+      closeForm();
+      await loadDrivers();
     } catch (error: any) {
+      setError(error.message);
+    } finally {
+      setLoading(false);
+    }
+  }
 
+  async function toggleDriver(
+    id: number | null
+  ) {
+    if (!id) {
+      return;
+    }
+
+    try {
+      await apiFetch(
+        `/drivers/${id}/status`,
+        { method: 'PATCH' }
+      );
+
+      await loadDrivers();
+    } catch (error: any) {
       setError(error.message);
     }
   }
 
-  async function handleToggle(
-    id: number
-  ) {
-
-    await apiFetch(
-      `/drivers/${id}/status`,
-      { method: 'PATCH' }
-    );
-
-    loadDrivers();
-  }
-
   useEffect(() => {
-
     loadDrivers();
-
   }, []);
 
+  const filteredDrivers =
+    useMemo(
+      () => {
+        const term =
+          search.trim().toLowerCase();
+
+        return drivers.filter((driver) => {
+          if (!term) {
+            return true;
+          }
+
+          return [
+            driver.first_name,
+            driver.last_name,
+            driver.full_name,
+            driver.phone,
+            driver.license_number
+          ]
+            .filter(Boolean)
+            .some((value) =>
+              String(value)
+                .toLowerCase()
+                .includes(term)
+            );
+        });
+      },
+      [drivers, search]
+    );
+
+  const totalPages =
+    Math.max(
+      1,
+      Math.ceil(
+        filteredDrivers.length / pageSize
+      )
+    );
+
+  const safePage =
+    Math.min(page, totalPages);
+
+  const paginatedDrivers =
+    filteredDrivers.slice(
+      (safePage - 1) * pageSize,
+      safePage * pageSize
+    );
+
   return (
-
     <div>
-
       <TransfersHeader
         title="Choferes"
-        description="Gestiona los choferes habilitados y sus datos de contacto y licencia."
+        description="Gestiona los empleados del sector choferes, su licencia y vencimiento."
       />
 
       {!canEdit && (
@@ -160,79 +268,27 @@ export default function DriversPage() {
         </p>
       )}
 
-      {canEdit && (
-        <form
-          className="management-form"
-          onSubmit={handleSubmit}
-        >
-
-        <input
-          className="form-input"
-          name="first_name"
-          placeholder="Nombre"
-          value={form.first_name}
-          onChange={handleChange}
-        />
-
-        <input
-          className="form-input"
-          name="last_name"
-          placeholder="Apellido"
-          value={form.last_name}
-          onChange={handleChange}
-        />
-
-        <input
-          className="form-input"
-          name="phone"
-          placeholder="Telefono"
-          value={form.phone}
-          onChange={handleChange}
-        />
-
-        <input
-          className="form-input"
-          name="license_number"
-          placeholder="Licencia"
-          value={form.license_number}
-          onChange={handleChange}
-        />
-
-        <div className="management-actions">
-          <button
-            className="btn-success"
-            type="submit"
-          >
-            {
-              editing
-                ? 'Guardar'
-                : 'Crear'
-            }
-          </button>
-
-          {
-            editing && (
-              <button
-                className="btn-secondary"
-                type="button"
-                onClick={resetForm}
-              >
-                Cancelar
-              </button>
-            )
-          }
-        </div>
-
-        </form>
+      {error && (
+        <p className="auth-error">
+          {error}
+        </p>
       )}
 
-      {
-        error && (
-          <p className="auth-error">
-            {error}
-          </p>
-        )
-      }
+      <div className="filter-bar">
+        <input
+          className="form-input"
+          placeholder="Buscar por nombre, telefono o licencia"
+          value={search}
+          onChange={(event) => {
+            setSearch(event.target.value);
+            setPage(1);
+          }}
+        />
+      </div>
+
+      <p className="results-summary">
+        Mostrando {paginatedDrivers.length} de {filteredDrivers.length} choferes
+      </p>
 
       <div className="table-container">
         <table className="data-table">
@@ -241,6 +297,7 @@ export default function DriversPage() {
               <th>Nombre</th>
               <th>Telefono</th>
               <th>Licencia</th>
+              <th>Vencimiento</th>
               <th>Activo</th>
               {canEdit && (
                 <th>Acciones</th>
@@ -248,13 +305,18 @@ export default function DriversPage() {
             </tr>
           </thead>
           <tbody>
-            {drivers.map((driver) => (
+            {paginatedDrivers.map((driver) => (
               <tr key={driver.id}>
                 <td>
-                  {driver.first_name} {driver.last_name}
+                  {driver.full_name || `${driver.first_name} ${driver.last_name}`}
                 </td>
-                <td>{driver.phone}</td>
-                <td>{driver.license_number}</td>
+                <td>{driver.phone || '-'}</td>
+                <td>{driver.license_number || '-'}</td>
+                <td>
+                  <span className={licenseBadgeClass(driver)}>
+                    {licenseBadgeText(driver)}
+                  </span>
+                </td>
                 <td>
                   {driver.is_active ? 'Si' : 'No'}
                 </td>
@@ -263,34 +325,36 @@ export default function DriversPage() {
                     <div className="table-actions">
                       <IconButton
                         icon="edit"
-                        label="Editar chofer"
+                        label="Vincular licencia y vencimiento"
                         onClick={() =>
-                          startEdit(driver)
+                          openEdit(driver)
                         }
                         variant="primary"
                       />
-                      <IconButton
-                        icon={driver.is_active ? 'lock' : 'unlock'}
-                        label={driver.is_active ? 'Desactivar chofer' : 'Activar chofer'}
-                        onClick={() =>
-                          handleToggle(driver.id)
-                        }
-                        variant={
-                          driver.is_active
-                            ? 'danger'
-                            : 'success'
-                        }
-                      />
+                      {driver.id && (
+                        <IconButton
+                          icon={driver.is_active ? 'lock' : 'unlock'}
+                          label={driver.is_active ? 'Desactivar chofer' : 'Activar chofer'}
+                          onClick={() =>
+                            toggleDriver(driver.id)
+                          }
+                          variant={
+                            driver.is_active
+                              ? 'danger'
+                              : 'success'
+                          }
+                        />
+                      )}
                     </div>
                   </td>
                 )}
               </tr>
             ))}
 
-            {drivers.length === 0 && (
+            {filteredDrivers.length === 0 && (
               <tr>
-                <td colSpan={canEdit ? 5 : 4}>
-                  No hay choferes cargados.
+                <td colSpan={canEdit ? 6 : 5}>
+                  No hay empleados en el sector choferes.
                 </td>
               </tr>
             )}
@@ -298,6 +362,98 @@ export default function DriversPage() {
         </table>
       </div>
 
+      <div className="pagination-bar">
+        <span>
+          Pagina {safePage} de {totalPages}
+        </span>
+        <div className="table-actions">
+          <button
+            className="btn-secondary"
+            disabled={safePage <= 1}
+            onClick={() =>
+              setPage((value) =>
+                Math.max(1, value - 1)
+              )
+            }
+            type="button"
+          >
+            Anterior
+          </button>
+          <button
+            className="btn-secondary"
+            disabled={safePage >= totalPages}
+            onClick={() =>
+              setPage((value) =>
+                Math.min(totalPages, value + 1)
+              )
+            }
+            type="button"
+          >
+            Siguiente
+          </button>
+        </div>
+      </div>
+
+      {showForm && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <button
+              aria-label="Cerrar"
+              className="modal-close-button"
+              onClick={closeForm}
+              type="button"
+            >
+              x
+            </button>
+            <h2 className="modal-title">
+              Licencia de chofer
+            </h2>
+            {editing && (
+              <p className="modal-subtitle">
+                {editing.full_name}
+              </p>
+            )}
+
+            <form
+              className="auth-form"
+              onSubmit={saveDriver}
+            >
+              <input
+                className="form-input"
+                name="license_number"
+                placeholder="Numero de licencia"
+                value={form.license_number}
+                onChange={handleChange}
+              />
+
+              <input
+                className="form-input"
+                name="license_expiration_date"
+                type="date"
+                value={form.license_expiration_date}
+                onChange={handleChange}
+              />
+
+              <div className="modal-actions">
+                <button
+                  className="btn-secondary"
+                  type="button"
+                  onClick={closeForm}
+                >
+                  Cancelar
+                </button>
+                <button
+                  className="btn-success"
+                  disabled={loading}
+                  type="submit"
+                >
+                  {loading ? 'Guardando...' : 'Guardar'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

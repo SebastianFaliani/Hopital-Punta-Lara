@@ -15,6 +15,7 @@ import TransfersHeader
 
 type Driver = {
   id: number;
+  full_name: string;
   first_name: string;
   last_name: string;
   is_active: boolean;
@@ -416,7 +417,7 @@ export default function DriverShiftsPage() {
                         key={item.id}
                         value={item.id}
                       >
-                        {item.first_name} {item.last_name}
+                        {item.full_name || `${item.first_name} ${item.last_name}`}
                       </option>
                     ))}
                 </select>
@@ -628,7 +629,7 @@ export default function DriverShiftsPage() {
               key={driver.id}
               value={driver.id}
             >
-              {driver.first_name} {driver.last_name}
+              {driver.full_name || `${driver.first_name} ${driver.last_name}`}
             </option>
           ))}
         </select>

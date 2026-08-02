@@ -5,6 +5,7 @@ import {
 
 import {
   createDriver,
+  getDriverLicenseAlertsSummary,
   getAllDrivers,
   toggleDriver,
   updateDriver
@@ -14,12 +15,8 @@ function validateDriver(
   body: any
 ) {
 
-  if (!body.first_name) {
-    return 'El nombre es obligatorio';
-  }
-
-  if (!body.last_name) {
-    return 'El apellido es obligatorio';
+  if (!body.employee_id) {
+    return 'El empleado es obligatorio';
   }
 
   return null;
@@ -42,6 +39,24 @@ export async function getDrivers(
 
   } catch (error: any) {
 
+    return res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+}
+
+export async function getLicenseAlerts(
+  req: Request,
+  res: Response
+) {
+  try {
+    return res.json({
+      success: true,
+      data:
+        await getDriverLicenseAlertsSummary()
+    });
+  } catch (error: any) {
     return res.status(500).json({
       success: false,
       message: error.message

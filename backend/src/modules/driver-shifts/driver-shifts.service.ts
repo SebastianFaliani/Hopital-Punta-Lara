@@ -21,8 +21,10 @@ export async function getAllDriverShifts() {
           ds.status,
           ds.created_at,
           ds.updated_at,
-          CONCAT(d.first_name, ' ', d.last_name)
-            AS driver_name,
+          COALESCE(
+            e.full_name,
+            CONCAT(d.first_name, ' ', d.last_name)
+          ) AS driver_name,
           a.internal_code
             AS ambulance_code,
           a.plate
@@ -30,6 +32,8 @@ export async function getAllDriverShifts() {
         FROM driver_shifts ds
         INNER JOIN drivers d
           ON d.id = ds.driver_id
+        LEFT JOIN employees e
+          ON e.id = d.employee_id
         INNER JOIN ambulances a
           ON a.id = ds.ambulance_id
         ORDER BY ds.start_datetime DESC

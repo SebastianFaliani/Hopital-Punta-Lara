@@ -1,15 +1,22 @@
 CREATE TABLE IF NOT EXISTS employee_departments (
   id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  facility_id BIGINT NULL,
   name VARCHAR(120) NOT NULL,
   description VARCHAR(255),
   is_active BOOLEAN DEFAULT TRUE,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  UNIQUE KEY uk_employee_departments_name (name)
+  UNIQUE KEY uq_employee_departments_facility_name (facility_id, name),
+  INDEX idx_employee_departments_facility (facility_id),
+  CONSTRAINT fk_employee_departments_facility
+    FOREIGN KEY (facility_id)
+    REFERENCES health_facilities(id)
+    ON DELETE SET NULL
 );
 
 CREATE TABLE IF NOT EXISTS employees (
   id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  facility_id BIGINT NULL,
   department_id BIGINT NULL,
   full_name VARCHAR(255) NOT NULL,
   dni VARCHAR(20),
@@ -21,6 +28,7 @@ CREATE TABLE IF NOT EXISTS employees (
   phone VARCHAR(80),
   email VARCHAR(150),
   license_number VARCHAR(100),
+  license_expiration_date DATE NULL,
   employment_type VARCHAR(100),
   work_shift ENUM(
     'manana',
@@ -37,8 +45,14 @@ CREATE TABLE IF NOT EXISTS employees (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   UNIQUE KEY uk_employees_dni (dni),
   INDEX idx_employees_full_name (full_name),
+  INDEX idx_employees_facility (facility_id),
   INDEX idx_employees_department (department_id),
+  INDEX idx_employees_license_expiration (license_expiration_date),
   INDEX idx_employees_hire_date (hire_date),
+  CONSTRAINT fk_employees_facility
+    FOREIGN KEY (facility_id)
+    REFERENCES health_facilities(id)
+    ON DELETE SET NULL,
   CONSTRAINT fk_employees_department
     FOREIGN KEY (department_id)
     REFERENCES employee_departments(id)
