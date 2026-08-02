@@ -106,6 +106,33 @@ export async function createDriverShift(
       data.end_time
     );
 
+  const [busyRows]: any =
+    await pool.query(
+      `
+        SELECT id
+        FROM driver_shifts
+        WHERE shift_date = ?
+          AND shift_type = ?
+          AND (
+            driver_id = ?
+            OR covered_by_driver_id = ?
+          )
+        LIMIT 1
+      `,
+      [
+        shiftDate,
+        shiftType,
+        data.driver_id,
+        data.driver_id
+      ]
+    );
+
+  if (busyRows.length > 0) {
+    throw new Error(
+      'El chofer seleccionado ya tiene una guardia en ese dia y turno'
+    );
+  }
+
   const [result]: any =
     await pool.query(
       `
@@ -365,6 +392,37 @@ export async function updateDriverShift(
         ? Number(data.covered_by_driver_id)
         : null;
 
+    if (coveredByDriverId) {
+      const [busyRows]: any =
+        await connection.query(
+          `
+            SELECT id
+            FROM driver_shifts
+            WHERE id <> ?
+              AND shift_date = ?
+              AND shift_type = ?
+              AND (
+                driver_id = ?
+                OR covered_by_driver_id = ?
+              )
+            LIMIT 1
+          `,
+          [
+            id,
+            shiftDate,
+            shiftType,
+            coveredByDriverId,
+            coveredByDriverId
+          ]
+        );
+
+      if (busyRows.length > 0) {
+        throw new Error(
+          'El chofer seleccionado ya tiene una guardia en ese dia y turno'
+        );
+      }
+    }
+
     await connection.query(
     `
       UPDATE driver_shifts
@@ -453,4 +511,206 @@ export async function deleteDriverShift(
   );
 
   return true;
+}
+
+function buildChangeFilters(
+  filters: any
+) {
+  const where = [
+    '1 = 1'
+  ];
+
+  const values: any[] = [];
+
+  if (filters.date_from) {
+    where.push('ds.shift_date >= ?');
+    values.push(filters.date_from);
+  }
+
+  if (filters.date_to) {
+    where.push('ds.shift_date <= ?');
+    values.push(filters.date_to);
+  }
+
+  if (filters.driver_id) {
+    where.push(`
+      (
+        dsc.original_driver_id = ?
+        OR dsc.covering_driver_id = ?
+      )
+    `);
+    values.push(
+      filters.driver_id,
+      filters.driver_id
+    );
+  }
+
+  return {
+    where: where.join(' AND '),
+    values
+  };
+}
+
+export async function getDriverShiftChangeReport(
+  filters: any
+) {
+  const filter =
+    buildChangeFilters(filters);
+
+  const [historyRows]: any =
+    await pool.query(
+      `
+        SELECT
+          dsc.id,
+          dsc.shift_id,
+          DATE_FORMAT(ds.shift_date, '%Y-%m-%d')
+            AS shift_date,
+          ds.shift_type,
+          dsc.original_driver_id,
+          COALESCE(
+            original_employee.full_name,
+            CONCAT(original_driver.first_name, ' ', original_driver.last_name)
+          ) AS original_driver_name,
+          dsc.previous_covering_driver_id,
+          COALESCE(
+            previous_employee.full_name,
+            CONCAT(previous_driver.first_name, ' ', previous_driver.last_name)
+          ) AS previous_covering_driver_name,
+          dsc.covering_driver_id,
+          COALESCE(
+            covering_employee.full_name,
+            CONCAT(covering_driver.first_name, ' ', covering_driver.last_name)
+          ) AS covering_driver_name,
+          dsc.reason,
+          dsc.notes,
+          dsc.changed_by,
+          u.username AS changed_by_username,
+          DATE_FORMAT(dsc.created_at, '%Y-%m-%dT%H:%i:%s')
+            AS created_at
+        FROM driver_shift_changes dsc
+        INNER JOIN driver_shifts ds
+          ON ds.id = dsc.shift_id
+        INNER JOIN drivers original_driver
+          ON original_driver.id = dsc.original_driver_id
+        LEFT JOIN employees original_employee
+          ON original_employee.id = original_driver.employee_id
+        LEFT JOIN drivers previous_driver
+          ON previous_driver.id = dsc.previous_covering_driver_id
+        LEFT JOIN employees previous_employee
+          ON previous_employee.id = previous_driver.employee_id
+        LEFT JOIN drivers covering_driver
+          ON covering_driver.id = dsc.covering_driver_id
+        LEFT JOIN employees covering_employee
+          ON covering_employee.id = covering_driver.employee_id
+        LEFT JOIN users u
+          ON u.id = dsc.changed_by
+        WHERE ${filter.where}
+        ORDER BY dsc.created_at DESC
+      `,
+      filter.values
+    );
+
+  const [requestedRows]: any =
+    await pool.query(
+      `
+        SELECT
+          dsc.original_driver_id AS driver_id,
+          COALESCE(
+            e.full_name,
+            CONCAT(d.first_name, ' ', d.last_name)
+          ) AS driver_name,
+          COUNT(*) AS total
+        FROM driver_shift_changes dsc
+        INNER JOIN driver_shifts ds
+          ON ds.id = dsc.shift_id
+        INNER JOIN drivers d
+          ON d.id = dsc.original_driver_id
+        LEFT JOIN employees e
+          ON e.id = d.employee_id
+        WHERE ${filter.where}
+          AND dsc.covering_driver_id IS NOT NULL
+        GROUP BY dsc.original_driver_id, driver_name
+        ORDER BY total DESC, driver_name ASC
+      `,
+      filter.values
+    );
+
+  const [coveredRows]: any =
+    await pool.query(
+      `
+        SELECT
+          dsc.covering_driver_id AS driver_id,
+          COALESCE(
+            e.full_name,
+            CONCAT(d.first_name, ' ', d.last_name)
+          ) AS driver_name,
+          COUNT(*) AS total
+        FROM driver_shift_changes dsc
+        INNER JOIN driver_shifts ds
+          ON ds.id = dsc.shift_id
+        INNER JOIN drivers d
+          ON d.id = dsc.covering_driver_id
+        LEFT JOIN employees e
+          ON e.id = d.employee_id
+        WHERE ${filter.where}
+          AND dsc.covering_driver_id IS NOT NULL
+        GROUP BY dsc.covering_driver_id, driver_name
+        ORDER BY total DESC, driver_name ASC
+      `,
+      filter.values
+    );
+
+  const [pairRows]: any =
+    await pool.query(
+      `
+        SELECT
+          dsc.original_driver_id,
+          COALESCE(
+            original_employee.full_name,
+            CONCAT(original_driver.first_name, ' ', original_driver.last_name)
+          ) AS original_driver_name,
+          dsc.covering_driver_id,
+          COALESCE(
+            covering_employee.full_name,
+            CONCAT(covering_driver.first_name, ' ', covering_driver.last_name)
+          ) AS covering_driver_name,
+          COUNT(*) AS total
+        FROM driver_shift_changes dsc
+        INNER JOIN driver_shifts ds
+          ON ds.id = dsc.shift_id
+        INNER JOIN drivers original_driver
+          ON original_driver.id = dsc.original_driver_id
+        LEFT JOIN employees original_employee
+          ON original_employee.id = original_driver.employee_id
+        INNER JOIN drivers covering_driver
+          ON covering_driver.id = dsc.covering_driver_id
+        LEFT JOIN employees covering_employee
+          ON covering_employee.id = covering_driver.employee_id
+        WHERE ${filter.where}
+          AND dsc.covering_driver_id IS NOT NULL
+        GROUP BY
+          dsc.original_driver_id,
+          original_driver_name,
+          dsc.covering_driver_id,
+          covering_driver_name
+        ORDER BY total DESC, original_driver_name ASC
+      `,
+      filter.values
+    );
+
+  return {
+    history: historyRows,
+    requested_by_driver: requestedRows.map((row: any) => ({
+      ...row,
+      total: Number(row.total || 0)
+    })),
+    covered_by_driver: coveredRows.map((row: any) => ({
+      ...row,
+      total: Number(row.total || 0)
+    })),
+    pairs: pairRows.map((row: any) => ({
+      ...row,
+      total: Number(row.total || 0)
+    }))
+  };
 }

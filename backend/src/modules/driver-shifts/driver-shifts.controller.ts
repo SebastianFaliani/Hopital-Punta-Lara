@@ -11,6 +11,7 @@ import {
   createDriverShift,
   deleteDriverShift,
   getAllDriverShifts,
+  getDriverShiftChangeReport,
   updateDriverShift
 } from './driver-shifts.service';
 
@@ -183,6 +184,32 @@ export async function update(
   } catch (error: any) {
 
     return res.status(400).json({
+      success: false,
+      message: error.message
+    });
+  }
+}
+
+export async function getShiftChangeReport(
+  req: Request,
+  res: Response
+) {
+
+  try {
+
+    const report =
+      await getDriverShiftChangeReport(
+        req.query
+      );
+
+    return res.json({
+      success: true,
+      data: report
+    });
+
+  } catch (error: any) {
+
+    return res.status(500).json({
       success: false,
       message: error.message
     });

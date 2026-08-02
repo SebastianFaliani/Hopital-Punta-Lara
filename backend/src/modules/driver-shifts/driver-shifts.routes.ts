@@ -10,6 +10,7 @@ import {
   create,
   createBulk,
   getDriverShifts,
+  getShiftChangeReport,
   remove,
   update
 } from './driver-shifts.controller';
@@ -21,6 +22,13 @@ router.get(
   authenticateToken,
   authorizeRoles('admin', 'user', 'dir'),
   getDriverShifts
+);
+
+router.get(
+  '/changes/report',
+  authenticateToken,
+  authorizeRoles('admin', 'user', 'dir'),
+  getShiftChangeReport
 );
 
 router.post(

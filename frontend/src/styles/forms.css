@@ -1467,6 +1467,74 @@
   text-decoration: line-through;
 }
 
+.driver-shift-report-modal {
+  width: min(1180px, calc(100vw - 28px));
+  max-height: calc(100dvh - 28px);
+  overflow-y: auto;
+}
+
+.driver-shift-report-filters {
+  margin-bottom: 14px;
+  grid-template-columns:
+    minmax(140px, 0.7fr)
+    minmax(140px, 0.7fr)
+    minmax(220px, 1.2fr)
+    auto;
+}
+
+.driver-shift-report-grid {
+  display: grid;
+  grid-template-columns:
+    repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.driver-shift-report-grid section,
+.driver-shift-report-history {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.driver-shift-report-grid h3,
+.driver-shift-report-history h3 {
+  margin: 0 0 10px;
+  color: var(--color-primary);
+  font-size: 14px;
+}
+
+.driver-shift-report-grid .data-table,
+.driver-shift-report-history .data-table {
+  box-shadow: none;
+  border-radius: 0;
+}
+
+.driver-shift-report-grid .data-table td,
+.driver-shift-report-history .data-table th,
+.driver-shift-report-history .data-table td {
+  padding: 8px 10px;
+  font-size: 12px;
+}
+
+.driver-shift-report-grid .data-table td:last-child {
+  width: 54px;
+  text-align: right;
+  font-weight: 800;
+}
+
+@media (max-width: 900px) {
+  .driver-shift-report-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .driver-shift-report-filters {
+    grid-template-columns: 1fr;
+  }
+}
+
 
 .filter-bar {
 

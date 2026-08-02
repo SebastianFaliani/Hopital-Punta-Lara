@@ -50,6 +50,39 @@ type ShiftModalState = {
   notes: string;
 };
 
+type ShiftChangeHistory = {
+  id: number;
+  shift_date: string;
+  shift_type: ShiftType;
+  original_driver_name: string;
+  previous_covering_driver_name: string | null;
+  covering_driver_name: string | null;
+  notes: string | null;
+  changed_by_username: string | null;
+  created_at: string;
+};
+
+type ShiftChangeCount = {
+  driver_id: number;
+  driver_name: string;
+  total: number;
+};
+
+type ShiftChangePair = {
+  original_driver_id: number;
+  original_driver_name: string;
+  covering_driver_id: number;
+  covering_driver_name: string;
+  total: number;
+};
+
+type ShiftChangeReport = {
+  history: ShiftChangeHistory[];
+  requested_by_driver: ShiftChangeCount[];
+  covered_by_driver: ShiftChangeCount[];
+  pairs: ShiftChangePair[];
+};
+
 type DriverCalendarDay = {
   date: string;
   day: number;
@@ -280,6 +313,21 @@ export default function DriverShiftsPage() {
   const [selectedDriverCalendar, setSelectedDriverCalendar] =
     useState<Driver | null>(null);
 
+  const [showChangeReport, setShowChangeReport] =
+    useState(false);
+
+  const [changeReport, setChangeReport] =
+    useState<ShiftChangeReport | null>(null);
+
+  const [changeFilters, setChangeFilters] =
+    useState({
+      date_from:
+        `${currentMonth}-01`,
+      date_to:
+        `${currentMonth}-${String(daysInMonth(currentMonth)).padStart(2, '0')}`,
+      driver_id: ''
+    });
+
   const [error, setError] =
     useState('');
 
@@ -495,6 +543,44 @@ export default function DriverShiftsPage() {
 
     } catch (error: any) {
 
+      setError(error.message);
+    }
+  }
+
+  async function loadChangeReport() {
+    try {
+      const params =
+        new URLSearchParams();
+
+      if (changeFilters.date_from) {
+        params.set(
+          'date_from',
+          changeFilters.date_from
+        );
+      }
+
+      if (changeFilters.date_to) {
+        params.set(
+          'date_to',
+          changeFilters.date_to
+        );
+      }
+
+      if (changeFilters.driver_id) {
+        params.set(
+          'driver_id',
+          changeFilters.driver_id
+        );
+      }
+
+      const response =
+        await apiFetch(
+          `/driver-shifts/changes/report?${params.toString()}`
+        );
+
+      setChangeReport(response.data);
+      setError('');
+    } catch (error: any) {
       setError(error.message);
     }
   }
@@ -847,11 +933,23 @@ export default function DriverShiftsPage() {
         title="Guardias"
         description="Organiza que chofer cubre cada turno y deja una grilla mensual lista para imprimir."
         actions={
-          <IconButton
-            icon="print"
-            label="Imprimir calendario"
-            onClick={printCalendar}
-          />
+          <div className="table-actions">
+            <button
+              className="btn-secondary"
+              type="button"
+              onClick={() => {
+                setShowChangeReport(true);
+                loadChangeReport();
+              }}
+            >
+              Historial
+            </button>
+            <IconButton
+              icon="print"
+              label="Imprimir calendario"
+              onClick={printCalendar}
+            />
+          </div>
         }
       />
 
@@ -1293,6 +1391,190 @@ export default function DriverShiftsPage() {
                   ))}
                 </tbody>
               </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showChangeReport && (
+        <div className="modal-overlay">
+          <div className="modal-content modal-content-wide driver-shift-report-modal">
+            <div className="modal-header">
+              <div>
+                <h2>
+                  Historial de cambios
+                </h2>
+                <p>
+                  Cambios de guardia, cobertura y cruces entre choferes.
+                </p>
+              </div>
+              <button
+                aria-label="Cerrar"
+                className="modal-close-button"
+                type="button"
+                onClick={() =>
+                  setShowChangeReport(false)
+                }
+              >
+                x
+              </button>
+            </div>
+
+            <div className="shift-filter-panel driver-shift-report-filters">
+              <input
+                className="form-input"
+                type="date"
+                value={changeFilters.date_from}
+                onChange={(event) =>
+                  setChangeFilters({
+                    ...changeFilters,
+                    date_from:
+                      event.target.value
+                  })
+                }
+              />
+              <input
+                className="form-input"
+                type="date"
+                value={changeFilters.date_to}
+                onChange={(event) =>
+                  setChangeFilters({
+                    ...changeFilters,
+                    date_to:
+                      event.target.value
+                  })
+                }
+              />
+              <select
+                className="form-input"
+                value={changeFilters.driver_id}
+                onChange={(event) =>
+                  setChangeFilters({
+                    ...changeFilters,
+                    driver_id:
+                      event.target.value
+                  })
+                }
+              >
+                <option value="">
+                  Todos los choferes
+                </option>
+                {activeDrivers.map((driver) => (
+                  <option
+                    key={driver.id}
+                    value={driver.id || ''}
+                  >
+                    {driverLabel(driver)}
+                  </option>
+                ))}
+              </select>
+              <button
+                className="btn-primary"
+                type="button"
+                onClick={loadChangeReport}
+              >
+                Aplicar
+              </button>
+            </div>
+
+            <div className="driver-shift-report-grid">
+              <section>
+                <h3>Mas cambios pedidos</h3>
+                <table className="data-table">
+                  <tbody>
+                    {(changeReport?.requested_by_driver || []).map((item) => (
+                      <tr key={item.driver_id}>
+                        <td>{item.driver_name}</td>
+                        <td>{item.total}</td>
+                      </tr>
+                    ))}
+                    {(changeReport?.requested_by_driver || []).length === 0 && (
+                      <tr>
+                        <td colSpan={2}>Sin datos</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </section>
+
+              <section>
+                <h3>Mas guardias cubiertas</h3>
+                <table className="data-table">
+                  <tbody>
+                    {(changeReport?.covered_by_driver || []).map((item) => (
+                      <tr key={item.driver_id}>
+                        <td>{item.driver_name}</td>
+                        <td>{item.total}</td>
+                      </tr>
+                    ))}
+                    {(changeReport?.covered_by_driver || []).length === 0 && (
+                      <tr>
+                        <td colSpan={2}>Sin datos</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </section>
+
+              <section>
+                <h3>Quien cubrio a quien</h3>
+                <table className="data-table">
+                  <tbody>
+                    {(changeReport?.pairs || []).map((item) => (
+                      <tr
+                        key={`${item.original_driver_id}-${item.covering_driver_id}`}
+                      >
+                        <td>
+                          {item.covering_driver_name}
+                          {' cubrio a '}
+                          {item.original_driver_name}
+                        </td>
+                        <td>{item.total}</td>
+                      </tr>
+                    ))}
+                    {(changeReport?.pairs || []).length === 0 && (
+                      <tr>
+                        <td colSpan={2}>Sin datos</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </section>
+            </div>
+
+            <div className="driver-shift-report-history">
+              <h3>Detalle</h3>
+              <div className="table-container">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Fecha</th>
+                      <th>Turno</th>
+                      <th>Original</th>
+                      <th>Cubre</th>
+                      <th>Cargado por</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(changeReport?.history || []).map((item) => (
+                      <tr key={item.id}>
+                        <td>{formatDisplayDate(item.shift_date)}</td>
+                        <td>{shiftLabels[item.shift_type]}</td>
+                        <td>{item.original_driver_name}</td>
+                        <td>{item.covering_driver_name || 'Sin reemplazo'}</td>
+                        <td>{item.changed_by_username || '-'}</td>
+                      </tr>
+                    ))}
+                    {(changeReport?.history || []).length === 0 && (
+                      <tr>
+                        <td colSpan={5}>
+                          No hay cambios para los filtros seleccionados.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         </div>
