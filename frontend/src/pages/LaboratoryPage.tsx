@@ -1041,12 +1041,16 @@ export default function LaboratoryPage() {
       setLoading(true);
       const body = new FormData();
       body.append('pdf', file);
-      const response = await apiFetch(`/laboratory/${record.id}/pdf`, {
+      await apiFetch(`/laboratory/${record.id}/pdf`, {
         method: 'POST',
         body
       });
-      showSystemAlert(response.message, 'Resultado PDF', 'success');
       await loadLaboratory();
+      openCompletion({
+        ...record,
+        result_pdf_count:
+          Number(record.result_pdf_count || 0) + 1
+      });
     } catch (error: any) {
       showSystemAlert(error.message);
     } finally {
