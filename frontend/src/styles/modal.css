@@ -1107,9 +1107,10 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   column-gap: 14mm;
-  row-gap: 3mm;
+  row-gap: 1mm;
   margin-bottom: 4mm;
-  font-size: 10px;
+  font-size: 14px;
+  line-height: 1;
 }
 
 .planned-off-sheet-details p {
