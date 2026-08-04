@@ -1647,7 +1647,11 @@ export default function LaboratoryPage() {
                 );
 
               const delivered = Boolean(record.pickup_date || record.whatsapp_notified_at);
+              const phoneDigits = String(record.patient_phone || '')
+                .replace(/\D/g, '');
+              const hasUsablePhone = phoneDigits.length >= 8;
               const whatsappDeliveryFailed = Boolean(
+                hasUsablePhone &&
                 record.whatsapp_failed_at &&
                 String(record.whatsapp_failed_phone || '').trim() ===
                   String(record.patient_phone || '').trim()
@@ -1696,8 +1700,17 @@ export default function LaboratoryPage() {
                   </td>
                   <td>
                     <div className="laboratory-delivery-state">
-                      {!delivered && !whatsappDeliveryFailed && (
+                      {!delivered && hasUsablePhone && !whatsappDeliveryFailed && (
                         <span className="badge badge-warning">Pendiente</span>
+                      )}
+                      {!delivered && !hasUsablePhone && (
+                        <span className="laboratory-delivery-badge" tabIndex={0}>
+                          <span className="badge badge-danger">Sin telefono valido</span>
+                          <span className="laboratory-delivery-tooltip" role="tooltip">
+                            <strong>No se puede avisar por WhatsApp</strong>
+                            <span>Cargue un telefono valido para habilitar el envio.</span>
+                          </span>
+                        </span>
                       )}
                       {!delivered && whatsappDeliveryFailed && (
                         <span className="laboratory-delivery-badge" tabIndex={0}>
@@ -1843,7 +1856,7 @@ export default function LaboratoryPage() {
                         (!record.whatsapp_notified_at || record.workflow_reopened_at) &&
                         !whatsappDeliveryFailed &&
                         Number(record.result_pdf_count || 0) > 0 &&
-                        record.patient_phone && (
+                        hasUsablePhone && (
                           <IconButton
                             disabled={
                               loading ||

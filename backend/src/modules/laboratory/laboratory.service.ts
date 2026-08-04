@@ -124,6 +124,28 @@ export function ensureLaboratoryWhatsappFailureSchema() {
         }
         laboratoryColumnCache.set(name, true);
       }
+
+      await pool.query(`
+        UPDATE laboratory_records lr
+        LEFT JOIN people p ON p.id = lr.patient_id
+        INNER JOIN whatsapp_outbox wo
+          ON wo.id = (
+            SELECT MAX(previous_job.id)
+            FROM whatsapp_outbox previous_job
+            WHERE previous_job.reference_type = 'laboratory_record'
+              AND previous_job.reference_id = lr.id
+              AND previous_job.status = 'failed'
+          )
+        SET lr.whatsapp_failed_at = COALESCE(wo.updated_at, NOW()),
+          lr.whatsapp_failed_phone = wo.phone,
+          lr.whatsapp_failure_reason = COALESCE(
+            wo.last_error,
+            'No se pudo entregar por WhatsApp'
+          )
+        WHERE lr.whatsapp_notified_at IS NULL
+          AND lr.whatsapp_failed_at IS NULL
+          AND TRIM(wo.phone) = TRIM(COALESCE(p.phone, lr.patient_phone))
+      `);
     }).then(() => undefined).catch((error) => {
       whatsappFailureSchemaPromise = null;
       throw error;
@@ -1304,6 +1326,9 @@ export async function getPendingLaboratoryWhatsappNotifications() {
          WHERE lrp.laboratory_record_id = lr.id
        )
        AND NULLIF(TRIM(${phoneExpression}), '') IS NOT NULL
+       AND CHAR_LENGTH(
+         REGEXP_REPLACE(${phoneExpression}, '[^0-9]', '')
+       ) >= 8
        AND (
          lr.whatsapp_failed_phone IS NULL
          OR TRIM(lr.whatsapp_failed_phone) <> TRIM(${phoneExpression})
