@@ -8,6 +8,7 @@ import {
 } from './laboratory-pdf.controller';
 
 import {
+  handleCloseLaboratoryCorrection,
   handleCreateLaboratoryRecord,
   handleDeleteLaboratoryRecord,
   handleExpireOldLaboratoryRecords,
@@ -137,6 +138,13 @@ router.patch(
   authenticateToken,
   authorizePermission('laboratory.reopen', 'admin', 'dir'),
   handleReopenLaboratoryWorkflow
+);
+
+router.patch(
+  '/:id/close-correction',
+  authenticateToken,
+  authorizePermission('laboratory.reopen', 'admin', 'dir'),
+  handleCloseLaboratoryCorrection
 );
 
 router.get('/:id/pdf/metadata', authenticateToken, authorizePermission('laboratory.view', ...laboratoryReadRoles), handleGetLaboratoryPdfMetadata);

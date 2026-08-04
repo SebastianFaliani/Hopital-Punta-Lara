@@ -24,6 +24,8 @@ let patientPhoneColumnCache: boolean | null =
 const laboratoryColumnCache =
   new Map<string, boolean>();
 
+let whatsappFailureSchemaPromise: Promise<void> | null = null;
+
 const tableCache =
   new Map<string, boolean>();
 
@@ -97,6 +99,38 @@ async function hasLaboratoryColumn(
   );
 
   return exists;
+}
+
+export function ensureLaboratoryWhatsappFailureSchema() {
+  if (!whatsappFailureSchemaPromise) {
+    whatsappFailureSchemaPromise = pool.query(`
+      SELECT COLUMN_NAME
+      FROM information_schema.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'laboratory_records'
+    `).then(async ([rows]: any) => {
+      const existing = new Set(rows.map((row: any) => row.COLUMN_NAME));
+      const additions = [
+        ['whatsapp_failed_at', 'DATETIME NULL'],
+        ['whatsapp_failed_phone', 'VARCHAR(40) NULL'],
+        ['whatsapp_failure_reason', 'TEXT NULL']
+      ];
+
+      for (const [name, definition] of additions) {
+        if (!existing.has(name)) {
+          await pool.query(
+            `ALTER TABLE laboratory_records ADD COLUMN ${name} ${definition}`
+          );
+        }
+        laboratoryColumnCache.set(name, true);
+      }
+    }).then(() => undefined).catch((error) => {
+      whatsappFailureSchemaPromise = null;
+      throw error;
+    });
+  }
+
+  return whatsappFailureSchemaPromise;
 }
 
 async function hasPatientPhoneColumn() {
@@ -629,7 +663,10 @@ async function replaceRequestedTests(
 export async function getLaboratoryRecords(
   filters: LaboratoryFilters
 ) {
-  await ensureLaboratoryPdfSchema();
+  await Promise.all([
+    ensureLaboratoryPdfSchema(),
+    ensureLaboratoryWhatsappFailureSchema()
+  ]);
   const hasPhoneColumn =
     await hasPatientPhoneColumn();
 
@@ -743,6 +780,9 @@ export async function getLaboratoryRecords(
               ? 'laboratory_records.whatsapp_notified_by'
               : 'NULL'
           } AS whatsapp_notified_by,
+          laboratory_records.whatsapp_failed_at,
+          laboratory_records.whatsapp_failed_phone,
+          laboratory_records.whatsapp_failure_reason,
           (SELECT COUNT(*) FROM laboratory_result_pdfs lrp
            WHERE lrp.laboratory_record_id = laboratory_records.id) AS result_pdf_count,
           laboratory_records.workflow_reopened_at,
@@ -880,7 +920,10 @@ export async function getLaboratoryTestCatalog() {
 export async function getLaboratoryRecordById(
   id: number
 ) {
-  await ensureLaboratoryPdfSchema();
+  await Promise.all([
+    ensureLaboratoryPdfSchema(),
+    ensureLaboratoryWhatsappFailureSchema()
+  ]);
   const [
     hasPatientId,
     hasPhoneColumn,
@@ -1148,6 +1191,7 @@ export async function markLaboratoryWhatsappNotified(
   id: number,
   userId?: number
 ) {
+  await ensureLaboratoryWhatsappFailureSchema();
   const [
     hasWhatsappNotifiedAtColumn,
     hasWhatsappNotifiedByColumn
@@ -1174,7 +1218,10 @@ export async function markLaboratoryWhatsappNotified(
         updated_by = ?,
         workflow_reopened_at = NULL,
         workflow_reopened_by = NULL,
-        workflow_reopen_reason = NULL
+        workflow_reopen_reason = NULL,
+        whatsapp_failed_at = NULL,
+        whatsapp_failed_phone = NULL,
+        whatsapp_failure_reason = NULL
       WHERE id = ?
     `,
     [
@@ -1191,7 +1238,29 @@ export async function markLaboratoryWhatsappNotified(
   return true;
 }
 
+export async function markLaboratoryWhatsappFailed(
+  id: number,
+  phone: string,
+  reason?: string
+) {
+  await ensureLaboratoryWhatsappFailureSchema();
+  await pool.execute(
+    `UPDATE laboratory_records
+     SET whatsapp_failed_at = NOW(),
+       whatsapp_failed_phone = ?,
+       whatsapp_failure_reason = ?
+     WHERE id = ?
+       AND whatsapp_notified_at IS NULL`,
+    [
+      String(phone || '').trim().slice(0, 40),
+      String(reason || 'No se pudo entregar por WhatsApp').slice(0, 2000),
+      id
+    ]
+  );
+}
+
 export async function getPendingLaboratoryWhatsappNotifications() {
+  await ensureLaboratoryWhatsappFailureSchema();
   const [
     hasPhoneColumn,
     hasPatientId,
@@ -1235,6 +1304,10 @@ export async function getPendingLaboratoryWhatsappNotifications() {
          WHERE lrp.laboratory_record_id = lr.id
        )
        AND NULLIF(TRIM(${phoneExpression}), '') IS NOT NULL
+       AND (
+         lr.whatsapp_failed_phone IS NULL
+         OR TRIM(lr.whatsapp_failed_phone) <> TRIM(${phoneExpression})
+       )
      ORDER BY lr.study_date ASC, lr.id ASC`
   );
 
@@ -1253,6 +1326,24 @@ export async function reopenLaboratoryWorkflow(
        workflow_reopen_reason = ?, updated_by = ?
      WHERE id = ? AND (pickup_date IS NOT NULL OR whatsapp_notified_at IS NOT NULL)`,
     [userId || null, reason.slice(0, 500), userId || null, id]
+  );
+  return Number(result.affectedRows || 0) > 0;
+}
+
+export async function closeLaboratoryCorrection(
+  id: number,
+  userId?: number
+) {
+  const [result]: any = await pool.execute(
+    `UPDATE laboratory_records
+     SET workflow_reopened_at = NULL,
+       workflow_reopened_by = NULL,
+       workflow_reopen_reason = NULL,
+       updated_by = ?
+     WHERE id = ?
+       AND workflow_reopened_at IS NOT NULL
+       AND (pickup_date IS NOT NULL OR whatsapp_notified_at IS NOT NULL)`,
+    [userId || null, id]
   );
   return Number(result.affectedRows || 0) > 0;
 }

@@ -265,13 +265,37 @@ export async function completeWhatsappOutboxJob(
       ? [id, agentId]
       : [retrySeconds, String(errorMessage || 'Error de envio').slice(0, 2000), id, agentId]
   );
+  if (!success && result.affectedRows) {
+    const [failedJobs] = await pool.query<RowDataPacket[]>(
+      `SELECT phone, reference_id, last_error, status
+       FROM whatsapp_outbox
+       WHERE id = ? AND reference_type = 'laboratory_record'
+       LIMIT 1`,
+      [id]
+    );
+    const failedJob = failedJobs[0];
+    if (failedJob?.status === 'failed' && failedJob.reference_id) {
+      const { markLaboratoryWhatsappFailed } =
+        await import('../laboratory/laboratory.service');
+      await markLaboratoryWhatsappFailed(
+        Number(failedJob.reference_id),
+        String(failedJob.phone || ''),
+        String(failedJob.last_error || errorMessage || 'No se pudo entregar por WhatsApp')
+      );
+    }
+  }
   if (success && result.affectedRows) {
+    const { ensureLaboratoryWhatsappFailureSchema } =
+      await import('../laboratory/laboratory.service');
+    await ensureLaboratoryWhatsappFailureSchema();
     await pool.execute(
       `UPDATE laboratory_records lr
        INNER JOIN whatsapp_outbox wo ON wo.reference_type = 'laboratory_record' AND wo.reference_id = lr.id
        SET lr.whatsapp_notified_at = NOW(), lr.whatsapp_notified_by = wo.requested_by,
          lr.workflow_reopened_at = NULL, lr.workflow_reopened_by = NULL,
-         lr.workflow_reopen_reason = NULL
+         lr.workflow_reopen_reason = NULL,
+         lr.whatsapp_failed_at = NULL, lr.whatsapp_failed_phone = NULL,
+         lr.whatsapp_failure_reason = NULL
        WHERE wo.id = ?`,
       [id]
     );

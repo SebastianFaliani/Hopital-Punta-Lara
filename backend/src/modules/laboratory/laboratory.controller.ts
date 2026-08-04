@@ -10,6 +10,7 @@ import { deliverWhatsappTextMessage } from '../whatsapp/whatsapp-delivery.servic
 import { getLaboratoryPdfMetadata } from './laboratory-pdf.service';
 
 import {
+  closeLaboratoryCorrection,
   createLaboratoryRecord,
   deleteLaboratoryRecord,
   expireOldLaboratoryRecords,
@@ -20,6 +21,7 @@ import {
   getPendingLaboratoryWhatsappNotifications,
   getPersonByDocument,
   markLaboratoryWhatsappNotified,
+  markLaboratoryWhatsappFailed,
   registerLaboratoryPickup,
   reopenLaboratoryWorkflow,
   revertLaboratoryPickup,
@@ -641,17 +643,27 @@ export async function handleSendLaboratoryWhatsappNotification(
         message: 'Debe cargar al menos un PDF antes de enviar el laboratorio por WhatsApp'
       });
     }
-    const delivery = await deliverWhatsappTextMessage(
-      record.patient_phone,
-      message,
-      'laboratory_notification',
-      {
-        attachments: pdfs.map((pdf: any) => ({ id: Number(pdf.id), name: pdf.file_name })),
-        referenceType: 'laboratory_record',
-        referenceId: Number(req.params.id),
-        requestedBy: req.user?.userId || req.user?.id
-      }
-    );
+    let delivery;
+    try {
+      delivery = await deliverWhatsappTextMessage(
+        record.patient_phone,
+        message,
+        'laboratory_notification',
+        {
+          attachments: pdfs.map((pdf: any) => ({ id: Number(pdf.id), name: pdf.file_name })),
+          referenceType: 'laboratory_record',
+          referenceId: Number(req.params.id),
+          requestedBy: req.user?.userId || req.user?.id
+        }
+      );
+    } catch (error: any) {
+      await markLaboratoryWhatsappFailed(
+        Number(req.params.id),
+        record.patient_phone,
+        error.message
+      );
+      throw error;
+    }
 
     if (!delivery.queued) {
       await markLaboratoryWhatsappNotified(
@@ -723,6 +735,46 @@ export async function handleReopenLaboratoryWorkflow(
   }
 }
 
+export async function handleCloseLaboratoryCorrection(
+  req: AuthRequest,
+  res: Response
+) {
+  try {
+    const previous = await getLaboratoryRecordById(Number(req.params.id));
+    if (!previous) {
+      return res.status(404).json({ success: false, message: 'Estudio de laboratorio no encontrado' });
+    }
+    const closed = await closeLaboratoryCorrection(
+      Number(req.params.id),
+      req.user?.userId || req.user?.id
+    );
+    if (!closed) {
+      return res.status(400).json({ success: false, message: 'El laboratorio no esta reabierto por correccion' });
+    }
+    await logAudit({
+      user: req.user,
+      module: 'laboratorio',
+      action: 'cerrar_correccion',
+      entityType: 'laboratory_record',
+      entityId: Number(req.params.id),
+      description: 'Cerro la correccion sin reenviar por WhatsApp',
+      oldData: previous,
+      newData: { correction_closed: true },
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'] || null
+    });
+    return res.json({
+      success: true,
+      message: 'Correccion cerrada sin enviar un nuevo WhatsApp'
+    });
+  } catch (error: any) {
+    return res.status(400).json({
+      success: false,
+      message: error.message || 'No se pudo cerrar la correccion'
+    });
+  }
+}
+
 export async function handleSendPendingLaboratoryWhatsappNotifications(
   req: AuthRequest,
   res: Response
@@ -754,6 +806,11 @@ export async function handleSendPendingLaboratoryWhatsappNotifications(
         }
         queued += 1;
       } catch (error: any) {
+        await markLaboratoryWhatsappFailed(
+          Number(record.id),
+          record.patient_phone,
+          error.message
+        );
         errors.push({
           id: Number(record.id),
           patient: `${record.patient_last_name || ''} ${record.patient_first_name || ''}`.trim(),

@@ -54,6 +54,9 @@ type LaboratoryRecord = {
   pickup_registered_at?: string | null;
   whatsapp_notified_at?: string | null;
   whatsapp_notified_by?: number | null;
+  whatsapp_failed_at?: string | null;
+  whatsapp_failed_phone?: string | null;
+  whatsapp_failure_reason?: string | null;
   result_pdf_count?: number;
   workflow_reopened_at?: string | null;
   workflow_reopen_reason?: string | null;
@@ -1001,7 +1004,7 @@ export default function LaboratoryPage() {
 
   async function notifyAllPendingLaboratoryResults() {
     const confirmed = await showSystemConfirm(
-      'Se enviara el aviso y todos sus PDF a los estudios completos, sin entrega, con telefono y que todavia no fueron avisados. Los estudios sin PDF no se incluiran.',
+      'Se enviara el aviso y todos sus PDF a los estudios completos, sin entrega, con telefono y que todavia no fueron avisados. Los estudios sin PDF o con un envio fallido para el telefono actual no se incluiran.',
       { title: 'Avisar pendientes por WhatsApp', confirmLabel: 'Preparar avisos' }
     );
 
@@ -1128,6 +1131,28 @@ export default function LaboratoryPage() {
       showSystemAlert(response.message, 'Laboratorio', 'success');
       setReopenRecord(null);
       setReopenReason('');
+      await loadLaboratory();
+    } catch (error: any) {
+      showSystemAlert(error.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function closeLaboratoryCorrection(record: LaboratoryRecord) {
+    const confirmed = await showSystemConfirm(
+      `Cerrar la correccion de ${record.patient_last_name} ${record.patient_first_name}? Se conservara la entrega anterior y no se enviara otro WhatsApp.`,
+      { title: 'Cerrar correccion', confirmLabel: 'Cerrar correccion' }
+    );
+    if (!confirmed) return;
+
+    try {
+      setLoading(true);
+      const response = await apiFetch(
+        `/laboratory/${record.id}/close-correction`,
+        { method: 'PATCH' }
+      );
+      showSystemAlert(response.message, 'Laboratorio', 'success');
       await loadLaboratory();
     } catch (error: any) {
       showSystemAlert(error.message);
@@ -1622,6 +1647,11 @@ export default function LaboratoryPage() {
                 );
 
               const delivered = Boolean(record.pickup_date || record.whatsapp_notified_at);
+              const whatsappDeliveryFailed = Boolean(
+                record.whatsapp_failed_at &&
+                String(record.whatsapp_failed_phone || '').trim() ===
+                  String(record.patient_phone || '').trim()
+              );
               const canModifyRecord =
                 !delivered || Boolean(record.workflow_reopened_at);
 
@@ -1666,7 +1696,27 @@ export default function LaboratoryPage() {
                   </td>
                   <td>
                     <div className="laboratory-delivery-state">
-                      {!delivered && <span className="badge badge-warning">Pendiente</span>}
+                      {!delivered && !whatsappDeliveryFailed && (
+                        <span className="badge badge-warning">Pendiente</span>
+                      )}
+                      {!delivered && whatsappDeliveryFailed && (
+                        <span className="laboratory-delivery-badge" tabIndex={0}>
+                          <span className="badge badge-danger">WhatsApp no entregado</span>
+                          <span className="laboratory-delivery-tooltip" role="tooltip">
+                            <strong>No se volvera a intentar con este telefono</strong>
+                            <span>
+                              <b>Telefono:</b> {record.whatsapp_failed_phone}
+                            </span>
+                            <span>
+                              <b>Fecha:</b> {formatDisplayDateTime(record.whatsapp_failed_at!)}
+                            </span>
+                            <span>
+                              <b>Motivo:</b> {record.whatsapp_failure_reason || 'No se pudo entregar por WhatsApp'}
+                            </span>
+                            <span>Si se corrige el telefono, el envio se habilitara nuevamente.</span>
+                          </span>
+                        </span>
+                      )}
                       {delivered && (
                         <span className="laboratory-delivery-badge" tabIndex={0}>
                           <span className="badge badge-success">
@@ -1754,6 +1804,16 @@ export default function LaboratoryPage() {
                         />
                       )}
 
+                      {canReopen && delivered && record.workflow_reopened_at && (
+                        <IconButton
+                          disabled={loading}
+                          icon="lock"
+                          label="Cerrar correccion sin reenviar WhatsApp"
+                          onClick={() => void closeLaboratoryCorrection(record)}
+                          variant="secondary"
+                        />
+                      )}
+
                       {canDeleteLaboratory && !delivered && (
                         <IconButton
                           disabled={loading}
@@ -1781,6 +1841,7 @@ export default function LaboratoryPage() {
                         yesNo(record.is_complete) &&
                         !record.pickup_date &&
                         (!record.whatsapp_notified_at || record.workflow_reopened_at) &&
+                        !whatsappDeliveryFailed &&
                         Number(record.result_pdf_count || 0) > 0 &&
                         record.patient_phone && (
                           <IconButton
