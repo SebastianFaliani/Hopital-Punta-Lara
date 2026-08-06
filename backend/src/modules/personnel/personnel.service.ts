@@ -431,6 +431,49 @@ export async function createDepartment(
   return result.insertId;
 }
 
+export async function updateDepartment(
+  id: number,
+  data: any,
+  user?: any
+) {
+  const [currentRows]: any =
+    await pool.query(
+      `SELECT facility_id FROM employee_departments WHERE id = ? LIMIT 1`,
+      [id]
+    );
+
+  if (!currentRows.length) {
+    throw new Error('El sector no existe');
+  }
+
+  assertFacilityAccess(user, Number(currentRows[0].facility_id));
+
+  const facilityId = Number(data.facility_id);
+  if (!facilityId) {
+    throw new Error('La dependencia del sector es obligatoria');
+  }
+
+  assertFacilityAccess(user, facilityId);
+
+  await pool.query(
+    `
+      UPDATE employee_departments
+      SET facility_id = ?,
+          name = ?,
+          description = ?,
+          is_active = ?
+      WHERE id = ?
+    `,
+    [
+      facilityId,
+      String(data.name || '').trim(),
+      data.description || null,
+      data.is_active === false ? false : true,
+      id
+    ]
+  );
+}
+
 export async function getAttendanceCodes() {
 
   const [rows]: any =

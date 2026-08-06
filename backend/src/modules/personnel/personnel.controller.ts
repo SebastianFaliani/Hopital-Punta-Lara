@@ -39,6 +39,7 @@ import {
   savePlannedDaysOffMonth,
   saveAttendanceMonth,
   toggleEmployee,
+  updateDepartment,
   updateAttendanceCode,
   completeLeaveReturn,
   updateEmployee,
@@ -98,6 +99,36 @@ export async function handleCreateDepartment(
       data: { id }
     });
 
+  } catch (error: any) {
+    return res.status(400).json({
+      success: false,
+      message: error.message
+    });
+  }
+}
+
+export async function handleUpdateDepartment(
+  req: AuthRequest,
+  res: Response
+) {
+  try {
+    if (!req.body.name) {
+      return res.status(400).json({
+        success: false,
+        message: 'El sector es obligatorio'
+      });
+    }
+
+    await updateDepartment(
+      Number(req.params.id),
+      req.body,
+      req.user
+    );
+
+    return res.json({
+      success: true,
+      message: 'Sector actualizado correctamente'
+    });
   } catch (error: any) {
     return res.status(400).json({
       success: false,

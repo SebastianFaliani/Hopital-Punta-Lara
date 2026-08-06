@@ -4,12 +4,16 @@ INSERT INTO employee_departments (
   description,
   is_active
 )
-SELECT
+SELECT DISTINCT
   hf.id,
   'CHOFERES',
   'Choferes habilitados para el modulo de traslados',
   TRUE
 FROM health_facilities hf
+INNER JOIN employees e
+  ON e.facility_id = hf.id
+INNER JOIN drivers driver
+  ON driver.employee_id = e.id
 WHERE NOT EXISTS (
   SELECT 1
   FROM employee_departments d

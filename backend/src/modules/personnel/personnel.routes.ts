@@ -8,6 +8,7 @@ import {
 
 import {
   handleCreateDepartment,
+  handleUpdateDepartment,
   handleCreateAttendanceCode,
   handleCreateEmployee,
   handleCreateLeaveBalanceAdjustment,
@@ -57,6 +58,11 @@ router.get(
 router.post(
   '/departments',
   handleCreateDepartment
+);
+
+router.put(
+  '/departments/:id',
+  handleUpdateDepartment
 );
 
 router.get(

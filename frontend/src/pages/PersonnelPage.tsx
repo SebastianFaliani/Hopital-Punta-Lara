@@ -1363,8 +1363,12 @@ export default function PersonnelPage() {
     useState({
       facility_id: defaultFacilityId,
       name: '',
-      description: ''
+      description: '',
+      is_active: true
     });
+
+  const [editingDepartment, setEditingDepartment] =
+    useState<Department | null>(null);
 
   const [filters, setFilters] =
     useState({
@@ -1816,9 +1820,11 @@ export default function PersonnelPage() {
     try {
 
       await apiFetch(
-        '/personnel/departments',
+        editingDepartment
+          ? `/personnel/departments/${editingDepartment.id}`
+          : '/personnel/departments',
         {
-          method: 'POST',
+          method: editingDepartment ? 'PUT' : 'POST',
           body:
             JSON.stringify({
               ...departmentForm,
@@ -1837,8 +1843,10 @@ export default function PersonnelPage() {
           departmentForm.facility_id ||
           defaultFacilityId,
         name: '',
-        description: ''
+        description: '',
+        is_active: true
       });
+      setEditingDepartment(null);
 
       loadData();
 
@@ -1846,6 +1854,30 @@ export default function PersonnelPage() {
 
       setError(error.message);
     }
+  }
+
+  function startEditDepartment(
+    department: Department
+  ) {
+    setEditingDepartment(department);
+    setDepartmentForm({
+      facility_id: department.facility_id
+        ? String(department.facility_id)
+        : '',
+      name: department.name,
+      description: department.description || '',
+      is_active: department.is_active
+    });
+  }
+
+  function cancelEditDepartment() {
+    setEditingDepartment(null);
+    setDepartmentForm({
+      facility_id: defaultFacilityId,
+      name: '',
+      description: '',
+      is_active: true
+    });
   }
 
   function handleCodeFormChange(
@@ -6663,12 +6695,40 @@ export default function PersonnelPage() {
                 }
               />
 
+              {editingDepartment && (
+                <select
+                  className="form-input"
+                  value={departmentForm.is_active ? 'activo' : 'inactivo'}
+                  onChange={(e) =>
+                    setDepartmentForm({
+                      ...departmentForm,
+                      is_active: e.target.value === 'activo'
+                    })
+                  }
+                >
+                  <option value="activo">Activo</option>
+                  <option value="inactivo">Inactivo</option>
+                </select>
+              )}
+
               <button
                 className="btn-success"
                 type="submit"
               >
-                Crear sector
+                {editingDepartment
+                  ? 'Guardar cambios'
+                  : 'Crear sector'}
               </button>
+
+              {editingDepartment && (
+                <button
+                  className="btn-secondary"
+                  type="button"
+                  onClick={cancelEditDepartment}
+                >
+                  Cancelar
+                </button>
+              )}
             </form>
 
             <div className="table-container">
@@ -6679,6 +6739,7 @@ export default function PersonnelPage() {
                     <th>Sector</th>
                     <th>Descripcion</th>
                     <th>Estado</th>
+                    <th>Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -6693,6 +6754,13 @@ export default function PersonnelPage() {
                             ? 'Activo'
                             : 'Inactivo'
                         }
+                      </td>
+                      <td>
+                        <IconButton
+                          icon="edit"
+                          label={`Editar sector ${department.name}`}
+                          onClick={() => startEditDepartment(department)}
+                        />
                       </td>
                     </tr>
                   ))}
