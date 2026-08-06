@@ -1854,7 +1854,6 @@ export default function LaboratoryPage() {
                         yesNo(record.is_complete) &&
                         !record.pickup_date &&
                         (!record.whatsapp_notified_at || record.workflow_reopened_at) &&
-                        !whatsappDeliveryFailed &&
                         Number(record.result_pdf_count || 0) > 0 &&
                         hasUsablePhone && (
                           <IconButton
@@ -1865,7 +1864,9 @@ export default function LaboratoryPage() {
                             icon="whatsapp"
                             label={
                               whatsappStatus?.isReady
-                                ? record.workflow_reopened_at
+                                ? whatsappDeliveryFailed
+                                  ? 'Reintentar por WhatsApp'
+                                  : record.workflow_reopened_at
                                   ? 'Reenviar por WhatsApp'
                                   : 'Avisar por WhatsApp'
                                 : 'WhatsApp no esta conectado'
@@ -2293,6 +2294,14 @@ export default function LaboratoryPage() {
               </p>
             )}
 
+            {whatsappRecord.whatsapp_failed_at &&
+              String(whatsappRecord.whatsapp_failed_phone || '').trim() ===
+                String(whatsappRecord.patient_phone || '').trim() && (
+                <p className="form-note">
+                  El envio anterior no pudo entregarse. Este reintento es manual y el laboratorio seguira excluido de "Avisar pendientes" hasta que se entregue correctamente o se cambie el telefono.
+                </p>
+              )}
+
             <div className="modal-actions">
               <button
                 type="button"
@@ -2312,7 +2321,13 @@ export default function LaboratoryPage() {
                   notifyLaboratoryResult()
                 }
               >
-                {loading ? 'Enviando...' : 'Enviar aviso'}
+                {loading
+                  ? 'Enviando...'
+                  : whatsappRecord.whatsapp_failed_at &&
+                      String(whatsappRecord.whatsapp_failed_phone || '').trim() ===
+                        String(whatsappRecord.patient_phone || '').trim()
+                    ? 'Reintentar envio'
+                    : 'Enviar aviso'}
               </button>
             </div>
           </div>
