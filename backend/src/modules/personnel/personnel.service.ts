@@ -1672,12 +1672,15 @@ async function getEmployeeForLeave(
     await pool.query(
       `
         SELECT
-          id,
-          full_name,
-          hire_date,
-          is_professional
-        FROM employees
-        WHERE id = ?
+          e.id,
+          e.full_name,
+          e.hire_date,
+          e.is_professional,
+          d.name AS department_name
+        FROM employees e
+        LEFT JOIN employee_departments d
+          ON d.id = e.department_id
+        WHERE e.id = ?
         LIMIT 1
       `,
       [employeeId]
@@ -3579,6 +3582,12 @@ async function validateLeaveRequest(
       start
     );
 
+  const isMunicipalEmployee =
+    String(employee.department_name || '')
+      .trim()
+      .toLocaleUpperCase('es-AR') ===
+    'MUNICIPALES';
+
   if (code.code === '8') {
     if (today.getDate() > 15 && !isException) {
       throw new Error(
@@ -3592,7 +3601,7 @@ async function validateLeaveRequest(
       );
     }
 
-    if (startMonth > 8) {
+    if (startMonth > 8 && !isMunicipalEmployee) {
       throw new Error(
         'La clave 8 puede pedirse hasta agosto. Desde agosto corresponde evaluar clave 29'
       );
@@ -3674,7 +3683,11 @@ async function validateLeaveRequest(
     }
   }
 
-  if (code.code === '29' && startMonth < 8) {
+  if (
+    code.code === '29' &&
+    startMonth < 8 &&
+    !isMunicipalEmployee
+  ) {
     throw new Error(
       'La clave 29 solo puede pedirse desde agosto en adelante'
     );
@@ -4365,6 +4378,8 @@ export async function getLeaveRequests(
           e.file_number,
           e.hire_date,
           e.employment_type,
+          e.address,
+          e.phone,
           d.name AS department_name,
           (
             SELECT MAX(lr8.start_date)

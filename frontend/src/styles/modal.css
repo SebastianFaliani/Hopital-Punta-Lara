@@ -1028,6 +1028,194 @@
   font-size: 11px;
 }
 
+.municipal-license-form {
+  width: 760px;
+  max-width: 100%;
+  min-height: 980px;
+  margin: 0 auto;
+  padding: 34px 38px;
+  border: 1px solid #111827;
+  background: #fff;
+  color: #111827;
+  font-family: "Times New Roman", serif;
+  box-sizing: border-box;
+}
+
+.municipal-form-header {
+  display: grid;
+  grid-template-columns: 90px 1fr 90px;
+  align-items: center;
+  min-height: 90px;
+  margin-bottom: 20px;
+}
+
+.municipal-form-header img {
+  width: 72px;
+  max-height: 72px;
+  object-fit: contain;
+}
+
+.municipal-form-header h2 {
+  margin: 0;
+  text-align: center;
+  text-transform: uppercase;
+  font-size: 22px;
+}
+
+.municipal-form-line {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  align-items: end;
+  gap: 8px;
+  min-height: 30px;
+}
+
+.municipal-form-line span {
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.municipal-form-line strong {
+  min-height: 23px;
+  padding: 3px 7px 1px;
+  border: 1px solid #111827;
+  font-family: Arial, sans-serif;
+  font-size: 12px;
+  box-sizing: border-box;
+}
+
+.municipal-two-columns,
+.municipal-three-columns {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 12px;
+}
+
+.municipal-two-columns.wide-left {
+  grid-template-columns: 2.2fr 1fr;
+}
+
+.municipal-three-columns {
+  grid-template-columns: 1fr 1.5fr 1fr;
+}
+
+.municipal-request-row {
+  display: grid;
+  grid-template-columns: 1fr max-content;
+  align-items: end;
+  gap: 12px;
+  margin-top: 6px;
+}
+
+.municipal-request-row b,
+.municipal-condition {
+  font-size: 11px;
+}
+
+.municipal-condition {
+  margin: 16px 0;
+  text-align: center;
+}
+
+.municipal-info-box {
+  width: 48%;
+  margin-top: 16px;
+  padding: 10px;
+  border: 1px solid #111827;
+  font-size: 11px;
+  text-align: justify;
+}
+
+.municipal-signature {
+  width: 42%;
+  margin: 30px 0 12px auto;
+  text-align: center;
+}
+
+.municipal-signature.single {
+  margin-top: 42px;
+}
+
+.municipal-signature span,
+.municipal-other-signatures span {
+  display: block;
+  height: 20px;
+  border-bottom: 1px dashed #111827;
+}
+
+.municipal-signature p,
+.municipal-other-signatures p {
+  margin: 6px 0;
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.municipal-authorization,
+.municipal-personnel-reserve {
+  margin-top: 24px;
+}
+
+.municipal-authorization h3,
+.municipal-personnel-reserve h3,
+.municipal-other-content h3 {
+  margin: 0 0 8px;
+  font-size: 14px;
+  text-transform: uppercase;
+}
+
+.municipal-personnel-reserve {
+  margin-top: 30px;
+}
+
+.municipal-other-form {
+  min-height: 700px;
+  padding-top: 28px;
+}
+
+.municipal-other-header {
+  display: grid;
+  grid-template-columns: 1fr 230px;
+  align-items: end;
+  gap: 20px;
+  margin-bottom: 14px;
+}
+
+.municipal-other-header h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 400;
+  text-transform: uppercase;
+}
+
+.municipal-other-content {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 70px;
+  min-height: 280px;
+  padding-top: 16px;
+}
+
+.municipal-other-content h3 {
+  text-decoration: underline;
+}
+
+.municipal-other-content p {
+  margin: 8px 0;
+  text-transform: uppercase;
+}
+
+.municipal-other-content small {
+  display: block;
+  margin-top: 14px;
+}
+
+.municipal-other-signatures {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 55px 90px;
+  text-align: center;
+}
+
 .sigsa-print-logo {
   display: flex;
   justify-content: flex-start;

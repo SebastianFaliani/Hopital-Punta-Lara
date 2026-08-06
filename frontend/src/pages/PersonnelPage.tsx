@@ -134,6 +134,8 @@ type LeaveRequest = {
   file_number: string | null;
   hire_date: string | null;
   employment_type: string | null;
+  address: string | null;
+  phone: string | null;
   department_name: string | null;
   last_annual_leave_date: string | null;
   code: string;
@@ -905,7 +907,15 @@ function addBusinessDays(
 }
 
 const printableLeaveCodes =
-  ['24', '43', '26', '8', '29', '14', '15', '16', '17', '18'];
+  ['24', '43', '26', '34', '8', '29', '14', '15', '16', '17', '18'];
+
+function isMunicipalEmployee(
+  request: Pick<LeaveRequest, 'department_name'>
+) {
+  return (request.department_name || '')
+    .trim()
+    .toLocaleUpperCase('es-AR') === 'MUNICIPALES';
+}
 
 const ministryLeaveCodes =
   ['8', '29', '14', '15', '16', '17', '18'];
@@ -11363,7 +11373,19 @@ function PermissionPrintModal({
         </div>
 
         <div className="permission-print-area">
-          {request.code === '26'
+          {isMunicipalEmployee(request) && request.code === '8'
+            ? (
+              <MunicipalVacationPrint request={request} />
+            )
+            : isMunicipalEmployee(request) && request.code === '29'
+              ? (
+                <MunicipalStressPrint request={request} />
+              )
+            : isMunicipalEmployee(request) && !['24', '43'].includes(request.code)
+              ? (
+                <MunicipalOtherLeavePrint request={request} />
+              )
+            : request.code === '26'
             ? (
               <Code26PrintArea
                 request={request}
@@ -11386,6 +11408,187 @@ function PermissionPrintModal({
       </div>
 
     </div>
+  );
+}
+
+function MunicipalFormHeader({
+  title
+}: {
+  title: string;
+}) {
+  return (
+    <header className="municipal-form-header">
+      <img
+        src="/menu-icons/municipalidad-logo.png"
+        alt="Municipalidad de Ensenada"
+      />
+      <h2>{title}</h2>
+    </header>
+  );
+}
+
+function MunicipalLine({
+  label,
+  value,
+  className = ''
+}: {
+  label: string;
+  value?: string | number | null;
+  className?: string;
+}) {
+  return (
+    <div className={`municipal-form-line ${className}`.trim()}>
+      <span>{label}</span>
+      <strong>{value || ''}</strong>
+    </div>
+  );
+}
+
+function MunicipalVacationPrint({
+  request
+}: {
+  request: LeaveRequest;
+}) {
+  return (
+    <section className="municipal-license-form municipal-vacation-form">
+      <MunicipalFormHeader title="Solicitud de licencia por vacaciones" />
+      <div className="municipal-two-columns">
+        <MunicipalLine label="Apellido y nombres" value={request.full_name} />
+        <MunicipalLine label="Legajo" value={request.file_number} />
+      </div>
+      <MunicipalLine label="Sector de trabajo" value={request.department_name} />
+      <div className="municipal-two-columns wide-left">
+        <MunicipalLine label="Domicilio particular" value={request.address} />
+        <MunicipalLine label="Teléf. partic." value={request.phone} />
+      </div>
+      <div className="municipal-request-row">
+        <MunicipalLine label="Solicito licencia durante" value={formatPrintNumber(request.total_days)} />
+        <b>DÍAS CORRIDOS</b>
+      </div>
+      <div className="municipal-two-columns">
+        <MunicipalLine label="A partir del" value={formatDisplayDate(request.start_date)} />
+        <MunicipalLine label="Hasta el" value={formatDisplayDate(request.end_date)} />
+      </div>
+      <div className="municipal-two-columns">
+        <MunicipalLine label="Correspondiendo días del año" value={new Date(`${request.start_date}T00:00:00`).getFullYear()} />
+        <MunicipalLine label="Saldo después de esta licencia" />
+      </div>
+      <MunicipalLine label="Debiendo reintegrarme al trabajo el día" />
+      <p className="municipal-condition">EL OTORGAMIENTO DE ESTA LICENCIA ESTÁ CONDICIONADO A LAS NECESIDADES DEL SERVICIO DEL SECTOR</p>
+      <div className="municipal-signature single"><span /><p>Firma del agente</p></div>
+      <MunicipalAuthorization />
+      <section className="municipal-personnel-reserve">
+        <h3>Reservado para la Dirección de Personal</h3>
+        <MunicipalLine label="Vacaciones pendientes / saldo total" />
+        <MunicipalLine label="Fecha de entrada a la oficina de personal" />
+      </section>
+    </section>
+  );
+}
+
+function MunicipalStressPrint({
+  request
+}: {
+  request: LeaveRequest;
+}) {
+  return (
+    <section className="municipal-license-form municipal-stress-form">
+      <MunicipalFormHeader title="Solicitud de licencia por estrés" />
+      <div className="municipal-two-columns">
+        <MunicipalLine label="Apellido y nombres" value={request.full_name} />
+        <MunicipalLine label="Legajo" value={request.file_number} />
+      </div>
+      <MunicipalLine label="Sector de trabajo" value={request.department_name} />
+      <div className="municipal-two-columns wide-left">
+        <MunicipalLine label="Domicilio particular" value={request.address} />
+        <MunicipalLine label="Teléf. partic." value={request.phone} />
+      </div>
+      <div className="municipal-request-row">
+        <MunicipalLine label="Solicito licencia por estrés durante" value={formatPrintNumber(request.total_days)} />
+        <b>DÍAS CORRIDOS</b>
+      </div>
+      <div className="municipal-two-columns">
+        <MunicipalLine label="A partir del" value={formatDisplayDate(request.start_date)} />
+        <MunicipalLine label="Hasta el" value={formatDisplayDate(request.end_date)} />
+      </div>
+      <MunicipalLine label="Debiendo reintegrarme al trabajo el día" />
+      <p className="municipal-condition">EL OTORGAMIENTO DE ESTA LICENCIA ESTÁ CONDICIONADO A LAS NECESIDADES DEL SERVICIO DEL SECTOR</p>
+      <div className="municipal-info-box">El estrés corresponde al año calendario, no es fraccionable y tampoco acumulativo. Deberá existir una diferencia mínima de tres meses entre el fin de una licencia y el inicio de las vacaciones.</div>
+      <div className="municipal-signature single"><span /><p>Firma del agente</p></div>
+      <MunicipalAuthorization />
+      <section className="municipal-personnel-reserve">
+        <h3>Reservado para la Dirección de Personal</h3>
+        <div className="municipal-two-columns">
+          <MunicipalLine label="Estrés correspondiente al año" />
+          <MunicipalLine label="Saldo después de esta licencia" />
+        </div>
+        <MunicipalLine label="Fecha de entrada a la oficina de personal" />
+      </section>
+    </section>
+  );
+}
+
+function MunicipalAuthorization() {
+  return (
+    <section className="municipal-authorization">
+      <h3>Autorización del responsable del sector</h3>
+      <MunicipalLine label="Observaciones" />
+      <MunicipalLine label="Apellido y nombres del responsable" />
+      <MunicipalLine label="Cargo" />
+      <MunicipalLine label="Teléfono del sector" />
+      <div className="municipal-signature"><span /><p>Firma y sello autorizante</p></div>
+    </section>
+  );
+}
+
+function MunicipalOtherLeavePrint({
+  request
+}: {
+  request: LeaveRequest;
+}) {
+  const normalizedDescription = request.description.toLocaleUpperCase('es-AR');
+  const motives = [
+    ['Franco compensatorio', request.code === '34' || normalizedDescription.includes('COMPENSATORIO')],
+    ['Pre-examen', ['17', '18'].includes(request.code) || normalizedDescription.includes('EXAMEN')],
+    ['Clave 26', request.code === '26'],
+    ['A cargo licencia', normalizedDescription.includes('CARGO')],
+    ['Otros', !['26', '34', '17', '18'].includes(request.code)]
+  ] as const;
+
+  return (
+    <section className="municipal-license-form municipal-other-form">
+      <header className="municipal-other-header">
+        <h2>Secretaría de Salud y Medio Ambiente<br />de la Municipalidad de Ensenada</h2>
+        <MunicipalLine label="Fecha" value={formatDisplayDate(request.requested_at)} />
+      </header>
+      <MunicipalLine label="Apellido y nombre" value={request.full_name} />
+      <div className="municipal-three-columns">
+        <MunicipalLine label="Legajo" value={request.file_number} />
+        <MunicipalLine label="Sector" value={request.department_name} />
+        <MunicipalLine label="Cargo" value={request.employment_type} />
+      </div>
+      <div className="municipal-other-content">
+        <div>
+          <h3>Motivo</h3>
+          {motives.map(([label, checked]) => (
+            <p key={label}>{label} <b>({checked ? 'X' : ' '})</b></p>
+          ))}
+          <small>{request.code} - {request.description}</small>
+        </div>
+        <div>
+          <h3>Días solicitados</h3>
+          <MunicipalLine label="Desde" value={formatDisplayDate(request.start_date)} />
+          <MunicipalLine label="Hasta" value={formatDisplayDate(request.end_date)} />
+          <MunicipalLine label="Causa" value={request.notes} />
+        </div>
+      </div>
+      <div className="municipal-other-signatures">
+        <div><span /><p>Firma del solicitante</p></div>
+        <div><span /><p>Firma del jefe inmediato</p></div>
+        <div><span /><p>Personal</p></div>
+        <div><span /><p>Dirección</p></div>
+      </div>
+    </section>
   );
 }
 
