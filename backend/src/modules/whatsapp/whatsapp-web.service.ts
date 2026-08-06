@@ -27,6 +27,9 @@ let syncFallbackTimer: ReturnType<typeof setTimeout> | null = null;
 const processedMessageIds =
   new Set<string>();
 
+const recipientCache =
+  new Map<string, { id: string; expiresAt: number }>();
+
 const state: WhatsappWebState = {
   status: 'disconnected',
   qr: null,
@@ -270,6 +273,11 @@ async function resolveWhatsappRecipient(
   }
 
   const candidate = getArgentinaWhatsappNumber(phone);
+  const cached = recipientCache.get(candidate);
+
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.id;
+  }
 
   try {
     const numberId: any = await withTimeout(
@@ -279,13 +287,38 @@ async function resolveWhatsappRecipient(
     );
 
     if (numberId?._serialized) {
-      return numberId._serialized;
+      const phoneId = numberId._serialized;
+
+      try {
+        const mappings: any[] = await withTimeout(
+          client.getContactLidAndPhone([phoneId]),
+          8000,
+          'WhatsApp no respondio al buscar el identificador del contacto'
+        );
+        const recipient = mappings?.[0]?.lid || phoneId;
+        recipientCache.set(candidate, {
+          id: recipient,
+          expiresAt: Date.now() + 6 * 60 * 60 * 1000
+        });
+        return recipient;
+      } catch (error) {
+        recipientCache.set(candidate, {
+          id: phoneId,
+          expiresAt: Date.now() + 15 * 60 * 1000
+        });
+        return phoneId;
+      }
     }
   } catch (error) {
     // Se intenta el envio directo al formato movil argentino.
   }
 
-  return `${candidate}@c.us`;
+  const fallback = `${candidate}@c.us`;
+  recipientCache.set(candidate, {
+    id: fallback,
+    expiresAt: Date.now() + 5 * 60 * 1000
+  });
+  return fallback;
 }
 function getWhatsappMessageId(
   message: any
