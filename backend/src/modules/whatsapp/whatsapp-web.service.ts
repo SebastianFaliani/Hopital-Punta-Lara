@@ -108,6 +108,9 @@ function getPuppeteerOptions() {
   return {
     headless:
       process.env.WHATSAPP_HEADLESS !== 'false',
+    env: {
+      ...process.env
+    },
     ...(executablePath
       ? { executablePath }
       : {}),
