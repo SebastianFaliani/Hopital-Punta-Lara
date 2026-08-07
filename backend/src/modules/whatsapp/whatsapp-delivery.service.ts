@@ -131,6 +131,7 @@ export async function queueWhatsappTextMessage(
          FROM whatsapp_outbox
          WHERE reference_type = ?
            AND reference_id = ?
+           AND TRIM(phone) = TRIM(?)
            AND status IN ('pending', 'processing')
        )`,
       [
@@ -145,7 +146,8 @@ export async function queueWhatsappTextMessage(
         options.referenceId,
         options.requestedBy || null,
         options.referenceType,
-        options.referenceId
+        options.referenceId,
+        phone
       ]
     );
 
@@ -159,12 +161,14 @@ export async function queueWhatsappTextMessage(
          FROM whatsapp_outbox
          WHERE reference_type = ?
            AND reference_id = ?
+           AND TRIM(phone) = TRIM(?)
            AND status IN ('pending', 'processing')
          ORDER BY id DESC
          LIMIT 1`,
         [
           options.referenceType,
-          options.referenceId
+          options.referenceId,
+          phone
         ]
       );
 

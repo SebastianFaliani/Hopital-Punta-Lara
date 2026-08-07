@@ -4475,6 +4475,12 @@ export async function getLeaveRequests(
           lr.no_return,
           lr.shift_label,
           lr.exam_type,
+          lr.municipal_vacation_days_1,
+          lr.municipal_vacation_year_1,
+          lr.municipal_vacation_days_2,
+          lr.municipal_vacation_year_2,
+          lr.work_return_date,
+          TIME_FORMAT(lr.work_return_time, '%H:%i') AS work_return_time,
           lr.is_exception,
           lr.exception_reason,
           lr.status,
@@ -4649,12 +4655,18 @@ export async function createLeaveRequest(
           no_return,
           shift_label,
           exam_type,
+          municipal_vacation_days_1,
+          municipal_vacation_year_1,
+          municipal_vacation_days_2,
+          municipal_vacation_year_2,
+          work_return_date,
+          work_return_time,
           is_exception,
           exception_reason,
           requested_by,
           notes
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
       [
         validated.employee.id,
@@ -4683,6 +4695,24 @@ export async function createLeaveRequest(
           : null,
         ['17', '18'].includes(validated.code.code)
           ? normalizedData.exam_type || null
+          : null,
+        validated.code.code === '8'
+          ? normalizedData.municipal_vacation_days_1 || null
+          : null,
+        validated.code.code === '8'
+          ? normalizedData.municipal_vacation_year_1 || null
+          : null,
+        validated.code.code === '8'
+          ? normalizedData.municipal_vacation_days_2 || null
+          : null,
+        validated.code.code === '8'
+          ? normalizedData.municipal_vacation_year_2 || null
+          : null,
+        ['8', '29'].includes(validated.code.code)
+          ? normalizedData.work_return_date || null
+          : null,
+        ['8', '29'].includes(validated.code.code)
+          ? normalizedData.work_return_time || null
           : null,
         Boolean(normalizedData.is_exception),
         normalizedData.exception_reason || null,
@@ -4793,6 +4823,12 @@ export async function updateLeaveRequest(
           no_return = ?,
           shift_label = ?,
           exam_type = ?,
+          municipal_vacation_days_1 = ?,
+          municipal_vacation_year_1 = ?,
+          municipal_vacation_days_2 = ?,
+          municipal_vacation_year_2 = ?,
+          work_return_date = ?,
+          work_return_time = ?,
           is_exception = ?,
           exception_reason = ?,
           notes = ?,
@@ -4827,6 +4863,24 @@ export async function updateLeaveRequest(
           : null,
         ['17', '18'].includes(validated.code.code)
           ? normalizedData.exam_type || null
+          : null,
+        validated.code.code === '8'
+          ? normalizedData.municipal_vacation_days_1 || null
+          : null,
+        validated.code.code === '8'
+          ? normalizedData.municipal_vacation_year_1 || null
+          : null,
+        validated.code.code === '8'
+          ? normalizedData.municipal_vacation_days_2 || null
+          : null,
+        validated.code.code === '8'
+          ? normalizedData.municipal_vacation_year_2 || null
+          : null,
+        ['8', '29'].includes(validated.code.code)
+          ? normalizedData.work_return_date || null
+          : null,
+        ['8', '29'].includes(validated.code.code)
+          ? normalizedData.work_return_time || null
           : null,
         Boolean(normalizedData.is_exception),
         normalizedData.exception_reason || null,

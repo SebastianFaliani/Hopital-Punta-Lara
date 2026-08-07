@@ -154,6 +154,12 @@ type LeaveRequest = {
   no_return: boolean;
   shift_label: string | null;
   exam_type: string | null;
+  municipal_vacation_days_1: number | null;
+  municipal_vacation_year_1: number | null;
+  municipal_vacation_days_2: number | null;
+  municipal_vacation_year_2: number | null;
+  work_return_date: string | null;
+  work_return_time: string | null;
   is_exception: boolean;
   exception_reason: string | null;
   status: string;
@@ -642,6 +648,12 @@ const emptyLeaveForm = {
   no_return: false,
   shift_label: '',
   exam_type: '',
+  municipal_vacation_days_1: '',
+  municipal_vacation_year_1: '',
+  municipal_vacation_days_2: '',
+  municipal_vacation_year_2: '',
+  work_return_date: '',
+  work_return_time: '',
   is_exception: false,
   exception_reason: '',
   notes: ''
@@ -2240,6 +2252,26 @@ export default function PersonnelPage() {
         ),
       exam_type:
         request.exam_type || '',
+      municipal_vacation_days_1:
+        request.municipal_vacation_days_1 != null
+          ? String(request.municipal_vacation_days_1)
+          : '',
+      municipal_vacation_year_1:
+        request.municipal_vacation_year_1 != null
+          ? String(request.municipal_vacation_year_1)
+          : '',
+      municipal_vacation_days_2:
+        request.municipal_vacation_days_2 != null
+          ? String(request.municipal_vacation_days_2)
+          : '',
+      municipal_vacation_year_2:
+        request.municipal_vacation_year_2 != null
+          ? String(request.municipal_vacation_year_2)
+          : '',
+      work_return_date:
+        toDateInput(request.work_return_date),
+      work_return_time:
+        request.work_return_time || '',
       is_exception:
         Boolean(request.is_exception),
       exception_reason:
@@ -8384,6 +8416,82 @@ export default function PersonnelPage() {
                 </select>
               )}
 
+              {['8', '29'].includes(leaveForm.code) &&
+                selectedLeaveEmployee &&
+                isMunicipalEmployee(selectedLeaveEmployee) && (
+                <fieldset className="municipal-leave-fields">
+                  <legend>Datos para la planilla municipal</legend>
+                  {leaveForm.code === '8' && <>
+                    <div className="municipal-leave-field-row">
+                    <input
+                      className="form-input"
+                      type="number"
+                      min="0"
+                      step="1"
+                      name="municipal_vacation_days_1"
+                      placeholder="Días correspondientes (1)"
+                      value={leaveForm.municipal_vacation_days_1}
+                      onChange={handleLeaveChange}
+                    />
+                    <input
+                      className="form-input"
+                      type="number"
+                      min="1900"
+                      max="2200"
+                      name="municipal_vacation_year_1"
+                      placeholder="Año correspondiente (1)"
+                      value={leaveForm.municipal_vacation_year_1}
+                      onChange={handleLeaveChange}
+                    />
+                    </div>
+                    <div className="municipal-leave-field-row">
+                    <input
+                      className="form-input"
+                      type="number"
+                      min="0"
+                      step="1"
+                      name="municipal_vacation_days_2"
+                      placeholder="Días correspondientes (2)"
+                      value={leaveForm.municipal_vacation_days_2}
+                      onChange={handleLeaveChange}
+                    />
+                    <input
+                      className="form-input"
+                      type="number"
+                      min="1900"
+                      max="2200"
+                      name="municipal_vacation_year_2"
+                      placeholder="Año correspondiente (2)"
+                      value={leaveForm.municipal_vacation_year_2}
+                      onChange={handleLeaveChange}
+                    />
+                    </div>
+                  </>}
+                  <div className="municipal-leave-field-row">
+                    <label>
+                      <span>Fecha de reintegro</span>
+                      <input
+                        className="form-input"
+                        type="date"
+                        name="work_return_date"
+                        value={leaveForm.work_return_date}
+                        onChange={handleLeaveChange}
+                      />
+                    </label>
+                    <label>
+                      <span>Hora de reintegro</span>
+                      <input
+                        className="form-input"
+                        type="time"
+                        name="work_return_time"
+                        value={leaveForm.work_return_time}
+                        onChange={handleLeaveChange}
+                      />
+                    </label>
+                  </div>
+                </fieldset>
+              )}
+
               {canUseLeaveExceptions && (
                 <>
                   <label className="checkbox-row">
@@ -11469,18 +11577,66 @@ function MunicipalVacationPrint({
         <MunicipalLine label="A partir del" value={formatDisplayDate(request.start_date)} />
         <MunicipalLine label="Hasta el" value={formatDisplayDate(request.end_date)} />
       </div>
-      <div className="municipal-two-columns">
-        <MunicipalLine label="Correspondiendo días del año" value={new Date(`${request.start_date}T00:00:00`).getFullYear()} />
-        <MunicipalLine label="Saldo después de esta licencia" />
+      <div className="municipal-vacation-correspondence">
+        <span>Correspondiendo</span>
+        <strong>{formatPrintNumber(request.municipal_vacation_days_1)}</strong>
+        <span>días del año</span>
+        <strong>{request.municipal_vacation_year_1 || ''}</strong>
+        <span>y</span>
+        <strong>{formatPrintNumber(request.municipal_vacation_days_2)}</strong>
+        <span>días del año</span>
+        <strong>{request.municipal_vacation_year_2 || ''}</strong>
       </div>
-      <MunicipalLine label="Debiendo reintegrarme al trabajo el día" />
+      <div className="municipal-vacation-return">
+        <span>Debiendo reintegrarme al trabajo el día</span>
+        <strong>{formatDisplayDate(request.work_return_date)}</strong>
+        <span>a las</span>
+        <strong>{formatPrintTime(request.work_return_time)}</strong>
+        <span>horas</span>
+      </div>
       <p className="municipal-condition">EL OTORGAMIENTO DE ESTA LICENCIA ESTÁ CONDICIONADO A LAS NECESIDADES DEL SERVICIO DEL SECTOR</p>
+      <div className="municipal-vacation-notices">
+        <div className="municipal-info-box">
+          Las vacaciones deben ser cumplidas en su totalidad.
+          Antes de los 730 días de vencido el año correspondiente.
+          Por ejemplo: las vacaciones que corresponden al año 2002
+          prescriben el 31 de diciembre de 2004.
+        </div>
+        <div className="municipal-info-box">
+          Las vacaciones que pertenezcan a períodos distintos y que
+          pudieran desdoblarse (no corridas) deberán registrarse en
+          planillas independientes, ordenadas por fechas de salida.
+        </div>
+      </div>
       <div className="municipal-signature single"><span /><p>Firma del agente</p></div>
       <MunicipalAuthorization />
       <section className="municipal-personnel-reserve">
         <h3>Reservado para la Dirección de Personal</h3>
-        <MunicipalLine label="Vacaciones pendientes / saldo total" />
-        <MunicipalLine label="Fecha de entrada a la oficina de personal" />
+        <div className="municipal-vacation-pending-list">
+          {[1, 2, 3].map((row) => (
+            <div className="municipal-vacation-pending-row" key={row}>
+              <span>Vacaciones pendientes del año</span>
+              <strong />
+              <span>Total días</span>
+              <strong />
+              <strong />
+            </div>
+          ))}
+        </div>
+        <div className="municipal-vacation-reserve-total">
+          <span>Suma de días totales previos a esta salida</span>
+          <strong />
+        </div>
+        <div className="municipal-vacation-reserve-balance">
+          <span>Días reales totales tomados en esta licencia</span>
+          <strong />
+          <span>Saldo total pendiente</span>
+          <strong />
+        </div>
+        <div className="municipal-vacation-reserve-date">
+          <span>Fecha de entrada a la oficina de personal</span>
+          <strong />
+        </div>
       </section>
     </section>
   );
@@ -11511,7 +11667,13 @@ function MunicipalStressPrint({
         <MunicipalLine label="A partir del" value={formatDisplayDate(request.start_date)} />
         <MunicipalLine label="Hasta el" value={formatDisplayDate(request.end_date)} />
       </div>
-      <MunicipalLine label="Debiendo reintegrarme al trabajo el día" />
+      <div className="municipal-vacation-return">
+        <span>Debiendo reintegrarme al trabajo el día</span>
+        <strong>{formatDisplayDate(request.work_return_date)}</strong>
+        <span>a las</span>
+        <strong>{formatPrintTime(request.work_return_time)}</strong>
+        <span>horas</span>
+      </div>
       <p className="municipal-condition">EL OTORGAMIENTO DE ESTA LICENCIA ESTÁ CONDICIONADO A LAS NECESIDADES DEL SERVICIO DEL SECTOR</p>
       <div className="municipal-info-box">El estrés corresponde al año calendario, no es fraccionable y tampoco acumulativo. Deberá existir una diferencia mínima de tres meses entre el fin de una licencia y el inicio de las vacaciones.</div>
       <div className="municipal-signature single"><span /><p>Firma del agente</p></div>

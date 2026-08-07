@@ -1112,6 +1112,60 @@
   font-size: 11px;
 }
 
+.municipal-leave-fields {
+  display: grid;
+  gap: 10px;
+  margin: 4px 0;
+  padding: 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+}
+
+.municipal-leave-fields legend {
+  padding: 0 6px;
+  font-weight: 700;
+}
+
+.municipal-leave-field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.municipal-leave-field-row label span {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.municipal-vacation-correspondence,
+.municipal-vacation-return {
+  display: grid;
+  grid-template-columns: max-content 52px max-content 70px max-content 52px max-content 70px;
+  align-items: end;
+  gap: 7px;
+  margin-top: 8px;
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.municipal-vacation-correspondence strong,
+.municipal-vacation-return strong {
+  display: block;
+  min-height: 23px;
+  padding: 3px 4px 1px;
+  border: 1px solid #111827;
+  font-family: Arial, sans-serif;
+  font-size: 12px;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.municipal-vacation-return {
+  grid-template-columns: max-content 110px max-content 70px max-content;
+}
+
 .municipal-condition {
   margin: 16px 0;
   text-align: center;
@@ -1124,6 +1178,18 @@
   border: 1px solid #111827;
   font-size: 11px;
   text-align: justify;
+}
+
+.municipal-vacation-notices {
+  display: grid;
+  width: 52%;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.municipal-vacation-notices .municipal-info-box {
+  width: auto;
+  margin-top: 0;
 }
 
 .municipal-signature {
@@ -1165,6 +1231,60 @@
 
 .municipal-personnel-reserve {
   margin-top: 30px;
+}
+
+.municipal-vacation-pending-list {
+  display: grid;
+  gap: 7px;
+}
+
+.municipal-vacation-pending-row {
+  display: grid;
+  grid-template-columns: max-content 76px max-content 52px 96px;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.municipal-vacation-pending-row strong {
+  display: block;
+  min-height: 25px;
+  border: 1px solid #111827;
+  box-sizing: border-box;
+}
+
+.municipal-vacation-reserve-total,
+.municipal-vacation-reserve-balance,
+.municipal-vacation-reserve-date {
+  display: grid;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.municipal-vacation-reserve-total {
+  grid-template-columns: max-content 130px;
+}
+
+.municipal-vacation-reserve-balance {
+  grid-template-columns: max-content 62px max-content 100px;
+}
+
+.municipal-vacation-reserve-date {
+  grid-template-columns: max-content 120px;
+  margin-top: 18px;
+}
+
+.municipal-vacation-reserve-total strong,
+.municipal-vacation-reserve-balance strong,
+.municipal-vacation-reserve-date strong {
+  display: block;
+  min-height: 27px;
+  border: 1px solid #111827;
+  box-sizing: border-box;
 }
 
 .municipal-other-form {

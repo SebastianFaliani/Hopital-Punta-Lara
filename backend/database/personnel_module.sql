@@ -194,6 +194,12 @@ CREATE TABLE IF NOT EXISTS leave_requests (
   end_date DATE NOT NULL,
   total_days DECIMAL(6,2) NOT NULL,
   total_hours DECIMAL(6,2) DEFAULT 0,
+  municipal_vacation_days_1 DECIMAL(6,2) NULL,
+  municipal_vacation_year_1 SMALLINT NULL,
+  municipal_vacation_days_2 DECIMAL(6,2) NULL,
+  municipal_vacation_year_2 SMALLINT NULL,
+  work_return_date DATE NULL,
+  work_return_time TIME NULL,
   is_exception BOOLEAN DEFAULT FALSE,
   exception_reason TEXT,
   status ENUM(

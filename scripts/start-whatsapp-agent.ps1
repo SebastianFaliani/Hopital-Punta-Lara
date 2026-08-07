@@ -2,7 +2,7 @@ $ErrorActionPreference = 'Continue'
 
 $projectPath = 'D:\Hopital-Punta-Lara'
 $npmPath = 'C:\Program Files\nodejs\npm.cmd'
-$logDirectory = 'D:\Hospital-WhatsApp\logs'
+$logDirectory = 'D:\Hopital-Punta-Lara\backend\storage\whatsapp-agent-logs'
 $logPath = Join-Path $logDirectory 'whatsapp-agent.log'
 
 New-Item -ItemType Directory -Path $logDirectory -Force | Out-Null
