@@ -24,6 +24,7 @@ import {
   logoutWhatsappConnection,
   rejectAppointmentRequest,
   receiveIncomingMessage,
+  refreshWhatsappConnectionQr,
   sendChatMessage,
   simulateMessage,
   startWhatsappConnection,
@@ -63,6 +64,18 @@ router.get(
     'user'
   ),
   getWhatsappConnectionStatus
+);
+
+router.post(
+  '/web/refresh-qr',
+  authenticateToken,
+  authorizePermission(
+    'laboratory.whatsapp.send',
+    'admin',
+    'dir',
+    'lab'
+  ),
+  refreshWhatsappConnectionQr
 );
 
 router.post(

@@ -3,6 +3,7 @@ import { NextFunction, Request, Response } from 'express';
 import {
   claimWhatsappOutboxJobs,
   completeWhatsappOutboxJob,
+  consumeWhatsappAgentQrRefresh,
   getWhatsappJobAttachment,
   updateWhatsappAgentStatus
 } from './whatsapp-delivery.service';
@@ -36,7 +37,8 @@ export async function heartbeatWhatsappAgent(req: Request, res: Response) {
     const agentId = String(req.body.agent_id || '').trim().slice(0, 120);
     if (!agentId) return res.status(400).json({ success: false, message: 'agent_id es obligatorio' });
     await updateWhatsappAgentStatus(agentId, req.body.status || {});
-    return res.json({ success: true });
+    const refreshQr = await consumeWhatsappAgentQrRefresh(agentId);
+    return res.json({ success: true, refreshQr });
   } catch (error: any) {
     return res.status(500).json({ success: false, message: error.message });
   }

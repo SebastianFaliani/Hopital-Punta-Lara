@@ -33,8 +33,11 @@ import {
   startWhatsappWebSession,
   stopWhatsappWebSession
 } from './whatsapp-web.service';
-import { deliverWhatsappTextMessage } from './whatsapp-delivery.service';
-import { getWhatsappDeliveryStatus } from './whatsapp-delivery.service';
+import {
+  deliverWhatsappTextMessage,
+  getWhatsappDeliveryStatus,
+  requestWhatsappAgentQrRefresh
+} from './whatsapp-delivery.service';
 
 function validateReply(
   body: any
@@ -283,6 +286,37 @@ export async function getWhatsappConnectionStatus(
     success: true,
     data: deliveryStatus || getWhatsappWebStatus()
   });
+}
+
+export async function refreshWhatsappConnectionQr(
+  req: Request,
+  res: Response
+) {
+  try {
+    const deliveryStatus = await getWhatsappDeliveryStatus();
+    if (deliveryStatus) {
+      const requested = await requestWhatsappAgentQrRefresh();
+      if (!requested) {
+        return res.status(503).json({
+          success: false,
+          message: 'El agente de WhatsApp todavia no esta disponible'
+        });
+      }
+      return res.json({
+        success: true,
+        message: 'Se solicito un nuevo codigo QR'
+      });
+    }
+
+    await logoutWhatsappWebSession();
+    void startWhatsappWebSession();
+    return res.json({ success: true, message: 'Generando un nuevo codigo QR' });
+  } catch (error: any) {
+    return res.status(500).json({
+      success: false,
+      message: error?.message || 'No se pudo generar un nuevo codigo QR'
+    });
+  }
 }
 
 export async function startWhatsappConnection(

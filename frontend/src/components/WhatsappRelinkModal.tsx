@@ -14,6 +14,7 @@ export default function WhatsappRelinkModal() {
   const { user } = useAuth();
   const [status, setStatus] = useState<WhatsappStatus | null>(null);
   const [dismissed, setDismissed] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const canViewWhatsapp = hasPermission(
     user,
     'laboratory.view',
@@ -47,6 +48,18 @@ export default function WhatsappRelinkModal() {
     };
   }, [canViewWhatsapp]);
 
+  const requestNewQr = async () => {
+    if (refreshing) return;
+    setRefreshing(true);
+    setDismissed(false);
+    setStatus((current) => current ? { ...current, qrDataUrl: null, status: 'restarting' } : current);
+    try {
+      await apiFetch('/whatsapp/web/refresh-qr', { method: 'POST' });
+    } finally {
+      window.setTimeout(() => setRefreshing(false), 3000);
+    }
+  };
+
   if (!status || status.isReady) return null;
 
   if (!status.qrDataUrl || dismissed) {
@@ -60,11 +73,14 @@ export default function WhatsappRelinkModal() {
               : 'Esperando que el agente genere un nuevo codigo QR...'}
           </span>
         </div>
-        {status.qrDataUrl && (
-          <button type="button" className="btn-primary" onClick={() => setDismissed(false)}>
-            Vincular WhatsApp
-          </button>
-        )}
+        <button
+          type="button"
+          className="btn-primary"
+          disabled={refreshing}
+          onClick={status.qrDataUrl ? () => setDismissed(false) : requestNewQr}
+        >
+          {refreshing ? 'Generando...' : status.qrDataUrl ? 'Vincular WhatsApp' : 'Generar nuevo QR'}
+        </button>
       </div>
     );
   }
@@ -84,6 +100,9 @@ export default function WhatsappRelinkModal() {
           Esta ventana se cerrara automaticamente cuando el telefono quede conectado.
         </p>
         <div className="system-alert-actions">
+          <button type="button" className="btn-secondary" disabled={refreshing} onClick={requestNewQr}>
+            {refreshing ? 'Generando...' : 'Actualizar QR'}
+          </button>
           <button type="button" className="btn-secondary" onClick={() => setDismissed(true)}>
             Ahora no
           </button>

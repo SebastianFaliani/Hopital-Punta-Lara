@@ -4,6 +4,7 @@ import {
   getWhatsappWebStatus,
   sendWhatsappDocumentMessage,
   sendWhatsappTextMessage,
+  logoutWhatsappWebSession,
   startWhatsappWebSession,
   stopWhatsappWebSession,
   verifyWhatsappWebConnection
@@ -20,6 +21,7 @@ let stopping = false;
 let lastQr = '';
 let starting: Promise<unknown> | null = null;
 let heartbeatInFlight = false;
+let qrRefreshInFlight = false;
 
 async function api(path: string, body: unknown) {
   const response = await fetch(`${baseUrl}${path}`, {
@@ -89,7 +91,7 @@ async function reportHeartbeat() {
 
   try {
     const status = getWhatsappWebStatus();
-    await api('/whatsapp/agent/heartbeat', {
+    const response = await api('/whatsapp/agent/heartbeat', {
       agent_id: agentId,
       status: {
         isReady: status.isReady,
@@ -99,6 +101,16 @@ async function reportHeartbeat() {
         qrDataUrl: status.qrDataUrl
       }
     });
+    if (response.refreshQr && !qrRefreshInFlight) {
+      qrRefreshInFlight = true;
+      lastQr = '';
+      try {
+        await logoutWhatsappWebSession();
+        console.log('[agente] Generando un nuevo QR solicitado desde el sistema.');
+      } finally {
+        qrRefreshInFlight = false;
+      }
+    }
   } finally {
     heartbeatInFlight = false;
   }

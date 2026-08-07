@@ -59,6 +59,7 @@ export function ensureWhatsappOutboxSchema() {
         last_event VARCHAR(500) NULL,
         qr_data_url MEDIUMTEXT NULL,
         qr_updated_at DATETIME NULL,
+        refresh_qr_requested BOOLEAN NOT NULL DEFAULT FALSE,
         last_seen DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY (agent_id),
         INDEX idx_whatsapp_agent_seen (last_seen)
@@ -74,6 +75,9 @@ export function ensureWhatsappOutboxSchema() {
       }
       if (!existing.has('qr_updated_at')) {
         await pool.query('ALTER TABLE whatsapp_agent_status ADD COLUMN qr_updated_at DATETIME NULL');
+      }
+      if (!existing.has('refresh_qr_requested')) {
+        await pool.query('ALTER TABLE whatsapp_agent_status ADD COLUMN refresh_qr_requested BOOLEAN NOT NULL DEFAULT FALSE');
       }
     }).then(() => undefined).catch((error) => {
       schemaPromise = null;
@@ -110,6 +114,28 @@ export async function updateWhatsappAgentStatus(
       agentStatus.phone || null, String(agentStatus.lastEvent || '').slice(0, 500) || null,
       qrDataUrl, qrDataUrl]
   );
+}
+
+export async function requestWhatsappAgentQrRefresh() {
+  await ensureWhatsappOutboxSchema();
+  const [result] = await pool.execute<ResultSetHeader>(
+    `UPDATE whatsapp_agent_status
+     SET refresh_qr_requested = TRUE, is_ready = FALSE, status = 'restarting',
+       qr_data_url = NULL, qr_updated_at = NULL
+     ORDER BY last_seen DESC LIMIT 1`
+  );
+  return result.affectedRows > 0;
+}
+
+export async function consumeWhatsappAgentQrRefresh(agentId: string) {
+  await ensureWhatsappOutboxSchema();
+  const [result] = await pool.execute<ResultSetHeader>(
+    `UPDATE whatsapp_agent_status
+     SET refresh_qr_requested = FALSE
+     WHERE agent_id = ? AND refresh_qr_requested = TRUE`,
+    [agentId]
+  );
+  return result.affectedRows > 0;
 }
 
 export async function getWhatsappDeliveryStatus() {
