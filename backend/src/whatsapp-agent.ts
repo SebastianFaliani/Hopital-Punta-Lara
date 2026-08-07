@@ -5,7 +5,8 @@ import {
   sendWhatsappDocumentMessage,
   sendWhatsappTextMessage,
   startWhatsappWebSession,
-  stopWhatsappWebSession
+  stopWhatsappWebSession,
+  verifyWhatsappWebConnection
 } from './modules/whatsapp/whatsapp-web.service';
 
 dotenv.config();
@@ -44,6 +45,9 @@ async function downloadAttachment(jobId: number, attachment: { id: number; name:
 
 async function ensureConnected() {
   let status = getWhatsappWebStatus();
+  if (status.isReady) {
+    status = await verifyWhatsappWebConnection();
+  }
   if (status.status === 'failed' && status.hasClient && !status.initializing) {
     await stopWhatsappWebSession();
     status = getWhatsappWebStatus();

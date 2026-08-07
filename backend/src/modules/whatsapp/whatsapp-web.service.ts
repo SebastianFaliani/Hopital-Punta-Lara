@@ -24,6 +24,7 @@ let client: any = null;
 let initializing = false;
 let whatsappAuthenticated = false;
 let syncFallbackTimer: ReturnType<typeof setTimeout> | null = null;
+let connectionProbeFailures = 0;
 const processedMessageIds =
   new Set<string>();
 
@@ -216,6 +217,56 @@ function withTimeout<T>(
       );
     })
   ]).finally(() => clearTimeout(timeout));
+}
+
+export async function verifyWhatsappWebConnection() {
+  if (!client || !state.isReady) {
+    connectionProbeFailures = 0;
+    return getWhatsappWebStatus();
+  }
+
+  try {
+    const connectionState = await Promise.race([
+      client.getState(),
+      wait(8000).then(() => {
+        throw new Error('La comprobacion de WhatsApp excedio el tiempo de espera');
+      })
+    ]);
+    const acceptedStates = new Set([
+      'CONNECTED',
+      'OPENING',
+      'PAIRING',
+      'TIMEOUT',
+      'CONFLICT'
+    ]);
+
+    connectionProbeFailures = 0;
+    if (!connectionState || !acceptedStates.has(String(connectionState))) {
+      await destroyClient();
+      state.qr = null;
+      state.qrDataUrl = null;
+      state.phone = null;
+      setEvent(
+        'disconnected',
+        `WhatsApp desvinculado (${connectionState || 'sin estado'})`
+      );
+    }
+  } catch (error: any) {
+    connectionProbeFailures += 1;
+    if (connectionProbeFailures >= 3) {
+      connectionProbeFailures = 0;
+      await destroyClient();
+      state.qr = null;
+      state.qrDataUrl = null;
+      state.phone = null;
+      setEvent(
+        'disconnected',
+        `WhatsApp dejo de responder: ${error?.message || String(error)}`
+      );
+    }
+  }
+
+  return getWhatsappWebStatus();
 }
 
 async function ensureWhatsappWebFunctions() {
