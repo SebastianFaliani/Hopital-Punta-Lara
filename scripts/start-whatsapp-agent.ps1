@@ -2,6 +2,7 @@ $ErrorActionPreference = 'Continue'
 
 $projectPath = 'D:\Hopital-Punta-Lara'
 $npmPath = 'C:\Program Files\nodejs\npm.cmd'
+$env:WHATSAPP_CHROME_PATH = 'C:\Program Files\Google\Chrome\Application\chrome.exe'
 $logDirectory = 'D:\Hopital-Punta-Lara\backend\storage\whatsapp-agent-logs'
 $logPath = Join-Path $logDirectory 'whatsapp-agent.log'
 
