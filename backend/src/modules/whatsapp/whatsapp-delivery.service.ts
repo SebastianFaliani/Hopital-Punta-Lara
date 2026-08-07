@@ -125,7 +125,7 @@ export async function getWhatsappDeliveryStatus() {
   return {
     status: online ? String(agent.status) : 'disconnected',
     qr: null,
-    qrDataUrl: online && !Boolean(agent?.is_ready) && agent?.status === 'qr' &&
+    qrDataUrl: online && !Boolean(agent?.is_ready) &&
       agent?.qr_updated_at && new Date(agent.qr_updated_at).getTime() >= Date.now() - 120000
       ? agent.qr_data_url || null
       : null,
