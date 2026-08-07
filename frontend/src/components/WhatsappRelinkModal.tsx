@@ -47,7 +47,27 @@ export default function WhatsappRelinkModal() {
     };
   }, [canViewWhatsapp]);
 
-  if (!status?.qrDataUrl || status.isReady || dismissed) return null;
+  if (!status || status.isReady) return null;
+
+  if (!status.qrDataUrl || dismissed) {
+    return (
+      <div className="whatsapp-relink-banner" role="status">
+        <div>
+          <strong>WhatsApp desconectado</strong>
+          <span>
+            {status.qrDataUrl
+              ? 'El codigo esta listo para vincular el telefono.'
+              : 'Esperando que el agente genere un nuevo codigo QR...'}
+          </span>
+        </div>
+        {status.qrDataUrl && (
+          <button type="button" className="btn-primary" onClick={() => setDismissed(false)}>
+            Vincular WhatsApp
+          </button>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="system-alert-overlay whatsapp-relink-overlay" role="dialog" aria-modal="true">
