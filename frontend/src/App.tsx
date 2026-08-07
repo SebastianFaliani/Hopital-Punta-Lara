@@ -12,6 +12,8 @@ import UppercaseInputNormalizer
   from './components/UppercaseInputNormalizer';
 import AppUpdateModal
   from './components/AppUpdateModal';
+import WhatsappRelinkModal
+  from './components/WhatsappRelinkModal';
 
 function App() {
 
@@ -24,6 +26,8 @@ function App() {
       <AppRouter />
 
       <AppUpdateModal />
+
+      <WhatsappRelinkModal />
 
       <SystemAlertModal />
 

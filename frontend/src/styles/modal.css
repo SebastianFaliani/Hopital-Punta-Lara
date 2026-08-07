@@ -1028,6 +1028,32 @@
   font-size: 11px;
 }
 
+.whatsapp-relink-overlay {
+  z-index: 1250;
+}
+
+.whatsapp-relink-modal {
+  width: min(460px, 100%);
+  border-top: 5px solid #16a34a;
+}
+
+.whatsapp-relink-qr {
+  display: flex;
+  justify-content: center;
+  margin: 20px 0 14px;
+}
+
+.whatsapp-relink-qr img {
+  display: block;
+  width: min(300px, 80vw);
+  height: auto;
+}
+
+.whatsapp-relink-help {
+  font-size: 13px;
+  text-align: center;
+}
+
 .municipal-license-form {
   width: 760px;
   max-width: 100%;

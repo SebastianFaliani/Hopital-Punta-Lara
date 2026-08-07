@@ -91,7 +91,8 @@ async function reportHeartbeat() {
         isReady: status.isReady,
         status: status.status,
         phone: status.phone,
-        lastEvent: status.lastEvent
+        lastEvent: status.lastEvent,
+        qrDataUrl: status.qrDataUrl
       }
     });
   } finally {

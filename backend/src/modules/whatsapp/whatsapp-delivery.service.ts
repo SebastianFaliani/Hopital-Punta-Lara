@@ -57,11 +57,25 @@ export function ensureWhatsappOutboxSchema() {
         status VARCHAR(40) NOT NULL DEFAULT 'disconnected',
         phone VARCHAR(40) NULL,
         last_event VARCHAR(500) NULL,
+        qr_data_url MEDIUMTEXT NULL,
+        qr_updated_at DATETIME NULL,
         last_seen DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY (agent_id),
         INDEX idx_whatsapp_agent_seen (last_seen)
       )
-    `)).then(() => undefined).catch((error) => {
+    `)).then(async () => {
+      const [columns]: any = await pool.query(`
+        SELECT COLUMN_NAME FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'whatsapp_agent_status'
+      `);
+      const existing = new Set(columns.map((row: any) => row.COLUMN_NAME));
+      if (!existing.has('qr_data_url')) {
+        await pool.query('ALTER TABLE whatsapp_agent_status ADD COLUMN qr_data_url MEDIUMTEXT NULL');
+      }
+      if (!existing.has('qr_updated_at')) {
+        await pool.query('ALTER TABLE whatsapp_agent_status ADD COLUMN qr_updated_at DATETIME NULL');
+      }
+    }).then(() => undefined).catch((error) => {
       schemaPromise = null;
       throw error;
     });
@@ -72,16 +86,29 @@ export function ensureWhatsappOutboxSchema() {
 
 export async function updateWhatsappAgentStatus(
   agentId: string,
-  agentStatus: { isReady?: boolean; status?: string; phone?: string | null; lastEvent?: string | null }
+  agentStatus: {
+    isReady?: boolean;
+    status?: string;
+    phone?: string | null;
+    lastEvent?: string | null;
+    qrDataUrl?: string | null;
+  }
 ) {
   await ensureWhatsappOutboxSchema();
+  const suppliedQr = String(agentStatus.qrDataUrl || '');
+  const qrDataUrl = !agentStatus.isReady && suppliedQr.startsWith('data:image/png;base64,') && suppliedQr.length <= 100000
+    ? suppliedQr
+    : null;
   await pool.execute(
-    `INSERT INTO whatsapp_agent_status (agent_id, is_ready, status, phone, last_event, last_seen)
-     VALUES (?, ?, ?, ?, ?, NOW())
+    `INSERT INTO whatsapp_agent_status
+       (agent_id, is_ready, status, phone, last_event, qr_data_url, qr_updated_at, last_seen)
+     VALUES (?, ?, ?, ?, ?, ?, IF(? IS NULL, NULL, NOW()), NOW())
      ON DUPLICATE KEY UPDATE is_ready = VALUES(is_ready), status = VALUES(status),
-       phone = VALUES(phone), last_event = VALUES(last_event), last_seen = NOW()`,
+       phone = VALUES(phone), last_event = VALUES(last_event), qr_data_url = VALUES(qr_data_url),
+       qr_updated_at = VALUES(qr_updated_at), last_seen = NOW()`,
     [agentId, Boolean(agentStatus.isReady), String(agentStatus.status || 'disconnected').slice(0, 40),
-      agentStatus.phone || null, String(agentStatus.lastEvent || '').slice(0, 500) || null]
+      agentStatus.phone || null, String(agentStatus.lastEvent || '').slice(0, 500) || null,
+      qrDataUrl, qrDataUrl]
   );
 }
 
@@ -89,7 +116,7 @@ export async function getWhatsappDeliveryStatus() {
   if ((process.env.WHATSAPP_DELIVERY_MODE || 'direct').toLowerCase() !== 'queue') return null;
   await ensureWhatsappOutboxSchema();
   const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT agent_id, is_ready, status, phone, last_event, last_seen,
+    `SELECT agent_id, is_ready, status, phone, last_event, qr_data_url, qr_updated_at, last_seen,
        last_seen >= DATE_SUB(NOW(), INTERVAL 45 SECOND) AS is_online
      FROM whatsapp_agent_status ORDER BY last_seen DESC LIMIT 1`
   );
@@ -98,7 +125,10 @@ export async function getWhatsappDeliveryStatus() {
   return {
     status: online ? String(agent.status) : 'disconnected',
     qr: null,
-    qrDataUrl: null,
+    qrDataUrl: online && !Boolean(agent?.is_ready) && agent?.status === 'qr' &&
+      agent?.qr_updated_at && new Date(agent.qr_updated_at).getTime() >= Date.now() - 120000
+      ? agent.qr_data_url || null
+      : null,
     phone: agent?.phone || null,
     lastEvent: online ? agent?.last_event || 'Agente local conectado' : 'Agente local sin conexion',
     lastEventAt: agent?.last_seen || null,
