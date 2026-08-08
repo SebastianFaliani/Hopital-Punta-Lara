@@ -163,7 +163,7 @@ export async function getWhatsappDeliveryStatus() {
       : storedQr || null
     : null;
   return {
-    status: online ? String(agent.status) : 'disconnected',
+    status: online ? String(agent.status) : 'offline',
     qr: null,
     qrDataUrl,
     phone: agent?.phone || null,

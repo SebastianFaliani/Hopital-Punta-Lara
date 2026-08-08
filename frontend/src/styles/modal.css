@@ -1090,6 +1090,22 @@
   flex: 0 0 auto;
 }
 
+.whatsapp-agent-offline {
+  border-left-color: #d97706;
+}
+
+.whatsapp-agent-offline strong {
+  color: #92400e;
+}
+
+.whatsapp-agent-connecting {
+  border-left-color: #2563eb;
+}
+
+.whatsapp-agent-connecting strong {
+  color: #1d4ed8;
+}
+
 @media (max-width: 560px) {
   .whatsapp-relink-banner {
     right: 12px;

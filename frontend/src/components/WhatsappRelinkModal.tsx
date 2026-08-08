@@ -8,6 +8,9 @@ type WhatsappStatus = {
   isReady: boolean;
   status: string;
   qrDataUrl: string | null;
+  hasClient: boolean;
+  initializing: boolean;
+  lastEvent: string | null;
 };
 
 export default function WhatsappRelinkModal() {
@@ -62,25 +65,52 @@ export default function WhatsappRelinkModal() {
 
   if (!status || status.isReady) return null;
 
+  const agentOffline = !status.hasClient || status.status === 'offline';
+  const connectionFailed = status.status === 'failed';
+
+  if (agentOffline) {
+    return (
+      <div className="whatsapp-relink-banner whatsapp-agent-offline" role="status">
+        <div>
+          <strong>Agente de WhatsApp fuera de linea</strong>
+          <span>
+            La PC puede estar apagada, sin Internet o iniciando. El telefono sigue vinculado;
+            no hace falta escanear otro QR.
+          </span>
+        </div>
+      </div>
+    );
+  }
+
   if (!status.qrDataUrl || dismissed) {
     return (
-      <div className="whatsapp-relink-banner" role="status">
+      <div className={`whatsapp-relink-banner ${status.qrDataUrl ? '' : 'whatsapp-agent-connecting'}`} role="status">
         <div>
-          <strong>WhatsApp desconectado</strong>
+          <strong>
+            {status.qrDataUrl
+              ? 'WhatsApp necesita vinculacion'
+              : connectionFailed
+                ? 'WhatsApp necesita atencion'
+                : 'Conectando WhatsApp...'}
+          </strong>
           <span>
             {status.qrDataUrl
               ? 'El codigo esta listo para vincular el telefono.'
-              : 'Esperando que el agente genere un nuevo codigo QR...'}
+              : connectionFailed
+                ? status.lastEvent || 'No se pudo recuperar la conexion de WhatsApp.'
+                : 'El agente esta recuperando la sesion guardada. No hace falta vincular el telefono.'}
           </span>
         </div>
-        <button
-          type="button"
-          className="btn-primary"
-          disabled={refreshing}
-          onClick={status.qrDataUrl ? () => setDismissed(false) : requestNewQr}
-        >
-          {refreshing ? 'Generando...' : status.qrDataUrl ? 'Vincular WhatsApp' : 'Generar nuevo QR'}
-        </button>
+        {(status.qrDataUrl || connectionFailed) && (
+          <button
+            type="button"
+            className="btn-primary"
+            disabled={refreshing}
+            onClick={status.qrDataUrl ? () => setDismissed(false) : requestNewQr}
+          >
+            {refreshing ? 'Generando...' : status.qrDataUrl ? 'Vincular WhatsApp' : 'Generar nuevo QR'}
+          </button>
+        )}
       </div>
     );
   }

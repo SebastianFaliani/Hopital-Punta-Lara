@@ -978,7 +978,9 @@ export default function WhatsappPage() {
   ]);
 
   const connectionLabel =
-    webStatus?.status === 'connected'
+    webStatus?.status === 'offline'
+      ? 'Agente fuera de linea'
+      : webStatus?.status === 'connected'
       ? 'Conectado'
       : webStatus?.status === 'qr'
         ? 'Esperando QR'
