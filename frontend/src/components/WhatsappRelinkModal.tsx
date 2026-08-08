@@ -17,8 +17,8 @@ export default function WhatsappRelinkModal() {
   const [refreshing, setRefreshing] = useState(false);
   const canViewWhatsapp = hasPermission(
     user,
-    'laboratory.view',
-    ['admin', 'lab', 'user', 'dir']
+    'laboratory.whatsapp.link',
+    ['admin']
   );
 
   useEffect(() => {
@@ -30,7 +30,7 @@ export default function WhatsappRelinkModal() {
     let active = true;
     const loadStatus = async () => {
       try {
-        const response = await apiFetch('/whatsapp/web/status');
+        const response = await apiFetch('/whatsapp/web/link-status');
         if (!active) return;
         const nextStatus = response.data as WhatsappStatus;
         setStatus(nextStatus);

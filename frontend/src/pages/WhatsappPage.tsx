@@ -247,7 +247,7 @@ export default function WhatsappPage() {
     try {
 
       const res =
-        await apiFetch('/whatsapp/web/status');
+        await apiFetch('/whatsapp/web/link-status');
 
       setWebStatus(res.data);
 

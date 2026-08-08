@@ -19,6 +19,7 @@ import {
   getChatMessages,
   getChatProfilePicture,
   getWhatsappConnectionStatus,
+  getWhatsappLinkStatus,
   getWhatsappLogs,
   getReplies,
   logoutWhatsappConnection,
@@ -66,14 +67,22 @@ router.get(
   getWhatsappConnectionStatus
 );
 
+router.get(
+  '/web/link-status',
+  authenticateToken,
+  authorizePermission(
+    'laboratory.whatsapp.link',
+    'admin'
+  ),
+  getWhatsappLinkStatus
+);
+
 router.post(
   '/web/refresh-qr',
   authenticateToken,
   authorizePermission(
-    'laboratory.whatsapp.send',
-    'admin',
-    'dir',
-    'lab'
+    'laboratory.whatsapp.link',
+    'admin'
   ),
   refreshWhatsappConnectionQr
 );

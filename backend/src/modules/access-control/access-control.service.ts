@@ -12,10 +12,11 @@ async function ensureLaboratoryPermissions() {
           ('laboratory.manage', 'Laboratorio', 'Completar y modificar resultados', 51),
           ('laboratory.pdf.manage', 'Laboratorio', 'Cargar o quitar PDF', 52),
           ('laboratory.whatsapp.send', 'Laboratorio', 'Avisar resultados por WhatsApp', 53),
-          ('laboratory.pickup', 'Laboratorio', 'Registrar retiro presencial', 54),
-          ('laboratory.records.delete', 'Laboratorio', 'Eliminar o archivar laboratorios', 55),
-          ('laboratory.reopen', 'Laboratorio', 'Reabrir laboratorios por correccion', 56),
-          ('laboratory.pickup.revert', 'Laboratorio', 'Deshacer retiros presenciales', 57)
+          ('laboratory.whatsapp.link', 'Laboratorio', 'Vincular el telefono de WhatsApp', 54),
+          ('laboratory.pickup', 'Laboratorio', 'Registrar retiro presencial', 55),
+          ('laboratory.records.delete', 'Laboratorio', 'Eliminar o archivar laboratorios', 56),
+          ('laboratory.reopen', 'Laboratorio', 'Reabrir laboratorios por correccion', 57),
+          ('laboratory.pickup.revert', 'Laboratorio', 'Deshacer retiros presenciales', 58)
         ON DUPLICATE KEY UPDATE
           module_name = VALUES(module_name),
           description = VALUES(description),
@@ -25,7 +26,7 @@ async function ensureLaboratoryPermissions() {
       const roleDefaults: Array<[string, string[]]> = [
         ['admin', [
           'laboratory.view', 'laboratory.manage', 'laboratory.pdf.manage',
-          'laboratory.whatsapp.send', 'laboratory.pickup',
+          'laboratory.whatsapp.send', 'laboratory.whatsapp.link', 'laboratory.pickup',
           'laboratory.records.delete', 'laboratory.reopen',
           'laboratory.pickup.revert'
         ]],

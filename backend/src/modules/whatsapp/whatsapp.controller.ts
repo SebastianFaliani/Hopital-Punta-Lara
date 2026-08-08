@@ -282,6 +282,22 @@ export async function getWhatsappConnectionStatus(
 
   const deliveryStatus = await getWhatsappDeliveryStatus();
 
+  const status = deliveryStatus || getWhatsappWebStatus();
+  return res.json({
+    success: true,
+    data: {
+      ...status,
+      qr: null,
+      qrDataUrl: null
+    }
+  });
+}
+
+export async function getWhatsappLinkStatus(
+  req: Request,
+  res: Response
+) {
+  const deliveryStatus = await getWhatsappDeliveryStatus();
   return res.json({
     success: true,
     data: deliveryStatus || getWhatsappWebStatus()
