@@ -98,7 +98,7 @@ async function reportHeartbeat() {
         status: status.status,
         phone: status.phone,
         lastEvent: status.lastEvent,
-        qrDataUrl: status.qrDataUrl
+        qr: status.qr
       }
     });
     if (response.refreshQr && !qrRefreshInFlight) {

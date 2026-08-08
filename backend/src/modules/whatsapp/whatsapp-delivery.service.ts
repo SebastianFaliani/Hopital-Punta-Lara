@@ -2,6 +2,8 @@ import { ResultSetHeader, RowDataPacket } from 'mysql2';
 import { pool } from '../../config/database';
 import { sendWhatsappDocumentMessage, sendWhatsappTextMessage } from './whatsapp-web.service';
 
+const qrcode: any = require('qrcode');
+
 export type WhatsappOutboxJob = {
   id: number;
   phone: string;
@@ -95,14 +97,18 @@ export async function updateWhatsappAgentStatus(
     status?: string;
     phone?: string | null;
     lastEvent?: string | null;
+    qr?: string | null;
     qrDataUrl?: string | null;
   }
 ) {
   await ensureWhatsappOutboxSchema();
+  const suppliedRawQr = String(agentStatus.qr || '');
   const suppliedQr = String(agentStatus.qrDataUrl || '');
-  const qrDataUrl = !agentStatus.isReady && suppliedQr.startsWith('data:image/png;base64,') && suppliedQr.length <= 100000
-    ? suppliedQr
-    : null;
+  const qrDataUrl = !agentStatus.isReady && suppliedRawQr && suppliedRawQr.length <= 10000
+    ? `raw:${suppliedRawQr}`
+    : !agentStatus.isReady && suppliedQr.startsWith('data:image/png;base64,') && suppliedQr.length <= 100000
+      ? suppliedQr
+      : null;
   await pool.execute(
     `INSERT INTO whatsapp_agent_status
        (agent_id, is_ready, status, phone, last_event, qr_data_url, qr_updated_at, last_seen)
@@ -148,13 +154,18 @@ export async function getWhatsappDeliveryStatus() {
   );
   const agent = rows[0];
   const online = Boolean(agent?.is_online);
+  const storedQr = String(agent?.qr_data_url || '');
+  const hasCurrentQr = online && !Boolean(agent?.is_ready) &&
+    agent?.qr_updated_at && new Date(agent.qr_updated_at).getTime() >= Date.now() - 120000;
+  const qrDataUrl = hasCurrentQr
+    ? storedQr.startsWith('raw:')
+      ? await qrcode.toDataURL(storedQr.slice(4))
+      : storedQr || null
+    : null;
   return {
     status: online ? String(agent.status) : 'disconnected',
     qr: null,
-    qrDataUrl: online && !Boolean(agent?.is_ready) &&
-      agent?.qr_updated_at && new Date(agent.qr_updated_at).getTime() >= Date.now() - 120000
-      ? agent.qr_data_url || null
-      : null,
+    qrDataUrl,
     phone: agent?.phone || null,
     lastEvent: online ? agent?.last_event || 'Agente local conectado' : 'Agente local sin conexion',
     lastEventAt: agent?.last_seen || null,
