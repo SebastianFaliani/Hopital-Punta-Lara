@@ -11,7 +11,8 @@ const sslCa =
 
 const databaseUrl =
   process.env.DB_URL ||
-  process.env.MYSQL_URL;
+  process.env.MYSQL_URL ||
+  process.env.MYSQL_PUBLIC_URL;
 
 function getDatabaseConfig() {
   if (databaseUrl) {
@@ -22,7 +23,11 @@ function getDatabaseConfig() {
       port: Number(parsedUrl.port || 3306),
       user: decodeURIComponent(parsedUrl.username),
       password: decodeURIComponent(parsedUrl.password),
-      database: parsedUrl.pathname.replace(/^\//, '')
+      database:
+        parsedUrl.pathname.replace(/^\//, '') ||
+        process.env.DB_NAME ||
+        process.env.MYSQLDATABASE ||
+        process.env.MYSQL_DATABASE
     };
   }
 
@@ -31,7 +36,10 @@ function getDatabaseConfig() {
     port: Number(process.env.DB_PORT || process.env.MYSQLPORT || 3306),
     user: process.env.DB_USER || process.env.MYSQLUSER,
     password: process.env.DB_PASSWORD || process.env.MYSQLPASSWORD,
-    database: process.env.DB_NAME || process.env.MYSQLDATABASE
+    database:
+      process.env.DB_NAME ||
+      process.env.MYSQLDATABASE ||
+      process.env.MYSQL_DATABASE
   };
 }
 
