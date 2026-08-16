@@ -25,6 +25,26 @@ export function getApiUrl() {
   return API_URL;
 }
 
+async function readJsonResponse(
+  response: Response
+) {
+
+  const text =
+    await response.text();
+
+  if (!text) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch (error) {
+    throw new Error(
+      'El servidor devolvio una respuesta invalida'
+    );
+  }
+}
+
 async function refreshAccessToken() {
 
   const refreshToken =
@@ -56,14 +76,14 @@ async function refreshAccessToken() {
   );
 
   const data =
-    await response.json();
+    await readJsonResponse(response);
 
   if (!response.ok) {
 
     localStorage.clear();
 
     throw new Error(
-      'Sesión expirada'
+      data?.message || 'Sesión expirada'
     );
   }
 
@@ -73,7 +93,7 @@ async function refreshAccessToken() {
     data.accessToken
   );
 
-  return data.accessToken;
+  return data?.accessToken;
 }
 
 export async function apiFetch(
@@ -126,7 +146,10 @@ export async function apiFetch(
   }
 
   // token expirado
-  if (response.status === 401) {
+  if (
+    response.status === 401 &&
+    endpoint !== '/auth/login'
+  ) {
 
     try {
 
@@ -169,15 +192,15 @@ export async function apiFetch(
   }
 
   const data =
-    await response.json();
+    await readJsonResponse(response);
 
   if (!response.ok) {
     showSystemAlert(
-      data.message || 'La operacion no se pudo completar'
+      data?.message || 'La operacion no se pudo completar'
     );
 
     throw new Error(
-      data.message
+      data?.message || 'La operacion no se pudo completar'
     );
   }
 
