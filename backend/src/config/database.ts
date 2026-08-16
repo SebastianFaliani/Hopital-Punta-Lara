@@ -11,8 +11,7 @@ const sslCa =
 
 const databaseUrl =
   process.env.DB_URL ||
-  process.env.MYSQL_URL ||
-  process.env.MYSQL_PUBLIC_URL;
+  process.env.MYSQL_URL;
 
 function getDatabaseConfig() {
   if (databaseUrl) {
