@@ -7,6 +7,7 @@ import { logAudit } from '../audit/audit.service';
 
 import {
   createVaccine,
+  deleteVaccine,
   getAllVaccines,
   getVaccineById,
   toggleVaccine,
@@ -214,6 +215,42 @@ export async function handleToggleVaccine(
     return res.status(400).json({
       success: false,
       message: error.message || 'Error al actualizar estado'
+    });
+  }
+}
+
+export async function handleDeleteVaccine(
+  req: AuthRequest,
+  res: Response
+) {
+  try {
+    const vaccine =
+      await deleteVaccine(
+        Number(req.params.id)
+      );
+
+    await logAudit({
+      user: req.user,
+      module: 'vacunas',
+      action: 'eliminar_vacuna',
+      entityType: 'vaccine',
+      entityId: Number(req.params.id),
+      description: `Elimino vacuna ${vaccine.name}`,
+      oldData: vaccine,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'] || null
+    });
+
+    return res.json({
+      success: true,
+      message: 'Vacuna eliminada'
+    });
+  } catch (error: any) {
+    console.error(error);
+
+    return res.status(400).json({
+      success: false,
+      message: error.message || 'Error al eliminar vacuna'
     });
   }
 }

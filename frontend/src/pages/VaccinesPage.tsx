@@ -6,6 +6,7 @@ import {
 import { apiFetch } from '../api/api';
 import { useAuth } from '../auth/useAuth';
 import { hasPermission } from '../auth/permissions';
+import { showSystemConfirm } from '../components/SystemConfirmModal';
 import {
   IconButton,
   IconLink
@@ -224,6 +225,40 @@ export default function VaccinesPage() {
     }
   }
 
+  async function handleDelete(
+    vaccine: Vaccine
+  ) {
+    const confirmed =
+      await showSystemConfirm(
+        `Eliminar la vacuna ${vaccine.name}? Esta accion solo se permite si no tiene lotes cargados.`,
+        {
+          title: 'Eliminar vacuna',
+          confirmLabel: 'Eliminar'
+        }
+      );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      await apiFetch(
+        `/vaccines/${vaccine.id}`,
+        {
+          method: 'DELETE'
+        }
+      );
+
+      await loadVaccines();
+    } catch (error: any) {
+      setError(error.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   if (!hasPermission(
     user,
     'vaccines.view',
@@ -238,6 +273,9 @@ export default function VaccinesPage() {
       'vaccines.manage',
       ['admin', 'vacu']
     );
+
+  const canDelete =
+    user?.role === 'admin';
 
   const selectableFacilities =
     facilities.filter((facility) =>
@@ -623,6 +661,18 @@ export default function VaccinesPage() {
                             ? 'danger'
                             : 'success'
                         }
+                      />
+                    )}
+
+                    {canDelete && (
+                      <IconButton
+                        icon="trash"
+                        label="Eliminar vacuna"
+                        onClick={() =>
+                          handleDelete(vaccine)
+                        }
+                        variant="danger"
+                        disabled={loading}
                       />
                     )}
                   </div>

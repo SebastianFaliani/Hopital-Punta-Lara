@@ -2,6 +2,7 @@ import { Router } from 'express';
 
 import {
   handleCreateVaccine,
+  handleDeleteVaccine,
   handleGetAllVaccines,
   handleGetVaccineById,
   handleToggleVaccine,
@@ -78,6 +79,13 @@ router.patch(
   authenticateToken,
   authorizeRoles(...vaccineWriteRoles),
   handleToggleVaccine
+);
+
+router.delete(
+  '/:id',
+  authenticateToken,
+  authorizeRoles('admin'),
+  handleDeleteVaccine
 );
 
 export default router;

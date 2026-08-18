@@ -164,3 +164,48 @@ export async function toggleVaccine(
 
   return true;
 }
+
+export async function deleteVaccine(
+  id: number
+) {
+  const [vaccineRows]: any =
+    await pool.query(
+      `
+        SELECT id, name
+        FROM vaccines
+        WHERE id = ?
+        LIMIT 1
+      `,
+      [id]
+    );
+
+  if (!vaccineRows.length) {
+    throw new Error('Vacuna no encontrada');
+  }
+
+  const [batchRows]: any =
+    await pool.query(
+      `
+        SELECT COUNT(*) AS total
+        FROM vaccine_batches
+        WHERE vaccine_id = ?
+      `,
+      [id]
+    );
+
+  if (Number(batchRows[0]?.total || 0) > 0) {
+    throw new Error(
+      'La vacuna tiene lotes cargados. Para conservar el historial, desactivala en lugar de eliminarla.'
+    );
+  }
+
+  await pool.query(
+    `
+      DELETE FROM vaccines
+      WHERE id = ?
+    `,
+    [id]
+  );
+
+  return vaccineRows[0];
+}
